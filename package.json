@@ -1,0 +1,23 @@
+{
+  "name": "@arev/tax-id-validator",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "vitest",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  }
+}

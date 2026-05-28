@@ -1,0 +1,13 @@
+export enum TaxIdErrorCode {
+  REQUIRED = 'REQUIRED',
+  INVALID_LENGTH = 'INVALID_LENGTH',
+  INVALID_CHARACTERS = 'INVALID_CHARACTERS',
+  INVALID_FORMAT = 'INVALID_FORMAT',
+  INVALID_CHECKSUM = 'INVALID_CHECKSUM',
+  INVALID_COUNTRY = 'INVALID_COUNTRY'
+}
+
+export interface TaxIdValidationError {
+  code: TaxIdErrorCode
+  message: string
+}
