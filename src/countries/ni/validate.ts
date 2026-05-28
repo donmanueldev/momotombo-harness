@@ -1,19 +1,28 @@
-export function validateNiRuc(value: string): string[] {
-  const errors: string[] = []
+import {
+  TaxIdErrorCode,
+  type TaxIdValidationError
+} from '../../types/validation-error'
 
-  const clean = value.replace(/[\s-]/g, '').toUpperCase()
+export function validateNiRuc(value: string): TaxIdValidationError[] {
+  const errors: TaxIdValidationError[] = []
 
-  if (!clean) {
-    errors.push('RUC is required')
+  if (!value) {
+    errors.push({
+      code: TaxIdErrorCode.REQUIRED
+    })
     return errors
   }
 
-  if (clean.length !== 14) {
-    errors.push('RUC must contain 14 characters')
+  if (value.length !== 14) {
+    errors.push({
+      code: TaxIdErrorCode.INVALID_LENGTH
+    })
   }
 
-  if (!/^[0-9A-Z]+$/.test(clean)) {
-    errors.push('RUC contains invalid characters')
+  if (!/^[0-9A-Z]+$/i.test(value)) {
+    errors.push({
+      code: TaxIdErrorCode.INVALID_CHARACTERS
+    })
   }
 
   return errors

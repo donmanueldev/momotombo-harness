@@ -1,5 +1,9 @@
+import type { TaxIdValidationError } from './validation-error'
+
 export interface TaxIdValidationResult {
   valid: boolean
   normalized: string
-  errors: string[]
+  formatted?: string
+  country?: string
+  errors: TaxIdValidationError[]
 }

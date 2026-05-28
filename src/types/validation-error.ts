@@ -9,5 +9,5 @@ export enum TaxIdErrorCode {
 
 export interface TaxIdValidationError {
   code: TaxIdErrorCode
-  message: string
+  message?: string
 }

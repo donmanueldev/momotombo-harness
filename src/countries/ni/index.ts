@@ -1,0 +1,1 @@
+export { niConfig } from './config'
