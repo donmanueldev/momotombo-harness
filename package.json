@@ -1,11 +1,24 @@
 {
   "name": "@arev/tax-id-validator",
   "version": "0.1.0",
+  "description": "Type-safe tax ID validation for Latin America",
   "type": "module",
+  "license": "MIT",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
+  "keywords": ["tax-id", "ruc", "nicaragua", "validation", "arev"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/manuelduarte077/tax-id-validator.git"
+  },
+  "bugs": "https://github.com/manuelduarte077/tax-id-validator/issues",
+  "homepage": "https://github.com/manuelduarte077/tax-id-validator#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,9 +34,13 @@
     "example:dev": "pnpm --filter @arev/tax-id-validator-example dev",
     "example:build": "pnpm --filter @arev/tax-id-validator-example build",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && pnpm test && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@types/node": "^25.9.1",
     "biome": "^0.3.3",
     "tsup": "^8.5.1",

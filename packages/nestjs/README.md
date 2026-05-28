@@ -8,6 +8,8 @@ NestJS pipe for [`@arev/tax-id-validator`](../..).
 pnpm add @arev/tax-id-validator @arev/tax-id-validator-nestjs @nestjs/common
 ```
 
+`@arev/tax-id-validator` is a **peer dependency** and must be installed alongside this package.
+
 ## Usage
 
 Instantiate the pipe with the target country:

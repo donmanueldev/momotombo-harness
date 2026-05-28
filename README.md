@@ -346,4 +346,20 @@ Planned for future releases:
 
 ## License
 
-UNLICENSED — private Arev project.
+MIT — see [LICENSE](./LICENSE).
+
+## Publicar en npm
+
+Los packages `@arev/*` se publican en el registry público de npm. Guía completa:
+
+**[docs/PUBLISHING.md](./docs/PUBLISHING.md)**
+
+Resumen rápido:
+
+```bash
+pnpm changeset          # registrar cambios
+pnpm version-packages   # bump de versión
+pnpm release            # build + test + publish
+```
+
+Requisitos: cuenta npm, org `@arev`, 2FA activada y `npm login`.

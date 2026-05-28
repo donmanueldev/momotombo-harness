@@ -1,11 +1,25 @@
 {
   "name": "@arev/tax-id-validator-react-hook-form",
   "version": "0.1.0",
+  "description": "React Hook Form adapter for @arev/tax-id-validator",
   "type": "module",
+  "license": "MIT",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
+  "keywords": ["tax-id", "ruc", "nicaragua", "validation", "arev", "react-hook-form"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/manuelduarte077/tax-id-validator.git",
+    "directory": "packages/react-hook-form"
+  },
+  "bugs": "https://github.com/manuelduarte077/tax-id-validator/issues",
+  "homepage": "https://github.com/manuelduarte077/tax-id-validator/tree/main/packages/react-hook-form#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

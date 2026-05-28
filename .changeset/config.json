@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@arev/tax-id-validator",
+      "@arev/tax-id-validator-zod",
+      "@arev/tax-id-validator-react",
+      "@arev/tax-id-validator-react-hook-form",
+      "@arev/tax-id-validator-nestjs"
+    ]
+  ],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch"
+}

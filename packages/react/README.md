@@ -8,6 +8,8 @@ React hook for [`@arev/tax-id-validator`](../..).
 pnpm add @arev/tax-id-validator @arev/tax-id-validator-react react
 ```
 
+`@arev/tax-id-validator` is a **peer dependency** and must be installed alongside this package.
+
 ## Usage
 
 ```tsx
