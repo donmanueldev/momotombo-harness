@@ -8,16 +8,26 @@
   "files": ["dist"],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && pnpm --filter './packages/*' run build",
+    "test": "vitest run && pnpm --filter './packages/*' --filter './examples/*' run test",
     "dev": "vitest",
-    "test": "vitest run",
+    "typecheck": "tsc --noEmit && pnpm --filter './packages/*' --filter './examples/*' run typecheck",
+    "example:dev": "pnpm --filter @arev/tax-id-validator-example dev",
+    "example:build": "pnpm --filter @arev/tax-id-validator-example build",
     "lint": "biome check .",
     "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "biome": "^0.3.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }
