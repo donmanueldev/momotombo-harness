@@ -1,0 +1,143 @@
+#include "presentation/keys_explorer/viewmodels/keys_explorer_view_model.h"
+
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
+
+#include <exception>
+
+namespace redisforge::presentation::keys_explorer
+{
+KeysExplorerViewModel::KeysExplorerViewModel(
+    redisforge::app::keys_explorer::ScanKeysUseCase& scanKeysUseCase,
+    QObject* parent)
+    : QObject(parent), scanKeysUseCase_(scanKeysUseCase)
+{
+}
+
+void KeysExplorerViewModel::refresh()
+{
+    pageCursors_.assign(1, "0");
+    currentPage_ = 1;
+    loadCursor("0", 1);
+}
+
+void KeysExplorerViewModel::nextPage()
+{
+    if (busy_ || static_cast<std::size_t>(currentPage_) >= pageCursors_.size())
+    {
+        return;
+    }
+
+    loadCursor(pageCursors_[static_cast<std::size_t>(currentPage_)], currentPage_ + 1);
+}
+
+void KeysExplorerViewModel::previousPage()
+{
+    if (busy_ || currentPage_ <= 1)
+    {
+        return;
+    }
+
+    loadCursor(pageCursors_[static_cast<std::size_t>(currentPage_ - 2)], currentPage_ - 1);
+}
+
+void KeysExplorerViewModel::updatePattern(const QString& pattern)
+{
+    pattern_ = pattern.trimmed().isEmpty() ? "*" : pattern.trimmed();
+}
+
+void KeysExplorerViewModel::updatePageSize(const int pageSize)
+{
+    pageSize_ = pageSize;
+}
+
+void KeysExplorerViewModel::onActiveConnectionChanged(const QString& connectionSummary)
+{
+    emit activeConnectionChanged(connectionSummary);
+    refresh();
+}
+
+void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int pageNumber)
+{
+    if (busy_)
+    {
+        return;
+    }
+
+    busy_ = true;
+    emit busyChanged(true);
+    emit statusChanged("Loading keys...");
+
+    auto* watcher =
+        new QFutureWatcher<redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>>{
+            this};
+
+    connect(
+        watcher,
+        &QFutureWatcher<redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>>::finished,
+        this,
+        [this, watcher, pageNumber]() {
+            busy_ = false;
+            emit busyChanged(false);
+
+            const auto result = watcher->result();
+            if (!result.isSuccessful)
+            {
+                emit statusChanged(QString::fromStdString(
+                    result.errors.empty() ? "Failed to load keys." : result.errors.front()));
+                emit keysChanged({});
+                emit paginationChanged(currentPage_, currentPage_ > 1, false);
+                watcher->deleteLater();
+                return;
+            }
+
+            currentPage_ = pageNumber;
+            const auto& page = result.value;
+            if (page.hasMore)
+            {
+                const auto nextIndex = static_cast<std::size_t>(currentPage_);
+                if (pageCursors_.size() <= nextIndex)
+                {
+                    pageCursors_.push_back(page.nextCursor);
+                }
+                else
+                {
+                    pageCursors_[nextIndex] = page.nextCursor;
+                }
+            }
+            else if (pageCursors_.size() > static_cast<std::size_t>(currentPage_))
+            {
+                pageCursors_.resize(static_cast<std::size_t>(currentPage_));
+            }
+
+            auto keyList = QStringList{};
+            for (const auto& key : page.keys)
+            {
+                keyList.push_back(QString::fromStdString(key));
+            }
+
+            emit keysChanged(keyList);
+            emit statusChanged(QString("Loaded %1 keys from page %2.").arg(keyList.size()).arg(currentPage_));
+            emit paginationChanged(currentPage_, currentPage_ > 1, page.hasMore);
+            watcher->deleteLater();
+        });
+
+    const auto query = redisforge::app::keys_explorer::ScanKeysQuery{
+        cursor,
+        pattern_.toStdString(),
+        static_cast<std::size_t>(pageSize_),
+    };
+
+    watcher->setFuture(QtConcurrent::run([this, query]() {
+        try
+        {
+            return scanKeysUseCase_.execute(query);
+        }
+        catch (const std::exception& exception)
+        {
+            return redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>::failure(
+                {exception.what()});
+        }
+    }));
+}
+} // namespace redisforge::presentation::keys_explorer
