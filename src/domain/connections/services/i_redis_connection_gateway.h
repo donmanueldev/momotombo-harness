@@ -5,11 +5,11 @@
 
 namespace redisforge::domain::connections
 {
-class IRedisConnectionGateway
-{
-public:
-    virtual ~IRedisConnectionGateway() = default;
+    class IRedisConnectionGateway
+    {
+    public:
+        virtual ~IRedisConnectionGateway() = default;
 
-    virtual ConnectionTestResult testConnection(const ConnectionProfile& profile) const = 0;
-};
+        virtual ConnectionTestResult testConnection(const ConnectionProfile& profile) const = 0;
+    };
 } // namespace redisforge::domain::connections

@@ -10,27 +10,28 @@
 
 namespace redisforge::app::keys_explorer
 {
-struct ScanKeysQuery
-{
-    std::string cursor{"0"};
-    std::string pattern{"*"};
-    std::size_t pageSize{100};
-};
+    struct ScanKeysQuery
+    {
+        std::string cursor{"0"};
+        std::string pattern{"*"};
+        std::size_t pageSize{100};
+    };
 
-class ScanKeysUseCase
-{
-public:
-    ScanKeysUseCase(
-        const redisforge::app::connections::ActiveConnectionStore& activeConnectionStore,
-        const redisforge::domain::keys_explorer::IKeyExplorerGateway& keyExplorerGateway,
-        redisforge::shared::logging::ILogger& logger);
+    class ScanKeysUseCase
+    {
+    public:
+        ScanKeysUseCase(
+            const connections::ActiveConnectionStore& activeConnectionStore,
+            const domain::keys_explorer::IKeyExplorerGateway& keyExplorerGateway,
+            shared::logging::ILogger& logger);
 
-    [[nodiscard]] redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage> execute(
-        const ScanKeysQuery& query) const;
+        [[nodiscard]] shared::result::OperationResult<domain::keys_explorer::KeyScanPage>
+        execute(
+            const ScanKeysQuery& query) const;
 
-private:
-    const redisforge::app::connections::ActiveConnectionStore& activeConnectionStore_;
-    const redisforge::domain::keys_explorer::IKeyExplorerGateway& keyExplorerGateway_;
-    redisforge::shared::logging::ILogger& logger_;
-};
+    private:
+        const connections::ActiveConnectionStore& activeConnectionStore_;
+        const domain::keys_explorer::IKeyExplorerGateway& keyExplorerGateway_;
+        shared::logging::ILogger& logger_;
+    };
 } // namespace redisforge::app::keys_explorer

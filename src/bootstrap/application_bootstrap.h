@@ -19,35 +19,35 @@
 
 namespace redisforge::bootstrap
 {
-struct InfrastructureServices
-{
-    std::shared_ptr<redisforge::shared::logging::ILogger> logger;
-    std::shared_ptr<redisforge::app::connections::ActiveConnectionStore> activeConnectionStore;
-    std::shared_ptr<redisforge::domain::connections::IConnectionProfileRepository> profileRepository;
-    std::shared_ptr<redisforge::domain::connections::IRedisConnectionGateway> connectionGateway;
-    std::shared_ptr<redisforge::domain::keys_explorer::IKeyExplorerGateway> keyExplorerGateway;
-    std::shared_ptr<redisforge::domain::value_inspector::IValueInspectorGateway> valueInspectorGateway;
-};
+    struct InfrastructureServices
+    {
+        std::shared_ptr<shared::logging::ILogger> logger;
+        std::shared_ptr<app::connections::ActiveConnectionStore> activeConnectionStore;
+        std::shared_ptr<domain::connections::IConnectionProfileRepository> profileRepository;
+        std::shared_ptr<domain::connections::IRedisConnectionGateway> connectionGateway;
+        std::shared_ptr<domain::keys_explorer::IKeyExplorerGateway> keyExplorerGateway;
+        std::shared_ptr<domain::value_inspector::IValueInspectorGateway> valueInspectorGateway;
+    };
 
-struct ApplicationServices
-{
-    redisforge::app::connections::ListConnectionProfilesUseCase listProfilesUseCase;
-    redisforge::app::connections::SaveConnectionProfileUseCase saveProfileUseCase;
-    redisforge::app::connections::TestAndActivateConnectionUseCase testAndActivateConnectionUseCase;
-    redisforge::app::keys_explorer::ScanKeysUseCase scanKeysUseCase;
-    redisforge::app::value_inspector::InspectKeyUseCase inspectKeyUseCase;
-};
+    struct ApplicationServices
+    {
+        app::connections::ListConnectionProfilesUseCase listProfilesUseCase;
+        app::connections::SaveConnectionProfileUseCase saveProfileUseCase;
+        app::connections::TestAndActivateConnectionUseCase testAndActivateConnectionUseCase;
+        app::keys_explorer::ScanKeysUseCase scanKeysUseCase;
+        app::value_inspector::InspectKeyUseCase inspectKeyUseCase;
+    };
 
-struct PresentationServices
-{
-    std::unique_ptr<redisforge::presentation::connections::ConnectionManagementViewModel> connectionViewModel;
-    std::unique_ptr<redisforge::presentation::keys_explorer::KeysExplorerViewModel> keysExplorerViewModel;
-    std::unique_ptr<redisforge::presentation::value_inspector::ValueInspectorViewModel> valueInspectorViewModel;
-};
+    struct PresentationServices
+    {
+        std::unique_ptr<presentation::connections::ConnectionManagementViewModel> connectionViewModel;
+        std::unique_ptr<presentation::keys_explorer::KeysExplorerViewModel> keysExplorerViewModel;
+        std::unique_ptr<presentation::value_inspector::ValueInspectorViewModel> valueInspectorViewModel;
+    };
 
-[[nodiscard]] InfrastructureServices buildInfrastructureServices();
-[[nodiscard]] ApplicationServices buildApplicationServices(const InfrastructureServices& infrastructureServices);
-[[nodiscard]] PresentationServices buildPresentationServices(
-    ApplicationServices& applicationServices,
-    const InfrastructureServices& infrastructureServices);
+    [[nodiscard]] InfrastructureServices buildInfrastructureServices();
+    [[nodiscard]] ApplicationServices buildApplicationServices(const InfrastructureServices& infrastructureServices);
+    [[nodiscard]] PresentationServices buildPresentationServices(
+        ApplicationServices& applicationServices,
+        const InfrastructureServices& infrastructureServices);
 } // namespace redisforge::bootstrap

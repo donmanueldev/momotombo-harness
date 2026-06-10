@@ -7,14 +7,14 @@
 
 namespace redisforge::domain::value_inspector
 {
-class IValueInspectorGateway
-{
-public:
-    virtual ~IValueInspectorGateway() = default;
+    class IValueInspectorGateway
+    {
+    public:
+        virtual ~IValueInspectorGateway() = default;
 
-    virtual KeyInspectionResult inspectKey(
-        const redisforge::domain::connections::ConnectionProfile& profile,
-        const std::string& key,
-        const redisforge::domain::value_inspector::ValueInspectionOptions& options) const = 0;
-};
+        virtual KeyInspectionResult inspectKey(
+            const connections::ConnectionProfile& profile,
+            const std::string& key,
+            const ValueInspectionOptions& options) const = 0;
+    };
 } // namespace redisforge::domain::value_inspector

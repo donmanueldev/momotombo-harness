@@ -7,16 +7,16 @@
 
 namespace redisforge::app::connections
 {
-class ActiveConnectionStore
-{
-public:
-    void setActiveConnection(redisforge::domain::connections::ConnectionProfile profile);
-    void clear();
-    [[nodiscard]] bool hasActiveConnection() const;
-    [[nodiscard]] std::optional<redisforge::domain::connections::ConnectionProfile> activeConnection() const;
+    class ActiveConnectionStore
+    {
+    public:
+        void setActiveConnection(domain::connections::ConnectionProfile profile);
+        void clear();
+        [[nodiscard]] bool hasActiveConnection() const;
+        [[nodiscard]] std::optional<domain::connections::ConnectionProfile> activeConnection() const;
 
-private:
-    mutable std::mutex mutex_;
-    std::optional<redisforge::domain::connections::ConnectionProfile> activeConnection_;
-};
+    private:
+        mutable std::mutex mutex_;
+        std::optional<domain::connections::ConnectionProfile> activeConnection_;
+    };
 } // namespace redisforge::app::connections

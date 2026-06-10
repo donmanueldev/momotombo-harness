@@ -9,36 +9,36 @@
 
 namespace redisforge::app::connections
 {
-struct ActivatedConnection
-{
-    redisforge::domain::connections::ConnectionProfile profile;
-    std::string summary;
-};
+    struct ActivatedConnection
+    {
+        domain::connections::ConnectionProfile profile;
+        std::string summary;
+    };
 
-struct TestAndActivateConnectionResult
-{
-    redisforge::domain::connections::ConnectionTestResult testResult;
-    std::optional<ActivatedConnection> activeConnection;
-};
+    struct TestAndActivateConnectionResult
+    {
+        domain::connections::ConnectionTestResult testResult;
+        std::optional<ActivatedConnection> activeConnection;
+    };
 
-class TestAndActivateConnectionUseCase final
-{
-public:
-    TestAndActivateConnectionUseCase(
-        const redisforge::domain::connections::IRedisConnectionGateway& gateway,
-        ActiveConnectionStore& activeConnectionStore,
-        redisforge::shared::logging::ILogger& logger);
+    class TestAndActivateConnectionUseCase final
+    {
+    public:
+        TestAndActivateConnectionUseCase(
+            const domain::connections::IRedisConnectionGateway& gateway,
+            ActiveConnectionStore& activeConnectionStore,
+            shared::logging::ILogger& logger);
 
-    [[nodiscard]] TestAndActivateConnectionResult execute(
-        const redisforge::domain::connections::ConnectionProfile& profile) const;
+        [[nodiscard]] TestAndActivateConnectionResult execute(
+            const domain::connections::ConnectionProfile& profile) const;
 
-private:
-    [[nodiscard]] static std::string buildConnectionSummary(
-        const redisforge::domain::connections::ConnectionProfile& profile);
+    private:
+        [[nodiscard]] static std::string buildConnectionSummary(
+            const domain::connections::ConnectionProfile& profile);
 
-    const redisforge::domain::connections::IRedisConnectionGateway& gateway_;
-    ActiveConnectionStore& activeConnectionStore_;
-    redisforge::shared::logging::ILogger& logger_;
-    redisforge::domain::connections::ConnectionProfileValidator validator_;
-};
+        const domain::connections::IRedisConnectionGateway& gateway_;
+        ActiveConnectionStore& activeConnectionStore_;
+        shared::logging::ILogger& logger_;
+        domain::connections::ConnectionProfileValidator validator_;
+    };
 } // namespace redisforge::app::connections

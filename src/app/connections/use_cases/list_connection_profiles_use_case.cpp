@@ -26,7 +26,7 @@ shared::pagination::Page<domain::connections::ConnectionProfile> ListConnectionP
         {"totalCount", std::to_string(totalCount)},
     });
 
-    return shared::pagination::Page<domain::connections::ConnectionProfile>{
+    return shared::pagination::Page{
         repository_.list(offset, sanitizedPageSize),
         sanitizedPage,
         sanitizedPageSize,

@@ -5,34 +5,34 @@
 
 namespace redisforge::domain::connections
 {
-TEST(ConnectionProfileValidatorTests, ReturnsErrorsWhenRequiredFieldsAreMissing)
-{
-    auto validator = ConnectionProfileValidator{};
-    auto profile = ConnectionProfile{};
-    profile.port = 0;
-    profile.connectTimeoutMs = 0;
-    profile.databaseIndex = -1;
+    TEST(ConnectionProfileValidatorTests, ReturnsErrorsWhenRequiredFieldsAreMissing)
+    {
+        auto validator = ConnectionProfileValidator{};
+        auto profile = ConnectionProfile{};
+        profile.port = 0;
+        profile.connectTimeoutMs = 0;
+        profile.databaseIndex = -1;
 
-    const auto errors = validator.validate(profile);
+        const auto errors = validator.validate(profile);
 
-    EXPECT_EQ(errors.size(), 5U);
-}
+        EXPECT_EQ(errors.size(), 5U);
+    }
 
-TEST(ConnectionProfileValidatorTests, AcceptsValidConnectionProfile)
-{
-    auto validator = ConnectionProfileValidator{};
-    auto profile = ConnectionProfile{
-        "",
-        "Local Redis",
-        "127.0.0.1",
-        6379,
-        "",
-        "",
-        0,
-        3000,
-        false,
-    };
+    TEST(ConnectionProfileValidatorTests, AcceptsValidConnectionProfile)
+    {
+        auto validator = ConnectionProfileValidator{};
+        auto profile = ConnectionProfile{
+            "",
+            "Local Redis",
+            "127.0.0.1",
+            6379,
+            "",
+            "",
+            0,
+            3000,
+            false,
+        };
 
-    EXPECT_TRUE(validator.validate(profile).empty());
-}
+        EXPECT_TRUE(validator.validate(profile).empty());
+    }
 } // namespace redisforge::domain::connections

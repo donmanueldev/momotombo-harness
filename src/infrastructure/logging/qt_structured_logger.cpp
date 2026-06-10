@@ -1,7 +1,6 @@
 #include "infrastructure/logging/qt_structured_logger.h"
 
 #include <QDateTime>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
 #include <QString>

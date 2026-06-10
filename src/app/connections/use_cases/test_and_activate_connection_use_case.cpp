@@ -4,100 +4,101 @@
 
 namespace redisforge::app::connections
 {
-TestAndActivateConnectionUseCase::TestAndActivateConnectionUseCase(
-    const redisforge::domain::connections::IRedisConnectionGateway& gateway,
-    ActiveConnectionStore& activeConnectionStore,
-    redisforge::shared::logging::ILogger& logger)
-    : gateway_(gateway), activeConnectionStore_(activeConnectionStore), logger_(logger)
-{
-}
-
-TestAndActivateConnectionResult TestAndActivateConnectionUseCase::execute(
-    const redisforge::domain::connections::ConnectionProfile& profile) const
-{
-    const auto validationErrors = validator_.validate(profile);
-    if (!validationErrors.empty())
+    TestAndActivateConnectionUseCase::TestAndActivateConnectionUseCase(
+        const domain::connections::IRedisConnectionGateway& gateway,
+        ActiveConnectionStore& activeConnectionStore,
+        shared::logging::ILogger& logger)
+        : gateway_(gateway), activeConnectionStore_(activeConnectionStore), logger_(logger)
     {
-        auto messageBuilder = std::ostringstream{};
-        for (std::size_t index = 0; index < validationErrors.size(); ++index)
+    }
+
+    TestAndActivateConnectionResult TestAndActivateConnectionUseCase::execute(
+        const domain::connections::ConnectionProfile& profile) const
+    {
+        const auto validationErrors = validator_.validate(profile);
+        if (!validationErrors.empty())
         {
-            if (index > 0)
+            auto messageBuilder = std::ostringstream{};
+            for (std::size_t index = 0; index < validationErrors.size(); ++index)
             {
-                messageBuilder << ' ';
+                if (index > 0)
+                {
+                    messageBuilder << ' ';
+                }
+
+                messageBuilder << validationErrors[index];
             }
 
-            messageBuilder << validationErrors[index];
+            logger_.warning("connections.test.validation_failed", {
+                                {"name", profile.name},
+                                {"host", profile.host},
+                            });
+
+            return TestAndActivateConnectionResult{
+                domain::connections::ConnectionTestResult{
+                    false,
+                    messageBuilder.str(),
+                    std::chrono::milliseconds{0},
+                    {},
+                },
+                std::nullopt,
+            };
         }
 
-        logger_.warning("connections.test.validation_failed", {
-            {"name", profile.name},
-            {"host", profile.host},
-        });
+        logger_.info("connections.test.started", {
+                         {"name", profile.name},
+                         {"host", profile.host},
+                         {"port", std::to_string(profile.port)},
+                     });
 
-        return TestAndActivateConnectionResult{
-            redisforge::domain::connections::ConnectionTestResult{
+        auto result = domain::connections::ConnectionTestResult{};
+        try
+        {
+            result = gateway_.testConnection(profile);
+        }
+        catch (const std::exception& exception)
+        {
+            result = domain::connections::ConnectionTestResult{
                 false,
-                messageBuilder.str(),
+                exception.what(),
                 std::chrono::milliseconds{0},
                 {},
-            },
-            std::nullopt,
-        };
-    }
+            };
+        }
 
-    logger_.info("connections.test.started", {
-        {"name", profile.name},
-        {"host", profile.host},
-        {"port", std::to_string(profile.port)},
-    });
+        logger_.info(
+            result.isSuccessful ? "connections.test.succeeded" : "connections.test.failed",
+            {
+                {"name", profile.name},
+                {"host", profile.host},
+                {"latencyMs", std::to_string(result.latency.count())},
+            });
 
-    auto result = redisforge::domain::connections::ConnectionTestResult{};
-    try
-    {
-        result = gateway_.testConnection(profile);
-    }
-    catch (const std::exception& exception)
-    {
-        result = redisforge::domain::connections::ConnectionTestResult{
-            false,
-            exception.what(),
-            std::chrono::milliseconds{0},
-            {},
-        };
-    }
-
-    logger_.info(
-        result.isSuccessful ? "connections.test.succeeded" : "connections.test.failed",
+        if (!result.isSuccessful)
         {
-            {"name", profile.name},
-            {"host", profile.host},
-            {"latencyMs", std::to_string(result.latency.count())},
-        });
+            return TestAndActivateConnectionResult{result, std::nullopt};
+        }
 
-    if (!result.isSuccessful)
-    {
-        return TestAndActivateConnectionResult{result, std::nullopt};
+        activeConnectionStore_.setActiveConnection(profile);
+        auto summary = buildConnectionSummary(profile);
+        logger_.info("connections.active.updated", {
+                         {"name", profile.name},
+                         {"host", profile.host},
+                         {"database", std::to_string(profile.databaseIndex)},
+                     });
+
+        return TestAndActivateConnectionResult{
+            result,
+            ActivatedConnection{profile, std::move(summary)},
+        };
     }
 
-    activeConnectionStore_.setActiveConnection(profile);
-    auto summary = buildConnectionSummary(profile);
-    logger_.info("connections.active.updated", {
-        {"name", profile.name},
-        {"host", profile.host},
-        {"database", std::to_string(profile.databaseIndex)},
-    });
-
-    return TestAndActivateConnectionResult{
-        result,
-        ActivatedConnection{profile, std::move(summary)},
-    };
-}
-
-std::string TestAndActivateConnectionUseCase::buildConnectionSummary(
-    const redisforge::domain::connections::ConnectionProfile& profile)
-{
-    auto summary = std::ostringstream{};
-    summary << profile.name << " (" << profile.host << ':' << profile.port << " / db" << profile.databaseIndex << ')';
-    return summary.str();
-}
+    std::string TestAndActivateConnectionUseCase::buildConnectionSummary(
+        const domain::connections::ConnectionProfile& profile)
+    {
+        auto summary = std::ostringstream{};
+        summary << profile.name << " (" << profile.host << ':' << profile.port << " / db" << profile.databaseIndex <<
+            ')';
+        return summary.str();
+    }
 } // namespace redisforge::app::connections
