@@ -2,6 +2,8 @@
 
 #include <QMainWindow>
 
+class QTabWidget;
+
 namespace redisforge::presentation::connections
 {
     class ConnectionManagementViewModel;
@@ -29,5 +31,10 @@ namespace redisforge::presentation
             keys_explorer::KeysExplorerViewModel& keysExplorerViewModel,
             value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
             QWidget* parent = nullptr);
+
+    private:
+        void setupMenuBar();
+
+        QTabWidget* tabs_{nullptr};
     };
 } // namespace redisforge::presentation

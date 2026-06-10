@@ -1,5 +1,6 @@
 #include "presentation/keys_explorer/widgets/keys_explorer_widget.h"
 
+#include <QFrame>
 #include <QComboBox>
 #include <QHeaderView>
 #include <QItemSelectionModel>
@@ -28,12 +29,22 @@ namespace redisforge::presentation::keys_explorer
         setObjectName("browserScreen");
         auto* rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
-        rootLayout->setSpacing(12);
+        rootLayout->setSpacing(14);
 
-        auto* titleLabel = new QLabel("Data Browser", this);
+        auto* eyebrowLabel = new QLabel("Browser", this);
+        eyebrowLabel->setObjectName("panelEyebrow");
+        auto* titleLabel = new QLabel("Keys and values", this);
         titleLabel->setObjectName("sectionTitle");
+        auto* descriptionLabel = new QLabel("Search, filter, and inspect Redis data.", this);
+        descriptionLabel->setObjectName("panelDescription");
+        descriptionLabel->setWordWrap(true);
         connectionLabel_ = new QLabel("Active connection: none", this);
         connectionLabel_->setObjectName("statusCard");
+        auto* connectionBanner = new QFrame(this);
+        connectionBanner->setObjectName("infoBanner");
+        auto* connectionBannerLayout = new QHBoxLayout(connectionBanner);
+        connectionBannerLayout->setContentsMargins(16, 14, 16, 14);
+        connectionBannerLayout->addWidget(connectionLabel_);
 
         auto* filtersCard = new QWidget(this);
         filtersCard->setObjectName("panelCard");
@@ -94,8 +105,10 @@ namespace redisforge::presentation::keys_explorer
         statusLabel_->setObjectName("statusCard");
         statusLabel_->setWordWrap(true);
 
+        rootLayout->addWidget(eyebrowLabel);
         rootLayout->addWidget(titleLabel);
-        rootLayout->addWidget(connectionLabel_);
+        rootLayout->addWidget(descriptionLabel);
+        rootLayout->addWidget(connectionBanner);
         rootLayout->addWidget(filtersCard);
         contentSplitter_ = new QSplitter(Qt::Horizontal, this);
         auto* browserPane = new QWidget(contentSplitter_);
@@ -103,6 +116,13 @@ namespace redisforge::presentation::keys_explorer
         auto* browserPaneLayout = new QVBoxLayout(browserPane);
         browserPaneLayout->setContentsMargins(16, 16, 16, 16);
         browserPaneLayout->setSpacing(10);
+        auto* browserPaneTitle = new QLabel("Keys", browserPane);
+        browserPaneTitle->setObjectName("panelTitle");
+        auto* browserPaneDescription = new QLabel("Select a key to inspect it.", browserPane);
+        browserPaneDescription->setObjectName("panelDescription");
+        browserPaneDescription->setWordWrap(true);
+        browserPaneLayout->addWidget(browserPaneTitle);
+        browserPaneLayout->addWidget(browserPaneDescription);
         browserPaneLayout->addWidget(keysTable_);
         auto* detailsPane = new QWidget(contentSplitter_);
         detailsPane->setObjectName("panelCard");
@@ -114,7 +134,12 @@ namespace redisforge::presentation::keys_explorer
         contentSplitter_->setStretchFactor(0, 2);
         contentSplitter_->setStretchFactor(1, 3);
         rootLayout->addWidget(contentSplitter_, 1);
-        rootLayout->addWidget(statusLabel_);
+        auto* statusBanner = new QFrame(this);
+        statusBanner->setObjectName("infoBanner");
+        auto* statusLayout = new QHBoxLayout(statusBanner);
+        statusLayout->setContentsMargins(16, 14, 16, 14);
+        statusLayout->addWidget(statusLabel_);
+        rootLayout->addWidget(statusBanner);
 
         previousPageButton_->setEnabled(false);
         nextPageButton_->setEnabled(false);
@@ -170,7 +195,7 @@ namespace redisforge::presentation::keys_explorer
 
         connect(&viewModel_, &KeysExplorerViewModel::activeConnectionChanged, this, [this](const QString& summary)
         {
-            connectionLabel_->setText(QString("Active connection\n%1").arg(summary));
+            connectionLabel_->setText(summary.isEmpty() ? "No active connection" : summary);
         });
         connect(&viewModel_, &KeysExplorerViewModel::keysChanged, this, [this](const std::vector<redisforge::domain::keys_explorer::KeyListEntry>& entries)
         {

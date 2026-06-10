@@ -31,10 +31,10 @@ namespace redisforge::presentation::connections
         QLineEdit* hostEdit_{nullptr};
         QSpinBox* portSpinBox_{nullptr};
         QLineEdit* usernameEdit_{nullptr};
-    QLineEdit* passwordEdit_{nullptr};
-    QSpinBox* databaseSpinBox_{nullptr};
-    QSpinBox* timeoutSpinBox_{nullptr};
-    QPushButton* previousPageButton_{nullptr};
+        QLineEdit* passwordEdit_{nullptr};
+        QSpinBox* databaseSpinBox_{nullptr};
+        QSpinBox* timeoutSpinBox_{nullptr};
+        QPushButton* previousPageButton_{nullptr};
         QPushButton* nextPageButton_{nullptr};
         QPushButton* saveButton_{nullptr};
         QPushButton* testButton_{nullptr};

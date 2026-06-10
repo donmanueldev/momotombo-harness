@@ -27,11 +27,15 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
 
     auto* headerLayout = new QHBoxLayout();
     auto* headerTextLayout = new QVBoxLayout();
+    auto* headerEyebrow = new QLabel("Inspector", this);
+    headerEyebrow->setObjectName("panelEyebrow");
     selectedKeyLabel_ = new QLabel("Selected key: none", this);
-    selectedKeyLabel_->setObjectName("sectionTitle");
+    selectedKeyLabel_->setObjectName("panelTitle");
     selectedTypeLabel_ = new QLabel("Type: -", this);
+    selectedTypeLabel_->setObjectName("metaLabel");
     refreshButton_ = new QPushButton("Reload value", this);
     refreshButton_->setObjectName("ghostButton");
+    headerTextLayout->addWidget(headerEyebrow);
     headerTextLayout->addWidget(selectedKeyLabel_);
     headerTextLayout->addWidget(selectedTypeLabel_);
     headerLayout->addLayout(headerTextLayout, 1);
@@ -39,6 +43,7 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
 
     contentStack_ = new QStackedWidget(this);
     emptyStateLabel_ = new QLabel("Select a key to inspect.", this);
+    emptyStateLabel_->setObjectName("emptyStateBody");
     emptyStateLabel_->setWordWrap(true);
     stringValueTextEdit_ = new QPlainTextEdit(this);
     stringValueTextEdit_->setMinimumHeight(280);
@@ -142,10 +147,11 @@ void ValueInspectionDetailsWidget::render()
 
     selectedKeyLabel_->setText(
         data.key.empty() ? "No key selected" : QString::fromStdString(data.key));
-    auto typeLabel = data.key.empty() ? QString("Type: -") : QString("Type: %1").arg(QString::fromStdString(data.typeLabel));
+    auto typeLabel =
+        data.key.empty() ? QString("Type: -") : QString("Type: %1").arg(QString::fromStdString(data.typeLabel));
     if (data.hasAdditionalEntries)
     {
-        typeLabel.append(QString("  preview: %1").arg(static_cast<qulonglong>(data.loadedEntryCount)));
+        typeLabel.append(QString("   Preview entries: %1").arg(static_cast<qulonglong>(data.loadedEntryCount)));
     }
     selectedTypeLabel_->setText(typeLabel);
     refreshButton_->setEnabled(!data.key.empty());
