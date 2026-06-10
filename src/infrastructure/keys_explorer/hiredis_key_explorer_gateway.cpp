@@ -2,8 +2,10 @@
 
 #include <hiredis/hiredis.h>
 
+#include <array>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include "infrastructure/connections/redis_connection_session.h"
 
@@ -27,13 +29,30 @@ redisforge::domain::keys_explorer::KeyScanPage HiredisKeyExplorerGateway::scanKe
     }
 
     const auto effectivePattern = pattern.empty() ? "*" : pattern;
+    const auto count = std::to_string(pageSize);
+    const char* arguments[] = {
+        "SCAN",
+        cursor.c_str(),
+        "MATCH",
+        effectivePattern.c_str(),
+        "COUNT",
+        count.c_str(),
+    };
+    const std::array<std::size_t, 6> argumentLengths{
+        4,
+        cursor.size(),
+        5,
+        effectivePattern.size(),
+        5,
+        count.size(),
+    };
     auto reply = RedisReplyHandle{
-        static_cast<redisReply*>(redisCommand(
-            session.context(),
-            "SCAN %s MATCH %s COUNT %zu",
-            cursor.c_str(),
-            effectivePattern.c_str(),
-            pageSize)),
+        static_cast<redisReply*>(
+            redisCommandArgv(
+                session.context(),
+                static_cast<int>(std::size(arguments)),
+                arguments,
+                argumentLengths.data())),
         &freeReplyObject,
     };
 

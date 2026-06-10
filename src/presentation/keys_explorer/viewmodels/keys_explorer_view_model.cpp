@@ -9,8 +9,9 @@ namespace redisforge::presentation::keys_explorer
 {
 KeysExplorerViewModel::KeysExplorerViewModel(
     redisforge::app::keys_explorer::ScanKeysUseCase& scanKeysUseCase,
+    redisforge::app::value_inspector::InspectKeyUseCase& inspectKeyUseCase,
     QObject* parent)
-    : QObject(parent), scanKeysUseCase_(scanKeysUseCase)
+    : QObject(parent), scanKeysUseCase_(scanKeysUseCase), inspectKeyUseCase_(inspectKeyUseCase)
 {
 }
 
@@ -57,6 +58,71 @@ void KeysExplorerViewModel::onActiveConnectionChanged(const QString& connectionS
     refresh();
 }
 
+void KeysExplorerViewModel::inspectKey(const QString& key, const int row)
+{
+    if (key.trimmed().isEmpty())
+    {
+        resetInspection();
+        return;
+    }
+
+    emit keyDetailsChanged(key, "Loading...", "", false);
+
+    auto* watcher =
+        new QFutureWatcher<redisforge::shared::result::OperationResult<redisforge::domain::value_inspector::KeyInspectionResult>>{
+            this};
+
+    connect(
+        watcher,
+        &QFutureWatcher<redisforge::shared::result::OperationResult<redisforge::domain::value_inspector::KeyInspectionResult>>::finished,
+        this,
+        [this, watcher, key, row]() {
+            const auto result = watcher->result();
+            if (!result.isSuccessful)
+            {
+                emit statusChanged(QString::fromStdString(
+                    result.errors.empty() ? "Failed to inspect key." : result.errors.front()));
+                emit keyTypeResolved(row, "error");
+                emit keyDetailsChanged(key, "error", "", false);
+                watcher->deleteLater();
+                return;
+            }
+
+            const auto& inspection = result.value;
+            const auto type = QString::fromStdString(inspection.type);
+            emit keyTypeResolved(row, type);
+
+            QString value;
+            if (inspection.hasStringValue)
+            {
+                value = QString::fromStdString(inspection.stringValue);
+                emit statusChanged(
+                    QString("Loaded key '%1' as %2 with string value.").arg(QString::fromStdString(inspection.key), type));
+            }
+            else
+            {
+                emit statusChanged(
+                    QString("Loaded key '%1' as %2. Value rendering for this type comes next.")
+                        .arg(QString::fromStdString(inspection.key), type));
+            }
+
+            emit keyDetailsChanged(QString::fromStdString(inspection.key), type, value, inspection.hasStringValue);
+            watcher->deleteLater();
+        });
+
+    watcher->setFuture(QtConcurrent::run([this, key]() {
+        try
+        {
+            return inspectKeyUseCase_.execute(key.toStdString());
+        }
+        catch (const std::exception& exception)
+        {
+            return redisforge::shared::result::OperationResult<redisforge::domain::value_inspector::KeyInspectionResult>::failure(
+                {exception.what()});
+        }
+    }));
+}
+
 void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int pageNumber)
 {
     if (busy_)
@@ -67,6 +133,7 @@ void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int page
     busy_ = true;
     emit busyChanged(true);
     emit statusChanged("Loading keys...");
+    resetInspection();
 
     auto* watcher =
         new QFutureWatcher<redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>>{
@@ -117,7 +184,21 @@ void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int page
             }
 
             emit keysChanged(keyList);
-            emit statusChanged(QString("Loaded %1 keys from page %2.").arg(keyList.size()).arg(currentPage_));
+            if (keyList.isEmpty())
+            {
+                emit statusChanged(
+                    QString("No keys found on page %1 for pattern '%2'. Verify the active connection and database.")
+                        .arg(currentPage_)
+                        .arg(pattern_));
+            }
+            else
+            {
+                emit statusChanged(
+                    QString("Loaded %1 keys from page %2 for pattern '%3'.")
+                        .arg(keyList.size())
+                        .arg(currentPage_)
+                        .arg(pattern_));
+            }
             emit paginationChanged(currentPage_, currentPage_ > 1, page.hasMore);
             watcher->deleteLater();
         });
@@ -139,5 +220,10 @@ void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int page
                 {exception.what()});
         }
     }));
+}
+
+void KeysExplorerViewModel::resetInspection()
+{
+    emit keyDetailsChanged("", "", "", false);
 }
 } // namespace redisforge::presentation::keys_explorer

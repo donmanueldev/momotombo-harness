@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "app/keys_explorer/use_cases/scan_keys_use_case.h"
+#include "app/value_inspector/use_cases/inspect_key_use_case.h"
 
 namespace redisforge::presentation::keys_explorer
 {
@@ -16,6 +17,7 @@ class KeysExplorerViewModel final : public QObject
 public:
     KeysExplorerViewModel(
         redisforge::app::keys_explorer::ScanKeysUseCase& scanKeysUseCase,
+        redisforge::app::value_inspector::InspectKeyUseCase& inspectKeyUseCase,
         QObject* parent = nullptr);
 
     void refresh();
@@ -23,6 +25,7 @@ public:
     void previousPage();
     void updatePattern(const QString& pattern);
     void updatePageSize(int pageSize);
+    void inspectKey(const QString& key, int row);
 
 public slots:
     void onActiveConnectionChanged(const QString& connectionSummary);
@@ -33,11 +36,15 @@ signals:
     void keysChanged(const QStringList& keys);
     void paginationChanged(int currentPage, bool hasPreviousPage, bool hasNextPage);
     void activeConnectionChanged(const QString& connectionSummary);
+    void keyTypeResolved(int row, const QString& type);
+    void keyDetailsChanged(const QString& key, const QString& type, const QString& value, bool hasStringValue);
 
 private:
     void loadCursor(const std::string& cursor, int pageNumber);
+    void resetInspection();
 
     redisforge::app::keys_explorer::ScanKeysUseCase& scanKeysUseCase_;
+    redisforge::app::value_inspector::InspectKeyUseCase& inspectKeyUseCase_;
     std::vector<std::string> pageCursors_{"0"};
     QString pattern_{"*"};
     int pageSize_{100};

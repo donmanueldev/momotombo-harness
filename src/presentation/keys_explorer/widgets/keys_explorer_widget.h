@@ -9,9 +9,10 @@ class KeysExplorerViewModel;
 
 class QLabel;
 class QLineEdit;
-class QListWidget;
 class QPushButton;
+class QPlainTextEdit;
 class QSpinBox;
+class QTableWidget;
 
 namespace redisforge::presentation::keys_explorer
 {
@@ -31,7 +32,10 @@ private:
     QPushButton* previousPageButton_{nullptr};
     QPushButton* nextPageButton_{nullptr};
     QLabel* paginationLabel_{nullptr};
-    QListWidget* keysList_{nullptr};
+    QTableWidget* keysTable_{nullptr};
+    QLabel* selectedKeyLabel_{nullptr};
+    QLabel* selectedTypeLabel_{nullptr};
+    QPlainTextEdit* stringValueTextEdit_{nullptr};
     QLabel* statusLabel_{nullptr};
 };
 } // namespace redisforge::presentation::keys_explorer

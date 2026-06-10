@@ -40,6 +40,8 @@ add_library(redisforge_domain
         src/domain/connections/services/i_redis_connection_gateway.h
         src/domain/connections/services/connection_profile_validator.h
         src/domain/connections/services/connection_profile_validator.cpp
+        src/domain/value_inspector/entities/key_inspection_result.h
+        src/domain/value_inspector/services/i_value_inspector_gateway.h
 )
 target_include_directories(redisforge_domain PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_domain PUBLIC redisforge_shared)
@@ -55,6 +57,8 @@ add_library(redisforge_app
         src/app/connections/use_cases/test_connection_use_case.cpp
         src/app/keys_explorer/use_cases/scan_keys_use_case.h
         src/app/keys_explorer/use_cases/scan_keys_use_case.cpp
+        src/app/value_inspector/use_cases/inspect_key_use_case.h
+        src/app/value_inspector/use_cases/inspect_key_use_case.cpp
 )
 target_include_directories(redisforge_app PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_app PUBLIC redisforge_domain redisforge_shared)
@@ -70,6 +74,8 @@ add_library(redisforge_infrastructure
         src/infrastructure/keys_explorer/hiredis_key_explorer_gateway.cpp
         src/infrastructure/logging/qt_structured_logger.h
         src/infrastructure/logging/qt_structured_logger.cpp
+        src/infrastructure/value_inspector/hiredis_value_inspector_gateway.h
+        src/infrastructure/value_inspector/hiredis_value_inspector_gateway.cpp
 )
 target_include_directories(redisforge_infrastructure PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_infrastructure
@@ -117,6 +123,7 @@ if (BUILD_TESTING)
             tests/domain/connections/connection_profile_validator_tests.cpp
             tests/app/connections/save_connection_profile_use_case_tests.cpp
             tests/app/keys_explorer/scan_keys_use_case_tests.cpp
+            tests/app/value_inspector/inspect_key_use_case_tests.cpp
             tests/integration/hiredis_connection_gateway_integration_tests.cpp
     )
     target_include_directories(redisforge_tests PRIVATE ${REDISFORGE_SRC_ROOT})
