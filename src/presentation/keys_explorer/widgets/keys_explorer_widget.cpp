@@ -35,7 +35,7 @@ namespace redisforge::presentation::keys_explorer
         eyebrowLabel->setObjectName("panelEyebrow");
         auto* titleLabel = new QLabel("Keys and values", this);
         titleLabel->setObjectName("sectionTitle");
-        auto* descriptionLabel = new QLabel("Search, filter, and inspect Redis data.", this);
+        auto* descriptionLabel = new QLabel("Search and inspect Redis data.", this);
         descriptionLabel->setObjectName("panelDescription");
         descriptionLabel->setWordWrap(true);
         connectionLabel_ = new QLabel("Active connection: none", this);
@@ -118,7 +118,7 @@ namespace redisforge::presentation::keys_explorer
         browserPaneLayout->setSpacing(10);
         auto* browserPaneTitle = new QLabel("Keys", browserPane);
         browserPaneTitle->setObjectName("panelTitle");
-        auto* browserPaneDescription = new QLabel("Select a key to inspect it.", browserPane);
+        auto* browserPaneDescription = new QLabel("Select a key.", browserPane);
         browserPaneDescription->setObjectName("panelDescription");
         browserPaneDescription->setWordWrap(true);
         browserPaneLayout->addWidget(browserPaneTitle);
@@ -184,7 +184,13 @@ namespace redisforge::presentation::keys_explorer
                 return;
             }
 
-            const auto row = keysFilterModel_->mapToSource(selectedRows.front()).row();
+            const auto sourceIndex = keysFilterModel_->mapToSource(selectedRows.front());
+            if (!sourceIndex.isValid())
+            {
+                return;
+            }
+
+            const auto row = sourceIndex.row();
             const auto key = keysTableModel_->keyAt(row);
             if (key.isEmpty())
             {
@@ -231,7 +237,13 @@ namespace redisforge::presentation::keys_explorer
                 }
 
                 const auto& data = valueInspectorViewModel_.viewData();
-                const auto selectedKey = keysTableModel_->keyAt(keysFilterModel_->mapToSource(selectedRows.front()).row());
+                const auto sourceIndex = keysFilterModel_->mapToSource(selectedRows.front());
+                if (!sourceIndex.isValid())
+                {
+                    return;
+                }
+
+                const auto selectedKey = keysTableModel_->keyAt(sourceIndex.row());
                 if (data.key != selectedKey.toStdString())
                 {
                     return;

@@ -249,11 +249,11 @@ namespace redisforge::presentation
         headerLayout->setContentsMargins(32, 26, 32, 28);
         headerLayout->setSpacing(8);
 
-        auto* eyebrowLabel = new QLabel("Redis desktop workspace", header);
+        auto* eyebrowLabel = new QLabel("Desktop Redis client", header);
         eyebrowLabel->setObjectName("heroEyebrow");
         auto* titleLabel = new QLabel("RedisForge", header);
         titleLabel->setObjectName("heroTitle");
-        auto* subtitleLabel = new QLabel("Connections, keys, and values in one desktop workspace.", header);
+        auto* subtitleLabel = new QLabel("Connections, keys, and values.", header);
         subtitleLabel->setObjectName("heroSubtitle");
         subtitleLabel->setWordWrap(true);
 

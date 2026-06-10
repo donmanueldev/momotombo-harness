@@ -24,6 +24,11 @@ namespace redisforge::presentation::keys_explorer
             return {};
         }
 
+        if (index.row() < 0 || index.row() >= rows_.size() || index.column() < 0 || index.column() >= 2)
+        {
+            return {};
+        }
+
         const auto& row = rows_.at(index.row());
         return index.column() == 0 ? QVariant{row.key} : QVariant{row.type};
     }

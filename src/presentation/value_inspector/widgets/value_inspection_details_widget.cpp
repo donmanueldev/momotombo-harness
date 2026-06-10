@@ -123,6 +123,12 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
             return;
         }
 
+        if (!selectedRows.front().isValid())
+        {
+            clearHashEditor();
+            return;
+        }
+
         const auto rowValues = tableModel_->rowValuesAt(selectedRows.front().row());
         if (rowValues.size() < 2)
         {

@@ -39,6 +39,11 @@ QVariant ValueEntriesTableModel::data(const QModelIndex& index, const int role) 
         return {};
     }
 
+    if (index.row() < 0 || index.row() >= rows_.size())
+    {
+        return {};
+    }
+
     return rows_.at(index.row()).value(index.column());
 }
 

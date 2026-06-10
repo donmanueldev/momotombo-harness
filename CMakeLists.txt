@@ -15,6 +15,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 include(CTest)
+include(GNUInstallDirs)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent)
@@ -133,6 +134,27 @@ target_link_libraries(RedisForge
         Qt6::Widgets
         Qt6::Concurrent
 )
+set_target_properties(RedisForge PROPERTIES
+        OUTPUT_NAME "RedisForge"
+        MACOSX_BUNDLE TRUE
+        WIN32_EXECUTABLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "RedisForge"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.redisforge.desktop"
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+)
+
+install(TARGETS RedisForge
+        BUNDLE DESTINATION .
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+qt_generate_deploy_app_script(
+        TARGET RedisForge
+        OUTPUT_SCRIPT redisforge_deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
+)
+install(SCRIPT ${redisforge_deploy_script})
 
 if (BUILD_TESTING)
     include(GoogleTest)
@@ -142,6 +164,7 @@ if (BUILD_TESTING)
             tests/app/connections/save_connection_profile_use_case_tests.cpp
             tests/app/connections/test_and_activate_connection_use_case_tests.cpp
             tests/app/keys_explorer/scan_keys_use_case_tests.cpp
+            tests/presentation/keys_explorer/keys_table_model_tests.cpp
             tests/app/value_inspector/inspect_key_use_case_tests.cpp
             tests/app/value_inspector/save_string_value_use_case_tests.cpp
             tests/app/value_inspector/save_hash_field_use_case_tests.cpp
@@ -159,3 +182,21 @@ if (BUILD_TESTING)
 
     gtest_discover_tests(redisforge_tests)
 endif ()
+
+set(CPACK_PACKAGE_NAME "RedisForge")
+set(CPACK_PACKAGE_VENDOR "RedisForge")
+set(CPACK_PACKAGE_CONTACT "support@redisforge.local")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Desktop Redis browser for connections, keys, and values")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "RedisForge")
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+
+if (APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+elseif (WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_DISPLAY_NAME "RedisForge")
+    set(CPACK_NSIS_PACKAGE_NAME "RedisForge")
+endif ()
+
+include(CPack)

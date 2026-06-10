@@ -30,7 +30,7 @@ namespace redisforge::presentation::connections
         libraryEyebrow->setObjectName("panelEyebrow");
         auto* libraryTitle = new QLabel("Saved connections", savedProfilesPanel);
         libraryTitle->setObjectName("panelTitle");
-        auto* libraryDescription = new QLabel("Saved Redis endpoints.", savedProfilesPanel);
+        auto* libraryDescription = new QLabel("Redis endpoints.", savedProfilesPanel);
         libraryDescription->setObjectName("panelDescription");
         libraryDescription->setWordWrap(true);
         profilesList_ = new QListWidget(savedProfilesPanel);
@@ -64,7 +64,7 @@ namespace redisforge::presentation::connections
         formEyebrow->setObjectName("panelEyebrow");
         auto* formTitle = new QLabel("Connection settings", formPanel);
         formTitle->setObjectName("panelTitle");
-        auto* formDescription = new QLabel("Host, port, and access settings.", formPanel);
+        auto* formDescription = new QLabel("Host, port, and credentials.", formPanel);
         formDescription->setObjectName("panelDescription");
         formDescription->setWordWrap(true);
         auto* formLayout = new QFormLayout();
@@ -130,9 +130,9 @@ namespace redisforge::presentation::connections
         rightPaneLayout->setSpacing(14);
         auto* rightPaneEyebrow = new QLabel("Connect", this);
         rightPaneEyebrow->setObjectName("panelEyebrow");
-        auto* rightPaneTitle = new QLabel("Open or create a connection", this);
+        auto* rightPaneTitle = new QLabel("Open or create", this);
         rightPaneTitle->setObjectName("sectionTitle");
-        auto* rightPaneDescription = new QLabel("Pick a saved profile or enter the connection details.", this);
+        auto* rightPaneDescription = new QLabel("Choose a saved profile or enter details.", this);
         rightPaneDescription->setObjectName("panelDescription");
         rightPaneDescription->setWordWrap(true);
         rightPaneLayout->addWidget(rightPaneEyebrow);

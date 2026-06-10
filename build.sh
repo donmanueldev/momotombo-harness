@@ -14,4 +14,4 @@ cmake -S "${ROOT_DIR}" \
 cmake --build "${BUILD_DIR}"
 
 echo
-echo "Build completed: ${BUILD_DIR}/src/RedisForge"
+echo "Build completed: ${BUILD_DIR}/RedisForge"
