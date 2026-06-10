@@ -49,7 +49,7 @@ namespace redisforge::app::keys_explorer
         logger_.info("keys.scan.completed", {
                          {"cursor", query.cursor},
                          {"nextCursor", page.nextCursor},
-                         {"keyCount", std::to_string(page.keys.size())},
+                         {"keyCount", std::to_string(page.entries.size())},
                          {"hasMore", page.hasMore ? "true" : "false"},
                      });
 

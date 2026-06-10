@@ -46,6 +46,16 @@ namespace redisforge::bootstrap
                 *infrastructureServices.valueInspectorGateway,
                 *infrastructureServices.logger,
             },
+            app::value_inspector::SaveStringValueUseCase{
+                *infrastructureServices.activeConnectionStore,
+                *infrastructureServices.valueInspectorGateway,
+                *infrastructureServices.logger,
+            },
+            app::value_inspector::SaveHashFieldUseCase{
+                *infrastructureServices.activeConnectionStore,
+                *infrastructureServices.valueInspectorGateway,
+                *infrastructureServices.logger,
+            },
         };
     }
 
@@ -62,7 +72,9 @@ namespace redisforge::bootstrap
             std::make_unique<presentation::keys_explorer::KeysExplorerViewModel>(
                 applicationServices.scanKeysUseCase),
             std::make_unique<presentation::value_inspector::ValueInspectorViewModel>(
-                applicationServices.inspectKeyUseCase),
+                applicationServices.inspectKeyUseCase,
+                applicationServices.saveStringValueUseCase,
+                applicationServices.saveHashFieldUseCase),
         };
     }
 } // namespace redisforge::bootstrap

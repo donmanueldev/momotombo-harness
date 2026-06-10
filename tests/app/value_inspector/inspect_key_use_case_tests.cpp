@@ -47,6 +47,21 @@ namespace
             };
         }
 
+        void saveStringValue(
+            const redisforge::domain::connections::ConnectionProfile&,
+            const std::string&,
+            const std::string&) const override
+        {
+        }
+
+        void saveHashField(
+            const redisforge::domain::connections::ConnectionProfile&,
+            const std::string&,
+            const std::string&,
+            const std::string&) const override
+        {
+        }
+
         mutable std::string lastKey;
     };
 } // namespace
@@ -71,7 +86,7 @@ namespace redisforge::app::value_inspector
         auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
         activeConnectionStore.setActiveConnection(
             redisforge::domain::connections::ConnectionProfile{
-                "", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000, false
+                "", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000
             });
         auto gateway = FakeValueInspectorGateway{};
         auto logger = NullLogger{};

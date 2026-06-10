@@ -2,6 +2,8 @@
 
 #include <QAbstractTableModel>
 
+#include "domain/keys_explorer/entities/key_scan_page.h"
+
 namespace redisforge::presentation::keys_explorer
 {
     class KeysTableModel final : public QAbstractTableModel
@@ -16,7 +18,7 @@ namespace redisforge::presentation::keys_explorer
         [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
         [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
-        void setKeys(const QStringList& keys);
+        void setEntries(const std::vector<redisforge::domain::keys_explorer::KeyListEntry>& entries);
         void setTypeForKey(const QString& key, const QString& type);
         [[nodiscard]] QString keyAt(int row) const;
 

@@ -1,6 +1,7 @@
 #include <QApplication>
 
 #include <QObject>
+#include <QStyleFactory>
 
 #include "bootstrap/application_bootstrap.h"
 #include "presentation/main_window.h"
@@ -8,6 +9,7 @@
 int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
+    application.setStyle(QStyleFactory::create("Fusion"));
     application.setApplicationName("RedisForge");
     application.setOrganizationName("RedisForge");
 
@@ -29,8 +31,8 @@ int main(int argc, char* argv[])
 
     auto mainWindow = redisforge::presentation::MainWindow(
         *presentationServices.connectionViewModel,
-        *presentationServices.valueInspectorViewModel,
-        *presentationServices.keysExplorerViewModel);
+        *presentationServices.keysExplorerViewModel,
+        *presentationServices.valueInspectorViewModel);
     mainWindow.resize(1320, 840);
     mainWindow.show();
 

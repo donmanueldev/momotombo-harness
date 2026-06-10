@@ -38,14 +38,14 @@ namespace redisforge::presentation::keys_explorer
         return section == 0 ? QVariant{"Key"} : QVariant{"Type"};
     }
 
-    void KeysTableModel::setKeys(const QStringList& keys)
+    void KeysTableModel::setEntries(const std::vector<redisforge::domain::keys_explorer::KeyListEntry>& entries)
     {
         beginResetModel();
         rows_.clear();
-        rows_.reserve(keys.size());
-        for (const auto& key : keys)
+        rows_.reserve(static_cast<qsizetype>(entries.size()));
+        for (const auto& entry : entries)
         {
-            rows_.push_back({key, "-"});
+            rows_.push_back({QString::fromStdString(entry.key), QString::fromStdString(entry.type)});
         }
         endResetModel();
     }

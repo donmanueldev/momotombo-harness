@@ -30,7 +30,6 @@ namespace redisforge::domain::connections
             "",
             0,
             3000,
-            false,
         };
 
         EXPECT_TRUE(validator.validate(profile).empty());

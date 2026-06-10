@@ -110,14 +110,8 @@ namespace redisforge::presentation::keys_explorer
                     pageCursors_.resize(static_cast<std::size_t>(currentPage_));
                 }
 
-                auto keyList = QStringList{};
-                for (const auto& key : page.keys)
-                {
-                    keyList.push_back(QString::fromStdString(key));
-                }
-
-                emit keysChanged(keyList);
-                if (keyList.isEmpty())
+                emit keysChanged(page.entries);
+                if (page.entries.empty())
                 {
                     emit statusChanged(
                         QString("No keys found on page %1 for pattern '%2'. Verify the active connection and database.")
@@ -128,7 +122,7 @@ namespace redisforge::presentation::keys_explorer
                 {
                     emit statusChanged(
                         QString("Loaded %1 keys from page %2 for pattern '%3'.")
-                        .arg(keyList.size())
+                        .arg(static_cast<qulonglong>(page.entries.size()))
                         .arg(currentPage_)
                         .arg(pattern_));
                 }

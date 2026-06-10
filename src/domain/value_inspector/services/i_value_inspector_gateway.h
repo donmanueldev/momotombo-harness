@@ -16,5 +16,16 @@ namespace redisforge::domain::value_inspector
             const connections::ConnectionProfile& profile,
             const std::string& key,
             const ValueInspectionOptions& options) const = 0;
+
+        virtual void saveStringValue(
+            const connections::ConnectionProfile& profile,
+            const std::string& key,
+            const std::string& value) const = 0;
+
+        virtual void saveHashField(
+            const connections::ConnectionProfile& profile,
+            const std::string& key,
+            const std::string& field,
+            const std::string& value) const = 0;
     };
 } // namespace redisforge::domain::value_inspector

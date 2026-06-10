@@ -12,6 +12,16 @@
 namespace
 {
     using RedisReplyHandle = std::unique_ptr<redisReply, decltype(&freeReplyObject)>;
+
+    [[nodiscard]] std::string readReplyString(const redisReply* reply)
+    {
+        if (reply == nullptr || reply->str == nullptr)
+        {
+            return {};
+        }
+
+        return std::string{reply->str, reply->len};
+    }
 }
 
 namespace redisforge::infrastructure::keys_explorer
@@ -84,15 +94,40 @@ namespace redisforge::infrastructure::keys_explorer
         auto page = domain::keys_explorer::KeyScanPage{};
         page.nextCursor = cursorReply->str != nullptr ? cursorReply->str : "0";
         page.hasMore = page.nextCursor != "0";
-        page.keys.reserve(keysReply->elements);
+        page.entries.reserve(keysReply->elements);
 
         for (size_t index = 0; index < keysReply->elements; ++index)
         {
             const auto* keyReply = keysReply->element[index];
-            if (keyReply != nullptr && keyReply->str != nullptr)
+            if (keyReply == nullptr || keyReply->str == nullptr)
             {
-                page.keys.emplace_back(keyReply->str);
+                continue;
             }
+
+            const auto key = std::string{keyReply->str, keyReply->len};
+            auto typeReply = RedisReplyHandle{
+                static_cast<redisReply*>(redisCommand(session.context(), "TYPE %b", key.data(), key.size())),
+                &freeReplyObject,
+            };
+
+            if (typeReply == nullptr)
+            {
+                throw std::runtime_error("TYPE failed: no reply received while classifying scanned keys.");
+            }
+
+            if (typeReply->type == REDIS_REPLY_ERROR)
+            {
+                throw std::runtime_error(
+                    std::string{"TYPE failed: "}
+                    + (typeReply->str != nullptr ? typeReply->str : "Unknown TYPE error."));
+            }
+
+            if (typeReply->type != REDIS_REPLY_STATUS && typeReply->type != REDIS_REPLY_STRING)
+            {
+                throw std::runtime_error("TYPE failed: unexpected reply shape while classifying scanned keys.");
+            }
+
+            page.entries.push_back({key, readReplyString(typeReply.get())});
         }
 
         return page;

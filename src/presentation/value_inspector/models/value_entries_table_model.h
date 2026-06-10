@@ -25,6 +25,7 @@ public:
     void setSetMembers(const std::vector<std::string>& members);
     void setSortedSetEntries(const std::vector<redisforge::domain::value_inspector::SortedSetEntry>& entries);
     void setStreamEntries(const std::vector<redisforge::domain::value_inspector::StreamEntry>& entries);
+    [[nodiscard]] QStringList rowValuesAt(int row) const;
 
 private:
     QStringList headers_;

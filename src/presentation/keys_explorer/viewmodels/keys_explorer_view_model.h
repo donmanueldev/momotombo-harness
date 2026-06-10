@@ -2,10 +2,10 @@
 
 #include <QObject>
 #include <QString>
-#include <QStringList>
 #include <vector>
 
 #include "app/keys_explorer/use_cases/scan_keys_use_case.h"
+#include "domain/keys_explorer/entities/key_scan_page.h"
 
 namespace redisforge::presentation::keys_explorer
 {
@@ -30,7 +30,7 @@ namespace redisforge::presentation::keys_explorer
     signals:
         void busyChanged(bool isBusy);
         void statusChanged(const QString& status);
-        void keysChanged(const QStringList& keys);
+        void keysChanged(const std::vector<redisforge::domain::keys_explorer::KeyListEntry>& entries);
         void paginationChanged(int currentPage, bool hasPreviousPage, bool hasNextPage);
         void activeConnectionChanged(const QString& connectionSummary);
 

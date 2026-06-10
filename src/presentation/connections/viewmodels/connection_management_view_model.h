@@ -21,7 +21,6 @@ namespace redisforge::presentation::connections
         QString password;
         int databaseIndex{0};
         int connectTimeoutMs{3000};
-        bool useTls{false};
     };
 
     struct ConnectionListItem

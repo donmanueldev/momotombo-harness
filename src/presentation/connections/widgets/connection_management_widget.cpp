@@ -1,6 +1,5 @@
 #include "presentation/connections/widgets/connection_management_widget.h"
 
-#include <QCheckBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -9,47 +8,72 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStyle>
+#include <QVBoxLayout>
 
 namespace redisforge::presentation::connections
 {
     ConnectionManagementWidget::ConnectionManagementWidget(ConnectionManagementViewModel& viewModel, QWidget* parent)
         : QWidget(parent), viewModel_(viewModel)
     {
+        setObjectName("connectionsScreen");
         auto* rootLayout = new QHBoxLayout(this);
+        rootLayout->setContentsMargins(0, 0, 0, 0);
+        rootLayout->setSpacing(18);
 
         auto* savedProfilesGroup = new QGroupBox("Saved Connections", this);
+        savedProfilesGroup->setObjectName("panelCard");
         auto* savedProfilesLayout = new QVBoxLayout(savedProfilesGroup);
+        savedProfilesLayout->setSpacing(12);
+        auto* savedProfilesEyebrow = new QLabel("Connection library", savedProfilesGroup);
+        savedProfilesEyebrow->setObjectName("sectionEyebrow");
+        auto* savedProfilesBody = new QLabel(
+            "Keep local connection presets for your Redis environments and switch between them quickly.",
+            savedProfilesGroup);
+        savedProfilesBody->setObjectName("sectionBody");
+        savedProfilesBody->setWordWrap(true);
         profilesList_ = new QListWidget(savedProfilesGroup);
+        profilesList_->setAlternatingRowColors(true);
+        profilesList_->setMinimumWidth(280);
         paginationLabel_ = new QLabel("Page 1 / 1", savedProfilesGroup);
         previousPageButton_ = new QPushButton("Previous", savedProfilesGroup);
         nextPageButton_ = new QPushButton("Next", savedProfilesGroup);
+        nextPageButton_->setObjectName("ghostButton");
+        previousPageButton_->setObjectName("ghostButton");
 
         auto* paginationButtonsLayout = new QHBoxLayout();
         paginationButtonsLayout->addWidget(previousPageButton_);
         paginationButtonsLayout->addWidget(nextPageButton_);
 
+        savedProfilesLayout->addWidget(savedProfilesEyebrow);
+        savedProfilesLayout->addWidget(savedProfilesBody);
         savedProfilesLayout->addWidget(profilesList_);
         savedProfilesLayout->addWidget(paginationLabel_);
         savedProfilesLayout->addLayout(paginationButtonsLayout);
 
         auto* formGroup = new QGroupBox("Connection Details", this);
+        formGroup->setObjectName("panelCard");
         auto* formLayout = new QFormLayout(formGroup);
+        formLayout->setSpacing(12);
         nameEdit_ = new QLineEdit(formGroup);
+        nameEdit_->setPlaceholderText("Production Redis, Staging cache, Local dev...");
         hostEdit_ = new QLineEdit(formGroup);
+        hostEdit_->setPlaceholderText("127.0.0.1 or switchyard.proxy.rlwy.net");
         portSpinBox_ = new QSpinBox(formGroup);
         portSpinBox_->setRange(1, 65535);
         portSpinBox_->setValue(6379);
         usernameEdit_ = new QLineEdit(formGroup);
+        usernameEdit_->setPlaceholderText("Optional username");
         passwordEdit_ = new QLineEdit(formGroup);
         passwordEdit_->setEchoMode(QLineEdit::Password);
+        passwordEdit_->setPlaceholderText("Password or token");
         databaseSpinBox_ = new QSpinBox(formGroup);
         databaseSpinBox_->setRange(0, 1024);
         timeoutSpinBox_ = new QSpinBox(formGroup);
         timeoutSpinBox_->setRange(250, 30000);
         timeoutSpinBox_->setSingleStep(250);
         timeoutSpinBox_->setValue(3000);
-        tlsCheckBox_ = new QCheckBox("Enable TLS (placeholder)", formGroup);
-        tlsCheckBox_->setEnabled(false);
+        timeoutSpinBox_->setSuffix(" ms");
 
         formLayout->addRow("Profile name", nameEdit_);
         formLayout->addRow("Host", hostEdit_);
@@ -58,18 +82,34 @@ namespace redisforge::presentation::connections
         formLayout->addRow("Password", passwordEdit_);
         formLayout->addRow("Database", databaseSpinBox_);
         formLayout->addRow("Timeout (ms)", timeoutSpinBox_);
-        formLayout->addRow("", tlsCheckBox_);
 
         auto* actionLayout = new QHBoxLayout();
+        auto* clearButton = new QPushButton("New Profile", this);
+        clearButton->setObjectName("ghostButton");
         saveButton_ = new QPushButton("Save Profile", this);
         testButton_ = new QPushButton("Test Connection", this);
+        testButton_->setObjectName("primaryButton");
+        actionLayout->addWidget(clearButton);
+        actionLayout->addStretch(1);
         actionLayout->addWidget(saveButton_);
         actionLayout->addWidget(testButton_);
 
+        auto* rightPaneIntro = new QLabel("Create or test a connection using raw Redis host, port, and credentials.", this);
+        rightPaneIntro->setObjectName("sectionBody");
+        rightPaneIntro->setWordWrap(true);
         statusLabel_ = new QLabel("Ready.", this);
+        statusLabel_->setObjectName("statusCard");
         statusLabel_->setWordWrap(true);
 
         auto* rightPaneLayout = new QVBoxLayout();
+        rightPaneLayout->setSpacing(14);
+        auto* rightPaneEyebrow = new QLabel("Connect", this);
+        rightPaneEyebrow->setObjectName("sectionEyebrow");
+        auto* rightPaneTitle = new QLabel("Configure a Redis endpoint", this);
+        rightPaneTitle->setObjectName("sectionTitle");
+        rightPaneLayout->addWidget(rightPaneEyebrow);
+        rightPaneLayout->addWidget(rightPaneTitle);
+        rightPaneLayout->addWidget(rightPaneIntro);
         rightPaneLayout->addWidget(formGroup);
         rightPaneLayout->addLayout(actionLayout);
         rightPaneLayout->addWidget(statusLabel_);
@@ -81,6 +121,12 @@ namespace redisforge::presentation::connections
         connect(saveButton_, &QPushButton::clicked, this, [this]()
         {
             viewModel_.saveConnection(buildFormData());
+        });
+        connect(clearButton, &QPushButton::clicked, this, [this]()
+        {
+            profilesList_->clearSelection();
+            populateForm(ConnectionFormData{});
+            statusLabel_->setText("Ready to configure a new connection.");
         });
         connect(testButton_, &QPushButton::clicked, this, [this]()
         {
@@ -125,6 +171,9 @@ namespace redisforge::presentation::connections
         connect(&viewModel_, &ConnectionManagementViewModel::notificationChanged, this, [this](const QString& message)
         {
             statusLabel_->setText(message);
+            statusLabel_->setProperty("success", QVariant{});
+            style()->unpolish(statusLabel_);
+            style()->polish(statusLabel_);
         });
         connect(&viewModel_, &ConnectionManagementViewModel::busyChanged, this, [this](const bool isBusy)
         {
@@ -145,6 +194,8 @@ namespace redisforge::presentation::connections
                 }
                 statusLabel_->setText(summary);
                 statusLabel_->setProperty("success", isSuccessful);
+                style()->unpolish(statusLabel_);
+                style()->polish(statusLabel_);
             });
 
         viewModel_.loadProfiles();
@@ -161,7 +212,6 @@ namespace redisforge::presentation::connections
             passwordEdit_->text(),
             databaseSpinBox_->value(),
             timeoutSpinBox_->value(),
-            tlsCheckBox_->isChecked(),
         };
     }
 
@@ -175,6 +225,5 @@ namespace redisforge::presentation::connections
         passwordEdit_->setText(formData.password);
         databaseSpinBox_->setValue(formData.databaseIndex);
         timeoutSpinBox_->setValue(formData.connectTimeoutMs);
-        tlsCheckBox_->setChecked(formData.useTls);
     }
 } // namespace redisforge::presentation::connections

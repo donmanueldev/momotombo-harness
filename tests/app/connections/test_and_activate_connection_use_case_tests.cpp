@@ -60,7 +60,6 @@ namespace redisforge::app::connections
             "",
             0,
             3000,
-            false,
         };
 
         const auto result = useCase.execute(profile);

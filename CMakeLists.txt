@@ -26,7 +26,6 @@ set(REDISFORGE_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(redisforge_shared
         src/shared/logging/logger.h
-        src/shared/di/service_container.h
         src/shared/pagination/page.h
         src/shared/result/operation_result.h
 )
@@ -61,6 +60,10 @@ add_library(redisforge_app
         src/app/keys_explorer/use_cases/scan_keys_use_case.cpp
         src/app/value_inspector/use_cases/inspect_key_use_case.h
         src/app/value_inspector/use_cases/inspect_key_use_case.cpp
+        src/app/value_inspector/use_cases/save_string_value_use_case.h
+        src/app/value_inspector/use_cases/save_string_value_use_case.cpp
+        src/app/value_inspector/use_cases/save_hash_field_use_case.h
+        src/app/value_inspector/use_cases/save_hash_field_use_case.cpp
 )
 target_include_directories(redisforge_app PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_app PUBLIC redisforge_domain redisforge_shared)
@@ -109,8 +112,6 @@ add_library(redisforge_presentation
         src/presentation/value_inspector/viewmodels/value_inspector_view_model.cpp
         src/presentation/value_inspector/widgets/value_inspection_details_widget.h
         src/presentation/value_inspector/widgets/value_inspection_details_widget.cpp
-        src/presentation/value_inspector/widgets/value_inspector_widget.h
-        src/presentation/value_inspector/widgets/value_inspector_widget.cpp
 )
 target_include_directories(redisforge_presentation PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_presentation
@@ -142,6 +143,8 @@ if (BUILD_TESTING)
             tests/app/connections/test_and_activate_connection_use_case_tests.cpp
             tests/app/keys_explorer/scan_keys_use_case_tests.cpp
             tests/app/value_inspector/inspect_key_use_case_tests.cpp
+            tests/app/value_inspector/save_string_value_use_case_tests.cpp
+            tests/app/value_inspector/save_hash_field_use_case_tests.cpp
             tests/presentation/value_inspector/value_inspection_view_data_mapper_tests.cpp
             tests/integration/hiredis_connection_gateway_integration_tests.cpp
     )

@@ -14,6 +14,5 @@ struct ConnectionProfile
     std::string password;
     std::int32_t databaseIndex{0};
     std::int32_t connectTimeoutMs{3000};
-    bool useTls{false};
 };
 } // namespace redisforge::domain::connections

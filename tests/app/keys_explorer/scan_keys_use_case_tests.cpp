@@ -36,7 +36,10 @@ namespace
             lastPattern = pattern;
             lastPageSize = pageSize;
 
-            return redisforge::domain::keys_explorer::KeyScanPage{{"user:1", "user:2"}, "17", true};
+            return redisforge::domain::keys_explorer::KeyScanPage{
+                {{"user:1", "string"}, {"user:2", "hash"}},
+                "17",
+                true};
         }
 
         mutable std::string lastCursor;
@@ -65,7 +68,7 @@ namespace redisforge::app::keys_explorer
         auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
         activeConnectionStore.setActiveConnection(
             redisforge::domain::connections::ConnectionProfile{
-                "", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000, false
+                "", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000
             });
         auto gateway = FakeKeyExplorerGateway{};
         auto logger = NullLogger{};
@@ -77,7 +80,8 @@ namespace redisforge::app::keys_explorer
         EXPECT_EQ(gateway.lastCursor, "0");
         EXPECT_EQ(gateway.lastPattern, "user:*");
         EXPECT_EQ(gateway.lastPageSize, 50U);
-        EXPECT_EQ(result.value.keys.size(), 2U);
+        EXPECT_EQ(result.value.entries.size(), 2U);
+        EXPECT_EQ(result.value.entries.front().type, "string");
         EXPECT_EQ(result.value.nextCursor, "17");
     }
 } // namespace redisforge::app::keys_explorer

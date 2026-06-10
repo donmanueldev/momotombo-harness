@@ -87,7 +87,11 @@ namespace redisforge::infrastructure::connections
         auto gateway = redisforge::infrastructure::keys_explorer::HiredisKeyExplorerGateway{};
         const auto page = gateway.scanKeys(profile, "0", "*", 100);
 
-        EXPECT_FALSE(page.keys.empty());
+        EXPECT_FALSE(page.entries.empty());
+        if (!page.entries.empty())
+        {
+            EXPECT_FALSE(page.entries.front().type.empty());
+        }
     }
 
     TEST(HiredisConnectionGatewayIntegrationTests, InspectsKeyTypeFromRedisWhenIntegrationEnvironmentIsConfigured)
@@ -128,12 +132,12 @@ namespace redisforge::infrastructure::connections
 
         auto scanGateway = redisforge::infrastructure::keys_explorer::HiredisKeyExplorerGateway{};
         const auto page = scanGateway.scanKeys(profile, "0", "*", 100);
-        ASSERT_FALSE(page.keys.empty());
+        ASSERT_FALSE(page.entries.empty());
 
         auto inspectorGateway = redisforge::infrastructure::value_inspector::HiredisValueInspectorGateway{};
-        const auto inspection = inspectorGateway.inspectKey(profile, page.keys.front(), {});
+        const auto inspection = inspectorGateway.inspectKey(profile, page.entries.front().key, {});
 
-        EXPECT_EQ(inspection.key, page.keys.front());
+        EXPECT_EQ(inspection.key, page.entries.front().key);
         EXPECT_NE(inspection.type, redisforge::domain::value_inspector::RedisValueType::Unsupported);
     }
 } // namespace redisforge::infrastructure::connections

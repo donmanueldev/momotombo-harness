@@ -84,7 +84,6 @@ namespace redisforge::presentation::connections
                         QString::fromStdString(profile.password),
                         profile.databaseIndex,
                         profile.connectTimeoutMs,
-                        profile.useTls,
                     };
 
                     currentProfiles_.push_back(formData);
@@ -237,7 +236,6 @@ namespace redisforge::presentation::connections
             formData.password.toStdString(),
             formData.databaseIndex,
             formData.connectTimeoutMs,
-            formData.useTls,
         };
     }
 } // namespace redisforge::presentation::connections

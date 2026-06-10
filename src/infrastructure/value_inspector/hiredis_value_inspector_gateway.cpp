@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "infrastructure/connections/redis_connection_session.h"
 
@@ -20,14 +21,22 @@ namespace
         };
     }
 
-    [[nodiscard]] RedisReplyHandle commandWithCount(
-        redisContext* context,
-        const char* format,
-        const std::string& key,
-        const std::size_t count)
+    [[nodiscard]] RedisReplyHandle commandArgv(redisContext* context, const std::vector<std::string>& arguments)
     {
+        auto argv = std::vector<const char*>{};
+        auto argvlen = std::vector<std::size_t>{};
+        argv.reserve(arguments.size());
+        argvlen.reserve(arguments.size());
+
+        for (const auto& argument : arguments)
+        {
+            argv.push_back(argument.data());
+            argvlen.push_back(argument.size());
+        }
+
         return RedisReplyHandle{
-            static_cast<redisReply*>(redisCommand(context, format, key.data(), key.size(), count)),
+            static_cast<redisReply*>(
+                redisCommandArgv(context, static_cast<int>(argv.size()), argv.data(), argvlen.data())),
             &freeReplyObject,
         };
     }
@@ -110,12 +119,16 @@ namespace
         }
 
         const auto stringLength = static_cast<std::size_t>(lengthReply->integer);
-        const auto previewLength = options.stringByteLimit == 0 ? 0 : options.stringByteLimit - 1;
-        auto valueReply = RedisReplyHandle{
-            static_cast<redisReply*>(redisCommand(context, "GETRANGE %b 0 %zu", key.data(), key.size(), previewLength)),
-            &freeReplyObject,
-        };
-        ensureReply(valueReply, "GET");
+        if (options.stringByteLimit == 0)
+        {
+            result.isStringTruncated = stringLength > 0;
+            return;
+        }
+
+        const auto previewEnd = options.stringByteLimit - 1;
+        auto valueReply =
+            commandArgv(context, {"GETRANGE", key, "0", std::to_string(previewEnd)});
+        ensureReply(valueReply, "GETRANGE");
 
         if (valueReply->type == REDIS_REPLY_NIL)
         {
@@ -124,7 +137,7 @@ namespace
 
         if (valueReply->type != REDIS_REPLY_STRING)
         {
-            throw std::runtime_error("GET failed: unexpected reply shape.");
+            throw std::runtime_error("GETRANGE failed: unexpected reply shape.");
         }
 
         result.stringValue = readString(valueReply.get());
@@ -144,7 +157,8 @@ namespace
             throw std::runtime_error("HLEN failed: unexpected reply shape.");
         }
 
-        auto reply = commandWithCount(context, "HSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+        auto reply =
+            commandArgv(context, {"HSCAN", key, "0", "COUNT", std::to_string(options.collectionEntryLimit)});
         ensureReply(reply, "HSCAN");
         if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
         {
@@ -181,10 +195,7 @@ namespace
 
         const auto previewEnd =
             options.collectionEntryLimit == 0 ? static_cast<std::size_t>(0) : options.collectionEntryLimit - 1;
-        auto reply = RedisReplyHandle{
-            static_cast<redisReply*>(redisCommand(context, "LRANGE %b 0 %zu", key.data(), key.size(), previewEnd)),
-            &freeReplyObject,
-        };
+        auto reply = commandArgv(context, {"LRANGE", key, "0", std::to_string(previewEnd)});
         ensureReply(reply, "LRANGE");
 
         if (reply->type != REDIS_REPLY_ARRAY)
@@ -208,7 +219,8 @@ namespace
         const redisforge::domain::value_inspector::ValueInspectionOptions& options,
         redisforge::domain::value_inspector::KeyInspectionResult& result)
     {
-        auto reply = commandWithCount(context, "SSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+        auto reply =
+            commandArgv(context, {"SSCAN", key, "0", "COUNT", std::to_string(options.collectionEntryLimit)});
         ensureReply(reply, "SSCAN");
         if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
         {
@@ -232,7 +244,8 @@ namespace
         const redisforge::domain::value_inspector::ValueInspectionOptions& options,
         redisforge::domain::value_inspector::KeyInspectionResult& result)
     {
-        auto reply = commandWithCount(context, "ZSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+        auto reply =
+            commandArgv(context, {"ZSCAN", key, "0", "COUNT", std::to_string(options.collectionEntryLimit)});
         ensureReply(reply, "ZSCAN");
         if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
         {
@@ -281,7 +294,8 @@ namespace
         const redisforge::domain::value_inspector::ValueInspectionOptions& options,
         redisforge::domain::value_inspector::KeyInspectionResult& result)
     {
-        auto reply = commandWithCount(context, "XRANGE %b - + COUNT %zu", key, options.collectionEntryLimit);
+        auto reply =
+            commandArgv(context, {"XRANGE", key, "-", "+", "COUNT", std::to_string(options.collectionEntryLimit)});
         ensureReply(reply, "XRANGE");
 
         if (reply->type != REDIS_REPLY_ARRAY)
@@ -311,6 +325,45 @@ namespace
 
 namespace redisforge::infrastructure::value_inspector
 {
+    void HiredisValueInspectorGateway::saveStringValue(
+        const domain::connections::ConnectionProfile& profile,
+        const std::string& key,
+        const std::string& value) const
+    {
+        auto session = connections::RedisConnectionSession{profile};
+        if (!session.isOpen())
+        {
+            throw std::runtime_error(session.errorMessage());
+        }
+
+        auto reply = commandArgv(session.context(), {"SET", key, value});
+        ensureReply(reply, "SET");
+        if (reply->type != REDIS_REPLY_STATUS)
+        {
+            throw std::runtime_error("SET failed: unexpected reply shape.");
+        }
+    }
+
+    void HiredisValueInspectorGateway::saveHashField(
+        const domain::connections::ConnectionProfile& profile,
+        const std::string& key,
+        const std::string& field,
+        const std::string& value) const
+    {
+        auto session = connections::RedisConnectionSession{profile};
+        if (!session.isOpen())
+        {
+            throw std::runtime_error(session.errorMessage());
+        }
+
+        auto reply = commandArgv(session.context(), {"HSET", key, field, value});
+        ensureReply(reply, "HSET");
+        if (reply->type != REDIS_REPLY_INTEGER)
+        {
+            throw std::runtime_error("HSET failed: unexpected reply shape.");
+        }
+    }
+
     domain::value_inspector::KeyInspectionResult HiredisValueInspectorGateway::inspectKey(
         const domain::connections::ConnectionProfile& profile,
         const std::string& key,

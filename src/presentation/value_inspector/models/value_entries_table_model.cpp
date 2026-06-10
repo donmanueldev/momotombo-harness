@@ -126,4 +126,14 @@ void ValueEntriesTableModel::setStreamEntries(
     }
     endResetModel();
 }
+
+QStringList ValueEntriesTableModel::rowValuesAt(const int row) const
+{
+    if (row < 0 || row >= rows_.size())
+    {
+        return {};
+    }
+
+    return rows_.at(row);
+}
 } // namespace redisforge::presentation::value_inspector

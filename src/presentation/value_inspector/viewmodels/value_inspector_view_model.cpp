@@ -8,8 +8,13 @@ namespace redisforge::presentation::value_inspector
 {
 ValueInspectorViewModel::ValueInspectorViewModel(
     app::value_inspector::InspectKeyUseCase& inspectKeyUseCase,
+    app::value_inspector::SaveStringValueUseCase& saveStringValueUseCase,
+    app::value_inspector::SaveHashFieldUseCase& saveHashFieldUseCase,
     QObject* parent)
-    : QObject(parent), inspectKeyUseCase_(inspectKeyUseCase)
+    : QObject(parent),
+      inspectKeyUseCase_(inspectKeyUseCase),
+      saveStringValueUseCase_(saveStringValueUseCase),
+      saveHashFieldUseCase_(saveHashFieldUseCase)
 {
 }
 
@@ -80,6 +85,77 @@ void ValueInspectorViewModel::inspectKey(const QString& key)
         },
     };
     watcher->setFuture(QtConcurrent::run([useCase, query]() { return useCase->execute(query); }));
+}
+
+void ValueInspectorViewModel::refreshCurrentKey()
+{
+    if (viewData_.key.empty())
+    {
+        emit statusChanged("Select a key to inspect.");
+        return;
+    }
+
+    inspectKey(QString::fromStdString(viewData_.key));
+}
+
+void ValueInspectorViewModel::saveStringValue(const QString& value)
+{
+    if (busy_)
+    {
+        emit statusChanged("Wait for the current Redis operation to finish.");
+        return;
+    }
+
+    if (viewData_.key.empty() || viewData_.type != redisforge::domain::value_inspector::RedisValueType::String)
+    {
+        emit statusChanged("Select a string key before saving.");
+        return;
+    }
+
+    const auto result = saveStringValueUseCase_.execute({
+        viewData_.key,
+        value.toStdString(),
+    });
+    if (!result.isSuccessful)
+    {
+        emit statusChanged(QString::fromStdString(
+            result.errors.empty() ? "Failed to save string value." : result.errors.front()));
+        return;
+    }
+
+    emit statusChanged(QString("Saved string key '%1'.").arg(QString::fromStdString(viewData_.key)));
+    inspectKey(QString::fromStdString(viewData_.key));
+}
+
+void ValueInspectorViewModel::saveHashField(const QString& field, const QString& value)
+{
+    if (busy_)
+    {
+        emit statusChanged("Wait for the current Redis operation to finish.");
+        return;
+    }
+
+    if (viewData_.key.empty() || viewData_.type != redisforge::domain::value_inspector::RedisValueType::Hash)
+    {
+        emit statusChanged("Select a hash key before saving.");
+        return;
+    }
+
+    const auto result = saveHashFieldUseCase_.execute({
+        viewData_.key,
+        field.trimmed().toStdString(),
+        value.toStdString(),
+    });
+    if (!result.isSuccessful)
+    {
+        emit statusChanged(QString::fromStdString(
+            result.errors.empty() ? "Failed to save hash field." : result.errors.front()));
+        return;
+    }
+
+    emit statusChanged(
+        QString("Saved field '%1' on hash '%2'.").arg(field.trimmed(), QString::fromStdString(viewData_.key)));
+    inspectKey(QString::fromStdString(viewData_.key));
 }
 
 void ValueInspectorViewModel::clear()

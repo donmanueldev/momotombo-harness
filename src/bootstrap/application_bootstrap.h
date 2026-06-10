@@ -8,6 +8,8 @@
 #include "app/connections/use_cases/test_and_activate_connection_use_case.h"
 #include "app/keys_explorer/use_cases/scan_keys_use_case.h"
 #include "app/value_inspector/use_cases/inspect_key_use_case.h"
+#include "app/value_inspector/use_cases/save_hash_field_use_case.h"
+#include "app/value_inspector/use_cases/save_string_value_use_case.h"
 #include "domain/connections/repositories/i_connection_profile_repository.h"
 #include "domain/connections/services/i_redis_connection_gateway.h"
 #include "domain/keys_explorer/services/i_key_explorer_gateway.h"
@@ -36,6 +38,8 @@ namespace redisforge::bootstrap
         app::connections::TestAndActivateConnectionUseCase testAndActivateConnectionUseCase;
         app::keys_explorer::ScanKeysUseCase scanKeysUseCase;
         app::value_inspector::InspectKeyUseCase inspectKeyUseCase;
+        app::value_inspector::SaveStringValueUseCase saveStringValueUseCase;
+        app::value_inspector::SaveHashFieldUseCase saveHashFieldUseCase;
     };
 
     struct PresentationServices

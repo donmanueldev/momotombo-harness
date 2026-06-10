@@ -26,8 +26,8 @@ namespace redisforge::presentation
     public:
         explicit MainWindow(
             connections::ConnectionManagementViewModel& connectionViewModel,
-            value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
             keys_explorer::KeysExplorerViewModel& keysExplorerViewModel,
+            value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
             QWidget* parent = nullptr);
     };
 } // namespace redisforge::presentation
