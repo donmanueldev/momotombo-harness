@@ -23,19 +23,16 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
     setObjectName("inspectorDetails");
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(12);
+    rootLayout->setSpacing(8);
 
     auto* headerLayout = new QHBoxLayout();
     auto* headerTextLayout = new QVBoxLayout();
-    auto* headerEyebrow = new QLabel("Inspector", this);
-    headerEyebrow->setObjectName("panelEyebrow");
     selectedKeyLabel_ = new QLabel("Selected key: none", this);
     selectedKeyLabel_->setObjectName("panelTitle");
     selectedTypeLabel_ = new QLabel("Type: -", this);
     selectedTypeLabel_->setObjectName("metaLabel");
     refreshButton_ = new QPushButton("Reload value", this);
     refreshButton_->setObjectName("ghostButton");
-    headerTextLayout->addWidget(headerEyebrow);
     headerTextLayout->addWidget(selectedKeyLabel_);
     headerTextLayout->addWidget(selectedTypeLabel_);
     headerLayout->addLayout(headerTextLayout, 1);
@@ -46,7 +43,7 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
     emptyStateLabel_->setObjectName("emptyStateBody");
     emptyStateLabel_->setWordWrap(true);
     stringValueTextEdit_ = new QPlainTextEdit(this);
-    stringValueTextEdit_->setMinimumHeight(280);
+    stringValueTextEdit_->setMinimumHeight(260);
     stringValueTextEdit_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     tableView_ = new QTableView(this);
     tableModel_ = new ValueEntriesTableModel(this);
@@ -68,6 +65,7 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
     stringEditorWidget_ = new QWidget(this);
     auto* stringEditorLayout = new QHBoxLayout(stringEditorWidget_);
     stringEditorLayout->setContentsMargins(0, 0, 0, 0);
+    stringEditorLayout->setSpacing(8);
     saveStringButton_ = new QPushButton("Save string", stringEditorWidget_);
     saveStringButton_->setObjectName("primaryButton");
     stringEditorLayout->addStretch(1);
@@ -76,6 +74,7 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
     hashEditorWidget_ = new QWidget(this);
     auto* hashEditorLayout = new QHBoxLayout(hashEditorWidget_);
     hashEditorLayout->setContentsMargins(0, 0, 0, 0);
+    hashEditorLayout->setSpacing(8);
     hashFieldEdit_ = new QLineEdit(hashEditorWidget_);
     hashFieldEdit_->setPlaceholderText("Field");
     hashValueEdit_ = new QLineEdit(hashEditorWidget_);
@@ -157,7 +156,7 @@ void ValueInspectionDetailsWidget::render()
         data.key.empty() ? QString("Type: -") : QString("Type: %1").arg(QString::fromStdString(data.typeLabel));
     if (data.hasAdditionalEntries)
     {
-        typeLabel.append(QString("   Preview entries: %1").arg(static_cast<qulonglong>(data.loadedEntryCount)));
+        typeLabel.append(QString("   Rows: %1").arg(static_cast<qulonglong>(data.loadedEntryCount)));
     }
     selectedTypeLabel_->setText(typeLabel);
     refreshButton_->setEnabled(!data.key.empty());

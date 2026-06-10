@@ -19,20 +19,15 @@ namespace redisforge::presentation::connections
         setObjectName("connectionsScreen");
         auto* rootLayout = new QHBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
-        rootLayout->setSpacing(20);
+        rootLayout->setSpacing(12);
 
         auto* savedProfilesPanel = new QWidget(this);
         savedProfilesPanel->setObjectName("panelCard");
         auto* savedProfilesLayout = new QVBoxLayout(savedProfilesPanel);
-        savedProfilesLayout->setContentsMargins(20, 20, 20, 20);
-        savedProfilesLayout->setSpacing(14);
-        auto* libraryEyebrow = new QLabel("Library", savedProfilesPanel);
-        libraryEyebrow->setObjectName("panelEyebrow");
-        auto* libraryTitle = new QLabel("Saved connections", savedProfilesPanel);
+        savedProfilesLayout->setContentsMargins(14, 14, 14, 14);
+        savedProfilesLayout->setSpacing(10);
+        auto* libraryTitle = new QLabel("Connections", savedProfilesPanel);
         libraryTitle->setObjectName("panelTitle");
-        auto* libraryDescription = new QLabel("Redis endpoints.", savedProfilesPanel);
-        libraryDescription->setObjectName("panelDescription");
-        libraryDescription->setWordWrap(true);
         profilesList_ = new QListWidget(savedProfilesPanel);
         profilesList_->setAlternatingRowColors(true);
         profilesList_->setMinimumWidth(280);
@@ -48,9 +43,7 @@ namespace redisforge::presentation::connections
         paginationButtonsLayout->addWidget(previousPageButton_);
         paginationButtonsLayout->addWidget(nextPageButton_);
 
-        savedProfilesLayout->addWidget(libraryEyebrow);
         savedProfilesLayout->addWidget(libraryTitle);
-        savedProfilesLayout->addWidget(libraryDescription);
         savedProfilesLayout->addWidget(profilesList_);
         savedProfilesLayout->addWidget(paginationLabel_);
         savedProfilesLayout->addLayout(paginationButtonsLayout);
@@ -58,24 +51,19 @@ namespace redisforge::presentation::connections
         auto* formPanel = new QWidget(this);
         formPanel->setObjectName("panelCard");
         auto* formPanelLayout = new QVBoxLayout(formPanel);
-        formPanelLayout->setContentsMargins(20, 20, 20, 20);
-        formPanelLayout->setSpacing(16);
-        auto* formEyebrow = new QLabel("Details", formPanel);
-        formEyebrow->setObjectName("panelEyebrow");
+        formPanelLayout->setContentsMargins(14, 14, 14, 14);
+        formPanelLayout->setSpacing(12);
         auto* formTitle = new QLabel("Connection settings", formPanel);
         formTitle->setObjectName("panelTitle");
-        auto* formDescription = new QLabel("Host, port, and credentials.", formPanel);
-        formDescription->setObjectName("panelDescription");
-        formDescription->setWordWrap(true);
         auto* formLayout = new QFormLayout();
-        formLayout->setSpacing(12);
+        formLayout->setSpacing(10);
         formLayout->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         formLayout->setFormAlignment(Qt::AlignTop);
-        formLayout->setHorizontalSpacing(18);
+        formLayout->setHorizontalSpacing(12);
         nameEdit_ = new QLineEdit(formPanel);
-        nameEdit_->setPlaceholderText("Production Redis, Staging cache, Local dev...");
+        nameEdit_->setPlaceholderText("Local Redis");
         hostEdit_ = new QLineEdit(formPanel);
-        hostEdit_->setPlaceholderText("127.0.0.1 or switchyard.proxy.rlwy.net");
+        hostEdit_->setPlaceholderText("127.0.0.1");
         portSpinBox_ = new QSpinBox(formPanel);
         portSpinBox_->setRange(1, 65535);
         portSpinBox_->setValue(6379);
@@ -98,14 +86,12 @@ namespace redisforge::presentation::connections
         formLayout->addRow("Username", usernameEdit_);
         formLayout->addRow("Password", passwordEdit_);
         formLayout->addRow("Database", databaseSpinBox_);
-        formLayout->addRow("Timeout (ms)", timeoutSpinBox_);
-        formPanelLayout->addWidget(formEyebrow);
+        formLayout->addRow("Timeout", timeoutSpinBox_);
         formPanelLayout->addWidget(formTitle);
-        formPanelLayout->addWidget(formDescription);
         formPanelLayout->addLayout(formLayout);
 
         auto* actionLayout = new QHBoxLayout();
-        actionLayout->setSpacing(12);
+        actionLayout->setSpacing(8);
         auto* clearButton = new QPushButton("New Profile", this);
         clearButton->setObjectName("ghostButton");
         saveButton_ = new QPushButton("Save Profile", this);
@@ -119,25 +105,18 @@ namespace redisforge::presentation::connections
         auto* statusBanner = new QFrame(this);
         statusBanner->setObjectName("infoBanner");
         auto* statusLayout = new QHBoxLayout(statusBanner);
-        statusLayout->setContentsMargins(16, 14, 16, 14);
-        statusLayout->setSpacing(12);
-        statusLabel_ = new QLabel("Ready to configure a new connection.", statusBanner);
+        statusLayout->setContentsMargins(12, 10, 12, 10);
+        statusLayout->setSpacing(8);
+        statusLabel_ = new QLabel("Ready.", statusBanner);
         statusLabel_->setObjectName("statusCard");
         statusLabel_->setWordWrap(true);
         statusLayout->addWidget(statusLabel_);
 
         auto* rightPaneLayout = new QVBoxLayout();
-        rightPaneLayout->setSpacing(14);
-        auto* rightPaneEyebrow = new QLabel("Connect", this);
-        rightPaneEyebrow->setObjectName("panelEyebrow");
+        rightPaneLayout->setSpacing(10);
         auto* rightPaneTitle = new QLabel("Open or create", this);
         rightPaneTitle->setObjectName("sectionTitle");
-        auto* rightPaneDescription = new QLabel("Choose a saved profile or enter details.", this);
-        rightPaneDescription->setObjectName("panelDescription");
-        rightPaneDescription->setWordWrap(true);
-        rightPaneLayout->addWidget(rightPaneEyebrow);
         rightPaneLayout->addWidget(rightPaneTitle);
-        rightPaneLayout->addWidget(rightPaneDescription);
         rightPaneLayout->addWidget(formPanel);
         rightPaneLayout->addLayout(actionLayout);
         rightPaneLayout->addWidget(statusBanner);
@@ -154,7 +133,7 @@ namespace redisforge::presentation::connections
         {
             profilesList_->clearSelection();
             populateForm(ConnectionFormData{});
-            statusLabel_->setText("Ready to configure a new connection.");
+            statusLabel_->setText("Ready.");
         });
         connect(testButton_, &QPushButton::clicked, this, [this]()
         {
