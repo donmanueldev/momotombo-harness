@@ -9,6 +9,12 @@
 
 namespace redisforge::app::value_inspector
 {
+struct InspectKeyQuery
+{
+    std::string key;
+    redisforge::domain::value_inspector::ValueInspectionOptions options{};
+};
+
     class InspectKeyUseCase final
     {
     public:
@@ -18,7 +24,7 @@ namespace redisforge::app::value_inspector
             shared::logging::ILogger& logger);
 
         [[nodiscard]] shared::result::OperationResult<domain::value_inspector::KeyInspectionResult>
-        execute(const std::string& key) const;
+        execute(const InspectKeyQuery& query) const;
 
     private:
         const connections::ActiveConnectionStore& activeConnectionStore_;

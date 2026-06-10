@@ -3,8 +3,6 @@
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 
-#include <exception>
-
 namespace redisforge::presentation::keys_explorer
 {
 KeysExplorerViewModel::KeysExplorerViewModel(
@@ -142,16 +140,7 @@ void KeysExplorerViewModel::loadCursor(const std::string& cursor, const int page
         static_cast<std::size_t>(pageSize_),
     };
 
-    watcher->setFuture(QtConcurrent::run([this, query]() {
-        try
-        {
-            return scanKeysUseCase_.execute(query);
-        }
-        catch (const std::exception& exception)
-        {
-            return shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>::failure(
-                {exception.what()});
-        }
-    }));
+    auto* useCase = &scanKeysUseCase_;
+    watcher->setFuture(QtConcurrent::run([useCase, query]() { return useCase->execute(query); }));
 }
 } // namespace redisforge::presentation::keys_explorer

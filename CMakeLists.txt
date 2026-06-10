@@ -55,6 +55,8 @@ add_library(redisforge_app
         src/app/connections/use_cases/save_connection_profile_use_case.cpp
         src/app/connections/use_cases/test_connection_use_case.h
         src/app/connections/use_cases/test_connection_use_case.cpp
+        src/app/connections/use_cases/test_and_activate_connection_use_case.h
+        src/app/connections/use_cases/test_and_activate_connection_use_case.cpp
         src/app/keys_explorer/use_cases/scan_keys_use_case.h
         src/app/keys_explorer/use_cases/scan_keys_use_case.cpp
         src/app/value_inspector/use_cases/inspect_key_use_case.h
@@ -84,16 +86,22 @@ target_link_libraries(redisforge_infrastructure
 )
 
 add_library(redisforge_presentation
+        src/bootstrap/application_bootstrap.h
+        src/bootstrap/application_bootstrap.cpp
         src/presentation/main_window.h
         src/presentation/main_window.cpp
         src/presentation/connections/viewmodels/connection_management_view_model.h
         src/presentation/connections/viewmodels/connection_management_view_model.cpp
         src/presentation/connections/widgets/connection_management_widget.h
         src/presentation/connections/widgets/connection_management_widget.cpp
+        src/presentation/keys_explorer/models/keys_table_model.h
+        src/presentation/keys_explorer/models/keys_table_model.cpp
         src/presentation/keys_explorer/viewmodels/keys_explorer_view_model.h
         src/presentation/keys_explorer/viewmodels/keys_explorer_view_model.cpp
         src/presentation/keys_explorer/widgets/keys_explorer_widget.h
         src/presentation/keys_explorer/widgets/keys_explorer_widget.cpp
+        src/presentation/value_inspector/models/value_entries_table_model.h
+        src/presentation/value_inspector/models/value_entries_table_model.cpp
         src/presentation/value_inspector/viewmodels/value_inspection_view_data.h
         src/presentation/value_inspector/viewmodels/value_inspection_view_data_mapper.h
         src/presentation/value_inspector/viewmodels/value_inspection_view_data_mapper.cpp
@@ -131,6 +139,7 @@ if (BUILD_TESTING)
     add_executable(redisforge_tests
             tests/domain/connections/connection_profile_validator_tests.cpp
             tests/app/connections/save_connection_profile_use_case_tests.cpp
+            tests/app/connections/test_and_activate_connection_use_case_tests.cpp
             tests/app/keys_explorer/scan_keys_use_case_tests.cpp
             tests/app/value_inspector/inspect_key_use_case_tests.cpp
             tests/presentation/value_inspector/value_inspection_view_data_mapper_tests.cpp

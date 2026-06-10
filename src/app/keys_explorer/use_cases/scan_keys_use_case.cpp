@@ -1,5 +1,7 @@
 #include "app/keys_explorer/use_cases/scan_keys_use_case.h"
 
+#include <exception>
+
 namespace redisforge::app::keys_explorer
 {
 ScanKeysUseCase::ScanKeysUseCase(
@@ -27,7 +29,21 @@ redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::K
         {"host", profile->host},
     });
 
-    auto page = keyExplorerGateway_.scanKeys(*profile, query.cursor, query.pattern, query.pageSize);
+    auto page = redisforge::domain::keys_explorer::KeyScanPage{};
+    try
+    {
+        page = keyExplorerGateway_.scanKeys(*profile, query.cursor, query.pattern, query.pageSize);
+    }
+    catch (const std::exception& exception)
+    {
+        logger_.error("keys.scan.failed", {
+            {"cursor", query.cursor},
+            {"pattern", query.pattern},
+            {"reason", exception.what()},
+        });
+        return redisforge::shared::result::OperationResult<redisforge::domain::keys_explorer::KeyScanPage>::failure(
+            {exception.what()});
+    }
 
     logger_.info("keys.scan.completed", {
         {"cursor", query.cursor},

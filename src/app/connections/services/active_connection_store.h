@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <optional>
 
 #include "domain/connections/entities/connection_profile.h"
@@ -15,6 +16,7 @@ public:
     [[nodiscard]] std::optional<redisforge::domain::connections::ConnectionProfile> activeConnection() const;
 
 private:
+    mutable std::mutex mutex_;
     std::optional<redisforge::domain::connections::ConnectionProfile> activeConnection_;
 };
 } // namespace redisforge::app::connections

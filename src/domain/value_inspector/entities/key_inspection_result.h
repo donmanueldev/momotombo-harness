@@ -68,11 +68,20 @@ struct StreamEntry
     std::vector<HashEntry> fields;
 };
 
+struct ValueInspectionOptions
+{
+    std::size_t collectionEntryLimit{200};
+    std::size_t stringByteLimit{65536};
+};
+
 struct KeyInspectionResult
 {
     std::string key;
     RedisValueType type{RedisValueType::None};
     std::string stringValue;
+    bool isStringTruncated{false};
+    bool hasAdditionalEntries{false};
+    std::size_t loadedEntryCount{0};
     std::vector<HashEntry> hashEntries;
     std::vector<ListEntry> listEntries;
     std::vector<std::string> setMembers;

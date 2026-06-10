@@ -131,7 +131,7 @@ TEST(HiredisConnectionGatewayIntegrationTests, InspectsKeyTypeFromRedisWhenInteg
     ASSERT_FALSE(page.keys.empty());
 
     auto inspectorGateway = redisforge::infrastructure::value_inspector::HiredisValueInspectorGateway{};
-    const auto inspection = inspectorGateway.inspectKey(profile, page.keys.front());
+    const auto inspection = inspectorGateway.inspectKey(profile, page.keys.front(), {});
 
     EXPECT_EQ(inspection.key, page.keys.front());
     EXPECT_NE(inspection.type, redisforge::domain::value_inspector::RedisValueType::Unsupported);

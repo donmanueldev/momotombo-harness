@@ -22,6 +22,18 @@ using RedisReplyHandle = std::unique_ptr<redisReply, decltype(&freeReplyObject)>
     };
 }
 
+[[nodiscard]] RedisReplyHandle commandWithCount(
+    redisContext* context,
+    const char* format,
+    const std::string& key,
+    const std::size_t count)
+{
+    return RedisReplyHandle{
+        static_cast<redisReply*>(redisCommand(context, format, key.data(), key.size(), count)),
+        &freeReplyObject,
+    };
+}
+
 [[nodiscard]] std::string readString(const redisReply* reply)
 {
     if (reply->str == nullptr)
@@ -89,9 +101,22 @@ void ensureReply(const RedisReplyHandle& reply, const std::string& operation)
 void inspectString(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto valueReply = command(context, "GET %b", key);
+    auto lengthReply = command(context, "STRLEN %b", key);
+    ensureReply(lengthReply, "STRLEN");
+    if (lengthReply->type != REDIS_REPLY_INTEGER)
+    {
+        throw std::runtime_error("STRLEN failed: unexpected reply shape.");
+    }
+
+    const auto stringLength = static_cast<std::size_t>(lengthReply->integer);
+    const auto previewLength = options.stringByteLimit == 0 ? 0 : options.stringByteLimit - 1;
+    auto valueReply = RedisReplyHandle{
+        static_cast<redisReply*>(redisCommand(context, "GETRANGE %b 0 %zu", key.data(), key.size(), previewLength)),
+        &freeReplyObject,
+    };
     ensureReply(valueReply, "GET");
 
     if (valueReply->type == REDIS_REPLY_NIL)
@@ -105,38 +130,63 @@ void inspectString(
     }
 
     result.stringValue = readString(valueReply.get());
+    result.isStringTruncated = stringLength > options.stringByteLimit;
 }
 
 void inspectHash(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto reply = command(context, "HGETALL %b", key);
-    ensureReply(reply, "HGETALL");
-
-    if (reply->type != REDIS_REPLY_ARRAY)
+    auto totalReply = command(context, "HLEN %b", key);
+    ensureReply(totalReply, "HLEN");
+    if (totalReply->type != REDIS_REPLY_INTEGER)
     {
-        throw std::runtime_error("HGETALL failed: unexpected reply shape.");
+        throw std::runtime_error("HLEN failed: unexpected reply shape.");
     }
 
+    auto reply = commandWithCount(context, "HSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+    ensureReply(reply, "HSCAN");
+    if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
+    {
+        throw std::runtime_error("HSCAN failed: unexpected reply shape.");
+    }
+
+    const auto* entriesReply = reply->element[1];
     result.hashEntries.clear();
-    result.hashEntries.reserve(static_cast<std::size_t>(reply->elements / 2));
-    for (std::size_t index = 0; index + 1 < reply->elements; index += 2)
+    result.hashEntries.reserve(static_cast<std::size_t>(entriesReply->elements / 2));
+    for (std::size_t index = 0; index + 1 < entriesReply->elements; index += 2)
     {
         result.hashEntries.push_back({
-            readString(reply->element[index]),
-            readString(reply->element[index + 1]),
+            readString(entriesReply->element[index]),
+            readString(entriesReply->element[index + 1]),
         });
     }
+    result.loadedEntryCount = result.hashEntries.size();
+    result.hasAdditionalEntries = static_cast<std::size_t>(totalReply->integer) > result.loadedEntryCount
+        || readString(reply->element[0]) != "0";
 }
 
 void inspectList(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto reply = command(context, "LRANGE %b 0 -1", key);
+    auto totalReply = command(context, "LLEN %b", key);
+    ensureReply(totalReply, "LLEN");
+    if (totalReply->type != REDIS_REPLY_INTEGER)
+    {
+        throw std::runtime_error("LLEN failed: unexpected reply shape.");
+    }
+
+    const auto previewEnd =
+        options.collectionEntryLimit == 0 ? static_cast<std::size_t>(0) : options.collectionEntryLimit - 1;
+    auto reply = RedisReplyHandle{
+        static_cast<redisReply*>(redisCommand(context, "LRANGE %b 0 %zu", key.data(), key.size(), previewEnd)),
+        &freeReplyObject,
+    };
     ensureReply(reply, "LRANGE");
 
     if (reply->type != REDIS_REPLY_ARRAY)
@@ -150,53 +200,61 @@ void inspectList(
     {
         result.listEntries.push_back({index, readString(reply->element[index])});
     }
+    result.loadedEntryCount = result.listEntries.size();
+    result.hasAdditionalEntries = static_cast<std::size_t>(totalReply->integer) > result.loadedEntryCount;
 }
 
 void inspectSet(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto reply = command(context, "SMEMBERS %b", key);
-    ensureReply(reply, "SMEMBERS");
-
-    if (reply->type != REDIS_REPLY_ARRAY)
+    auto reply = commandWithCount(context, "SSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+    ensureReply(reply, "SSCAN");
+    if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
     {
-        throw std::runtime_error("SMEMBERS failed: unexpected reply shape.");
+        throw std::runtime_error("SSCAN failed: unexpected reply shape.");
     }
 
+    const auto* entriesReply = reply->element[1];
     result.setMembers.clear();
-    result.setMembers.reserve(reply->elements);
-    for (std::size_t index = 0; index < reply->elements; ++index)
+    result.setMembers.reserve(entriesReply->elements);
+    for (std::size_t index = 0; index < entriesReply->elements; ++index)
     {
-        result.setMembers.push_back(readString(reply->element[index]));
+        result.setMembers.push_back(readString(entriesReply->element[index]));
     }
+    result.loadedEntryCount = result.setMembers.size();
+    result.hasAdditionalEntries = readString(reply->element[0]) != "0";
 }
 
 void inspectSortedSet(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto reply = command(context, "ZRANGE %b 0 -1 WITHSCORES", key);
-    ensureReply(reply, "ZRANGE");
-
-    if (reply->type != REDIS_REPLY_ARRAY)
+    auto reply = commandWithCount(context, "ZSCAN %b 0 COUNT %zu", key, options.collectionEntryLimit);
+    ensureReply(reply, "ZSCAN");
+    if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2 || reply->element[1]->type != REDIS_REPLY_ARRAY)
     {
-        throw std::runtime_error("ZRANGE failed: unexpected reply shape.");
+        throw std::runtime_error("ZSCAN failed: unexpected reply shape.");
     }
 
+    const auto* entriesReply = reply->element[1];
     result.sortedSetEntries.clear();
-    result.sortedSetEntries.reserve(static_cast<std::size_t>(reply->elements / 2));
-    for (std::size_t index = 0; index + 1 < reply->elements; index += 2)
+    result.sortedSetEntries.reserve(static_cast<std::size_t>(entriesReply->elements / 2));
+    for (std::size_t index = 0; index + 1 < entriesReply->elements; index += 2)
     {
-        const auto scoreText = readString(reply->element[index + 1]);
+        const auto scoreText = readString(entriesReply->element[index + 1]);
         result.sortedSetEntries.push_back({
-            readString(reply->element[index]),
+            readString(entriesReply->element[index]),
             std::strtod(scoreText.c_str(), nullptr),
             scoreText,
         });
     }
+    result.loadedEntryCount = result.sortedSetEntries.size();
+    result.hasAdditionalEntries = readString(reply->element[0]) != "0";
 }
 
 std::vector<redisforge::domain::value_inspector::HashEntry> parseStreamFields(const redisReply* fieldsReply)
@@ -222,9 +280,10 @@ std::vector<redisforge::domain::value_inspector::HashEntry> parseStreamFields(co
 void inspectStream(
     redisContext* context,
     const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options,
     redisforge::domain::value_inspector::KeyInspectionResult& result)
 {
-    auto reply = command(context, "XRANGE %b - +", key);
+    auto reply = commandWithCount(context, "XRANGE %b - + COUNT %zu", key, options.collectionEntryLimit);
     ensureReply(reply, "XRANGE");
 
     if (reply->type != REDIS_REPLY_ARRAY)
@@ -247,6 +306,8 @@ void inspectStream(
             parseStreamFields(entryReply->element[1]),
         });
     }
+    result.loadedEntryCount = result.streamEntries.size();
+    result.hasAdditionalEntries = result.streamEntries.size() >= options.collectionEntryLimit;
 }
 }
 
@@ -254,7 +315,8 @@ namespace redisforge::infrastructure::value_inspector
 {
 redisforge::domain::value_inspector::KeyInspectionResult HiredisValueInspectorGateway::inspectKey(
     const redisforge::domain::connections::ConnectionProfile& profile,
-    const std::string& key) const
+    const std::string& key,
+    const redisforge::domain::value_inspector::ValueInspectionOptions& options) const
 {
     auto session = redisforge::infrastructure::connections::RedisConnectionSession{profile};
     if (!session.isOpen())
@@ -277,22 +339,22 @@ redisforge::domain::value_inspector::KeyInspectionResult HiredisValueInspectorGa
     switch (result.type)
     {
     case redisforge::domain::value_inspector::RedisValueType::String:
-        inspectString(session.context(), key, result);
+        inspectString(session.context(), key, options, result);
         break;
     case redisforge::domain::value_inspector::RedisValueType::Hash:
-        inspectHash(session.context(), key, result);
+        inspectHash(session.context(), key, options, result);
         break;
     case redisforge::domain::value_inspector::RedisValueType::List:
-        inspectList(session.context(), key, result);
+        inspectList(session.context(), key, options, result);
         break;
     case redisforge::domain::value_inspector::RedisValueType::Set:
-        inspectSet(session.context(), key, result);
+        inspectSet(session.context(), key, options, result);
         break;
     case redisforge::domain::value_inspector::RedisValueType::SortedSet:
-        inspectSortedSet(session.context(), key, result);
+        inspectSortedSet(session.context(), key, options, result);
         break;
     case redisforge::domain::value_inspector::RedisValueType::Stream:
-        inspectStream(session.context(), key, result);
+        inspectStream(session.context(), key, options, result);
         break;
     case domain::value_inspector::RedisValueType::None:
     case domain::value_inspector::RedisValueType::Unsupported:

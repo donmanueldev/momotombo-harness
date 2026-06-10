@@ -2,8 +2,6 @@
 
 #include <QtConcurrent/QtConcurrent>
 
-#include <exception>
-
 #include "presentation/value_inspector/viewmodels/value_inspection_view_data_mapper.h"
 
 namespace redisforge::presentation::value_inspector
@@ -73,17 +71,15 @@ void ValueInspectorViewModel::inspectKey(const QString& key)
             watcher->deleteLater();
         });
 
-    watcher->setFuture(QtConcurrent::run([this, trimmedKey]() {
-        try
+    auto* useCase = &inspectKeyUseCase_;
+    const auto query = app::value_inspector::InspectKeyQuery{
+        trimmedKey.toStdString(),
         {
-            return inspectKeyUseCase_.execute(trimmedKey.toStdString());
-        }
-        catch (const std::exception& exception)
-        {
-            return redisforge::shared::result::OperationResult<redisforge::domain::value_inspector::KeyInspectionResult>::failure(
-                {exception.what()});
-        }
-    }));
+            .collectionEntryLimit = 200,
+            .stringByteLimit = 65536,
+        },
+    };
+    watcher->setFuture(QtConcurrent::run([useCase, query]() { return useCase->execute(query); }));
 }
 
 void ValueInspectorViewModel::clear()

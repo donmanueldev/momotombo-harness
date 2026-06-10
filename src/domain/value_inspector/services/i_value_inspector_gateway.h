@@ -14,6 +14,7 @@ public:
 
     virtual KeyInspectionResult inspectKey(
         const redisforge::domain::connections::ConnectionProfile& profile,
-        const std::string& key) const = 0;
+        const std::string& key,
+        const redisforge::domain::value_inspector::ValueInspectionOptions& options) const = 0;
 };
 } // namespace redisforge::domain::value_inspector

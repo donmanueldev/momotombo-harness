@@ -29,6 +29,9 @@ ValueInspectionViewData ValueInspectionViewDataMapper::map(
     data.key = inspection.key;
     data.type = inspection.type;
     data.typeLabel = redisforge::domain::value_inspector::redisValueTypeToString(inspection.type);
+    data.isStringTruncated = inspection.isStringTruncated;
+    data.hasAdditionalEntries = inspection.hasAdditionalEntries;
+    data.loadedEntryCount = inspection.loadedEntryCount;
     data.hashEntries = inspection.hashEntries;
     data.listEntries = inspection.listEntries;
     data.setMembers = inspection.setMembers;

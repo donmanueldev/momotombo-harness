@@ -15,6 +15,9 @@ struct ValueInspectionViewData
         redisforge::domain::value_inspector::RedisValueType::None};
     std::string stringValue;
     bool isStringJson{false};
+    bool isStringTruncated{false};
+    bool hasAdditionalEntries{false};
+    std::size_t loadedEntryCount{0};
     std::vector<redisforge::domain::value_inspector::HashEntry> hashEntries;
     std::vector<redisforge::domain::value_inspector::ListEntry> listEntries;
     std::vector<std::string> setMembers;

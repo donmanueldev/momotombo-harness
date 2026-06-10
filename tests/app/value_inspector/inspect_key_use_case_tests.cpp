@@ -20,13 +20,17 @@ class FakeValueInspectorGateway final : public redisforge::domain::value_inspect
 public:
     redisforge::domain::value_inspector::KeyInspectionResult inspectKey(
         const redisforge::domain::connections::ConnectionProfile&,
-        const std::string& key) const override
+        const std::string& key,
+        const redisforge::domain::value_inspector::ValueInspectionOptions&) const override
     {
         lastKey = key;
         return redisforge::domain::value_inspector::KeyInspectionResult{
             key,
             redisforge::domain::value_inspector::RedisValueType::String,
             "hello",
+            false,
+            false,
+            0,
             {},
             {},
             {},
@@ -48,7 +52,7 @@ TEST(InspectKeyUseCaseTests, FailsWhenNoActiveConnectionExists)
     auto logger = NullLogger{};
     auto useCase = InspectKeyUseCase{activeConnectionStore, gateway, logger};
 
-    const auto result = useCase.execute("app:name");
+    const auto result = useCase.execute({"app:name", {}});
 
     EXPECT_FALSE(result.isSuccessful);
     ASSERT_FALSE(result.errors.empty());
@@ -63,7 +67,7 @@ TEST(InspectKeyUseCaseTests, DelegatesInspectionUsingActiveConnection)
     auto logger = NullLogger{};
     auto useCase = InspectKeyUseCase{activeConnectionStore, gateway, logger};
 
-    const auto result = useCase.execute("app:name");
+    const auto result = useCase.execute({"app:name", {}});
 
     ASSERT_TRUE(result.isSuccessful);
     EXPECT_EQ(gateway.lastKey, "app:name");
