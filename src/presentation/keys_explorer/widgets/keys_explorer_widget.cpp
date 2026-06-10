@@ -4,7 +4,6 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTableWidget>
@@ -12,11 +11,16 @@
 #include <QVBoxLayout>
 
 #include "presentation/keys_explorer/viewmodels/keys_explorer_view_model.h"
+#include "presentation/value_inspector/viewmodels/value_inspector_view_model.h"
+#include "presentation/value_inspector/widgets/value_inspection_details_widget.h"
 
 namespace redisforge::presentation::keys_explorer
 {
-KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget* parent)
-    : QWidget(parent), viewModel_(viewModel)
+KeysExplorerWidget::KeysExplorerWidget(
+    KeysExplorerViewModel& viewModel,
+    redisforge::presentation::value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
+    QWidget* parent)
+    : QWidget(parent), viewModel_(viewModel), valueInspectorViewModel_(valueInspectorViewModel)
 {
     auto* rootLayout = new QVBoxLayout(this);
 
@@ -53,15 +57,7 @@ KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget
     keysTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     keysTable_->setAlternatingRowColors(true);
 
-    auto* detailsLayout = new QVBoxLayout();
-    selectedKeyLabel_ = new QLabel("Selected key: none", this);
-    selectedTypeLabel_ = new QLabel("Type: -", this);
-    stringValueTextEdit_ = new QPlainTextEdit(this);
-    stringValueTextEdit_->setReadOnly(true);
-    stringValueTextEdit_->setPlaceholderText("String values will appear here.");
-    detailsLayout->addWidget(selectedKeyLabel_);
-    detailsLayout->addWidget(selectedTypeLabel_);
-    detailsLayout->addWidget(stringValueTextEdit_);
+    detailsWidget_ = new redisforge::presentation::value_inspector::ValueInspectionDetailsWidget(valueInspectorViewModel_, this);
 
     statusLabel_ = new QLabel("Test a connection first.", this);
     statusLabel_->setWordWrap(true);
@@ -69,7 +65,7 @@ KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget
     rootLayout->addWidget(connectionLabel_);
     rootLayout->addLayout(filtersLayout);
     rootLayout->addWidget(keysTable_, 1);
-    rootLayout->addLayout(detailsLayout);
+    rootLayout->addWidget(detailsWidget_);
     rootLayout->addWidget(statusLabel_);
 
     previousPageButton_->setEnabled(false);
@@ -106,7 +102,13 @@ KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget
             return;
         }
 
-        viewModel_.inspectKey(keyItem->text(), row);
+        auto* typeItem = keysTable_->item(row, 1);
+        if (typeItem != nullptr)
+        {
+            typeItem->setText("Loading...");
+        }
+
+        valueInspectorViewModel_.inspectKey(keyItem->text());
     });
 
     connect(&viewModel_, &KeysExplorerViewModel::activeConnectionChanged, this, [this](const QString& summary) {
@@ -123,41 +125,7 @@ KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget
             keysTable_->setItem(row, 1, typeItem);
         }
         keysTable_->clearSelection();
-    });
-    connect(&viewModel_, &KeysExplorerViewModel::keyTypeResolved, this, [this](const int row, const QString& type) {
-        if (row < 0 || row >= keysTable_->rowCount())
-        {
-            return;
-        }
-
-        auto* typeItem = keysTable_->item(row, 1);
-        if (typeItem == nullptr)
-        {
-            typeItem = new QTableWidgetItem(type);
-            keysTable_->setItem(row, 1, typeItem);
-            return;
-        }
-
-        typeItem->setText(type);
-    });
-    connect(&viewModel_, &KeysExplorerViewModel::keyDetailsChanged, this, [this](const QString& key, const QString& type, const QString& value, const bool hasStringValue) {
-        selectedKeyLabel_->setText(key.isEmpty() ? "Selected key: none" : QString("Selected key: %1").arg(key));
-        selectedTypeLabel_->setText(type.isEmpty() ? "Type: -" : QString("Type: %1").arg(type));
-        if (hasStringValue)
-        {
-            stringValueTextEdit_->setPlainText(value);
-            return;
-        }
-
-        stringValueTextEdit_->clear();
-        if (!key.isEmpty() && !type.isEmpty() && type != "string" && type != "Loading...")
-        {
-            stringValueTextEdit_->setPlaceholderText("This key type will be rendered in a later commit.");
-        }
-        else
-        {
-            stringValueTextEdit_->setPlaceholderText("String values will appear here.");
-        }
+        valueInspectorViewModel_.clear();
     });
     connect(&viewModel_, &KeysExplorerViewModel::statusChanged, this, [this](const QString& status) {
         statusLabel_->setText(status);
@@ -170,5 +138,32 @@ KeysExplorerWidget::KeysExplorerWidget(KeysExplorerViewModel& viewModel, QWidget
         previousPageButton_->setEnabled(hasPreviousPage);
         nextPageButton_->setEnabled(hasNextPage);
     });
+    connect(
+        &valueInspectorViewModel_,
+        &redisforge::presentation::value_inspector::ValueInspectorViewModel::inspectionChanged,
+        this,
+        [this]() {
+            const auto selectedItems = keysTable_->selectedItems();
+            if (selectedItems.isEmpty())
+            {
+                return;
+            }
+
+            const auto row = selectedItems.front()->row();
+            const auto* keyItem = keysTable_->item(row, 0);
+            auto* typeItem = keysTable_->item(row, 1);
+            if (keyItem == nullptr || typeItem == nullptr)
+            {
+                return;
+            }
+
+            const auto& data = valueInspectorViewModel_.viewData();
+            if (data.key != keyItem->text().toStdString())
+            {
+                return;
+            }
+
+            typeItem->setText(QString::fromStdString(data.typeLabel));
+        });
 }
 } // namespace redisforge::presentation::keys_explorer

@@ -22,6 +22,7 @@
 #include "presentation/connections/viewmodels/connection_management_view_model.h"
 #include "presentation/keys_explorer/viewmodels/keys_explorer_view_model.h"
 #include "presentation/main_window.h"
+#include "presentation/value_inspector/viewmodels/value_inspector_view_model.h"
 #include "shared/di/service_container.h"
 #include "shared/logging/logger.h"
 
@@ -72,7 +73,8 @@ int main(int argc, char* argv[])
         *logger
     );
     redisforge::presentation::keys_explorer::KeysExplorerViewModel keysExplorerViewModel(
-        scanKeysUseCase,
+        scanKeysUseCase);
+    redisforge::presentation::value_inspector::ValueInspectorViewModel valueInspectorViewModel(
         inspectKeyUseCase);
 
     QObject::connect(
@@ -80,8 +82,16 @@ int main(int argc, char* argv[])
         &redisforge::presentation::connections::ConnectionManagementViewModel::activeConnectionChanged,
         &keysExplorerViewModel,
         &redisforge::presentation::keys_explorer::KeysExplorerViewModel::onActiveConnectionChanged);
+    QObject::connect(
+        &connectionViewModel,
+        &redisforge::presentation::connections::ConnectionManagementViewModel::activeConnectionChanged,
+        &valueInspectorViewModel,
+        &redisforge::presentation::value_inspector::ValueInspectorViewModel::onActiveConnectionChanged);
 
-    redisforge::presentation::MainWindow mainWindow(connectionViewModel, keysExplorerViewModel);
+    redisforge::presentation::MainWindow mainWindow(
+        connectionViewModel,
+        valueInspectorViewModel,
+        keysExplorerViewModel);
     mainWindow.resize(1320, 840);
     mainWindow.show();
 

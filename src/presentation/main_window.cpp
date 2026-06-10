@@ -7,6 +7,8 @@
 #include "presentation/connections/widgets/connection_management_widget.h"
 #include "presentation/keys_explorer/viewmodels/keys_explorer_view_model.h"
 #include "presentation/keys_explorer/widgets/keys_explorer_widget.h"
+#include "presentation/value_inspector/viewmodels/value_inspector_view_model.h"
+#include "presentation/value_inspector/widgets/value_inspector_widget.h"
 
 namespace
 {
@@ -23,6 +25,7 @@ namespace redisforge::presentation
 {
 MainWindow::MainWindow(
     connections::ConnectionManagementViewModel& connectionViewModel,
+    value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
     keys_explorer::KeysExplorerViewModel& keysExplorerViewModel,
     QWidget* parent)
     : QMainWindow(parent)
@@ -31,8 +34,10 @@ MainWindow::MainWindow(
 
     auto* tabs = new QTabWidget(this);
     tabs->addTab(new connections::ConnectionManagementWidget(connectionViewModel, tabs), "Connections");
-    tabs->addTab(new keys_explorer::KeysExplorerWidget(keysExplorerViewModel, tabs), "Keys Explorer");
-    tabs->addTab(makePlaceholderTab("Value Inspector scaffold ready."), "Value Inspector");
+    tabs->addTab(
+        new keys_explorer::KeysExplorerWidget(keysExplorerViewModel, valueInspectorViewModel, tabs),
+        "Keys Explorer");
+    tabs->addTab(new value_inspector::ValueInspectorWidget(valueInspectorViewModel, tabs), "Value Inspector");
     tabs->addTab(makePlaceholderTab("TTL Manager scaffold ready."), "TTL Manager");
     tabs->addTab(makePlaceholderTab("Pub/Sub scaffold ready."), "Pub/Sub");
     tabs->addTab(makePlaceholderTab("Streams scaffold ready."), "Streams");

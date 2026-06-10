@@ -12,6 +12,11 @@ namespace redisforge::presentation::keys_explorer
 class KeysExplorerViewModel;
 }
 
+namespace redisforge::presentation::value_inspector
+{
+class ValueInspectorViewModel;
+}
+
 namespace redisforge::presentation
 {
 class MainWindow final : public QMainWindow
@@ -21,6 +26,7 @@ class MainWindow final : public QMainWindow
 public:
     explicit MainWindow(
         connections::ConnectionManagementViewModel& connectionViewModel,
+        value_inspector::ValueInspectorViewModel& valueInspectorViewModel,
         keys_explorer::KeysExplorerViewModel& keysExplorerViewModel,
         QWidget* parent = nullptr);
 };

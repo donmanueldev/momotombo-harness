@@ -134,6 +134,6 @@ TEST(HiredisConnectionGatewayIntegrationTests, InspectsKeyTypeFromRedisWhenInteg
     const auto inspection = inspectorGateway.inspectKey(profile, page.keys.front());
 
     EXPECT_EQ(inspection.key, page.keys.front());
-    EXPECT_FALSE(inspection.type.empty());
+    EXPECT_NE(inspection.type, redisforge::domain::value_inspector::RedisValueType::Unsupported);
 }
 } // namespace redisforge::infrastructure::connections

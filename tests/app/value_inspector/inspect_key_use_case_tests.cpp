@@ -25,9 +25,13 @@ public:
         lastKey = key;
         return redisforge::domain::value_inspector::KeyInspectionResult{
             key,
-            "string",
+            redisforge::domain::value_inspector::RedisValueType::String,
             "hello",
-            true,
+            {},
+            {},
+            {},
+            {},
+            {},
         };
     }
 
@@ -63,8 +67,7 @@ TEST(InspectKeyUseCaseTests, DelegatesInspectionUsingActiveConnection)
 
     ASSERT_TRUE(result.isSuccessful);
     EXPECT_EQ(gateway.lastKey, "app:name");
-    EXPECT_EQ(result.value.type, "string");
+    EXPECT_EQ(result.value.type, redisforge::domain::value_inspector::RedisValueType::String);
     EXPECT_EQ(result.value.stringValue, "hello");
-    EXPECT_TRUE(result.value.hasStringValue);
 }
 } // namespace redisforge::app::value_inspector
