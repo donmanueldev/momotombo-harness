@@ -20,73 +20,76 @@ QString applicationStyleSheet()
 {
     return QString::fromUtf8(R"(
 QMainWindow {
-    background: #f3f1eb;
+    background: #eef2f6;
 }
 QWidget {
-    color: #24313a;
-    font-size: 13px;
+    color: #1f2933;
+    font-size: 12px;
 }
 QWidget#appShell {
-    background: #f3f1eb;
+    background: #eef2f6;
 }
 QFrame#appHeader,
 QWidget#panelCard,
-QFrame#infoBanner {
-    background: #fbf8f2;
-    border: 1px solid #d8d0c2;
-    border-radius: 16px;
+QFrame#infoBanner,
+QWidget#toolbarCard {
+    background: #fbfcfd;
+    border: 1px solid #d7dee6;
+    border-radius: 12px;
 }
 QFrame#appHeader {
-    background: #1f4d3a;
-    border-color: #1f4d3a;
+    background: #fbfcfd;
+    border-color: #d7dee6;
 }
 QLabel#heroEyebrow,
 QLabel#panelEyebrow {
-    color: #6c776f;
-    font-size: 11px;
+    color: #6b7785;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
-QLabel#heroEyebrow {
-    color: #cfded5;
-}
 QLabel#heroTitle {
-    color: #f7f3ec;
-    font-size: 30px;
+    color: #18212b;
+    font-size: 18px;
     font-weight: 700;
 }
 QLabel#heroSubtitle {
-    color: #dce8e1;
-    font-size: 15px;
-    line-height: 1.35;
+    color: #607080;
+    font-size: 12px;
 }
 QLabel#sectionTitle,
 QLabel#panelTitle {
-    color: #1c2a33;
-    font-size: 18px;
+    color: #18212b;
+    font-size: 15px;
     font-weight: 700;
 }
 QLabel#panelDescription,
 QLabel#metaLabel,
 QLabel#emptyStateBody,
 QLabel#supportingText {
-    color: #61707b;
-    font-size: 13px;
+    color: #657482;
+    font-size: 12px;
 }
 QLabel#metaLabel {
-    font-size: 12px;
+    font-size: 11px;
 }
 QLabel#emptyStateTitle {
     color: #2b3740;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
 }
-QLabel#emptyStateBody {
-    line-height: 1.35;
+QLabel#connectionBadge {
+    color: #245b41;
+    background: #ebf5ef;
+    border: 1px solid #c9e1d1;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
 }
 QFrame#infoBanner {
-    background: #fcfaf5;
+    background: #f8fafc;
 }
 QLabel#statusCard {
     border: 0;
@@ -104,17 +107,17 @@ QSpinBox,
 QComboBox,
 QListWidget,
 QTableView {
-    background: #fffdf9;
-    border: 1px solid #d4cbbb;
-    border-radius: 10px;
-    padding: 7px 10px;
-    selection-background-color: #dceadf;
-    selection-color: #1d4330;
+    background: #ffffff;
+    border: 1px solid #d4dde6;
+    border-radius: 8px;
+    padding: 5px 8px;
+    selection-background-color: #d9ebdf;
+    selection-color: #183926;
 }
 QLineEdit,
 QSpinBox,
 QComboBox {
-    min-height: 22px;
+    min-height: 18px;
 }
 QLineEdit[echoMode="2"] {
     letter-spacing: 0.15em;
@@ -125,100 +128,100 @@ QSpinBox:focus,
 QComboBox:focus,
 QListWidget:focus,
 QTableView:focus {
-    border: 1px solid #2f7a59;
+    border: 1px solid #2d7d57;
 }
 QComboBox {
-    padding-right: 28px;
+    padding-right: 24px;
 }
 QComboBox::drop-down,
 QSpinBox::down-button,
 QSpinBox::up-button {
     border: 0;
-    width: 22px;
+    width: 20px;
     background: transparent;
 }
 QComboBox QAbstractItemView {
-    background: #fffdf9;
-    border: 1px solid #d4cbbb;
-    selection-background-color: #dceadf;
+    background: #ffffff;
+    border: 1px solid #d4dde6;
+    selection-background-color: #d9ebdf;
     padding: 4px;
 }
 QListWidget {
     outline: 0;
-    padding: 8px;
+    padding: 4px;
 }
 QListWidget::item {
-    padding: 10px 12px;
-    margin-bottom: 6px;
-    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    border-radius: 8px;
 }
 QListWidget::item:selected {
-    background: #edf3ee;
-    color: #1d4330;
+    background: #e8f1eb;
+    color: #173826;
 }
 QPushButton {
-    background: #ece5d8;
-    border: 1px solid #d5cab7;
-    border-radius: 10px;
-    padding: 9px 14px;
+    background: #f5f7fa;
+    border: 1px solid #d4dde6;
+    border-radius: 8px;
+    padding: 7px 12px;
     font-weight: 600;
 }
 QPushButton:hover {
-    background: #e3dac8;
+    background: #edf2f7;
 }
 QPushButton:disabled {
-    color: #9aa5af;
-    background: #f2ede4;
-    border-color: #e4dccf;
+    color: #96a1ad;
+    background: #f7f9fb;
+    border-color: #e3e8ee;
 }
 QPushButton#primaryButton {
     background: #266a4a;
-    color: #f8f5ee;
+    color: #f8fafb;
     border-color: #266a4a;
 }
 QPushButton#primaryButton:hover {
-    background: #1f5a3f;
+    background: #1f5d41;
 }
 QPushButton#ghostButton {
-    background: #f7f3ec;
+    background: #ffffff;
 }
 QTabWidget::pane {
     border: 0;
-    margin-top: 10px;
+    margin-top: 8px;
 }
 QTabBar::tab {
-    background: #eee6d9;
-    border: 1px solid #d5cbb9;
+    background: #f4f7fa;
+    border: 1px solid #d6dee7;
     border-bottom: 0;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-    padding: 10px 18px;
-    margin-right: 6px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 8px 14px;
+    margin-right: 4px;
     font-weight: 600;
-    color: #4d5d67;
+    color: #576574;
 }
 QTabBar::tab:selected {
-    background: #fbf8f2;
-    color: #1e4d39;
+    background: #fbfcfd;
+    color: #1b4d38;
 }
 QHeaderView::section {
-    background: #f1ebdf;
-    color: #5d645f;
+    background: #f5f8fb;
+    color: #65707d;
     border: 0;
-    border-bottom: 1px solid #d8cfbf;
-    padding: 9px 10px;
+    border-bottom: 1px solid #dbe2ea;
+    padding: 6px 8px;
     font-weight: 700;
 }
 QTableView {
     gridline-color: transparent;
-    alternate-background-color: #f7f3eb;
+    alternate-background-color: #f8fafc;
 }
 QTableView::item {
-    padding: 6px 8px;
+    padding: 4px 6px;
 }
 QSplitter::handle {
-    background: #ddd4c4;
-    width: 3px;
+    background: #d6dde5;
+    width: 2px;
 }
 )");
 }
@@ -240,26 +243,30 @@ namespace redisforge::presentation
         auto* root = new QWidget(this);
         root->setObjectName("appShell");
         auto* rootLayout = new QVBoxLayout(root);
-        rootLayout->setContentsMargins(24, 20, 24, 24);
-        rootLayout->setSpacing(18);
+        rootLayout->setContentsMargins(16, 12, 16, 16);
+        rootLayout->setSpacing(10);
 
         auto* header = new QFrame(root);
         header->setObjectName("appHeader");
-        auto* headerLayout = new QVBoxLayout(header);
-        headerLayout->setContentsMargins(32, 26, 32, 28);
-        headerLayout->setSpacing(8);
+        auto* headerLayout = new QHBoxLayout(header);
+        headerLayout->setContentsMargins(16, 12, 16, 12);
+        headerLayout->setSpacing(12);
 
-        auto* eyebrowLabel = new QLabel("Desktop Redis client", header);
-        eyebrowLabel->setObjectName("heroEyebrow");
+        auto* titleBlock = new QWidget(header);
+        auto* titleLayout = new QVBoxLayout(titleBlock);
+        titleLayout->setContentsMargins(0, 0, 0, 0);
+        titleLayout->setSpacing(2);
         auto* titleLabel = new QLabel("RedisForge", header);
         titleLabel->setObjectName("heroTitle");
-        auto* subtitleLabel = new QLabel("Connections, keys, and values.", header);
+        auto* subtitleLabel = new QLabel("Local Redis browser", header);
         subtitleLabel->setObjectName("heroSubtitle");
-        subtitleLabel->setWordWrap(true);
+        auto* connectionBadge = new QLabel("MVP desktop preview", header);
+        connectionBadge->setObjectName("connectionBadge");
 
-        headerLayout->addWidget(eyebrowLabel);
-        headerLayout->addWidget(titleLabel);
-        headerLayout->addWidget(subtitleLabel);
+        titleLayout->addWidget(titleLabel);
+        titleLayout->addWidget(subtitleLabel);
+        headerLayout->addWidget(titleBlock, 1);
+        headerLayout->addWidget(connectionBadge, 0, Qt::AlignVCenter);
 
         tabs_ = new QTabWidget(root);
         tabs_->setDocumentMode(true);
