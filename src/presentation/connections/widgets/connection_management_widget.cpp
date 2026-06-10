@@ -25,13 +25,6 @@ namespace redisforge::presentation::connections
         savedProfilesGroup->setObjectName("panelCard");
         auto* savedProfilesLayout = new QVBoxLayout(savedProfilesGroup);
         savedProfilesLayout->setSpacing(12);
-        auto* savedProfilesEyebrow = new QLabel("Connection library", savedProfilesGroup);
-        savedProfilesEyebrow->setObjectName("sectionEyebrow");
-        auto* savedProfilesBody = new QLabel(
-            "Keep local connection presets for your Redis environments and switch between them quickly.",
-            savedProfilesGroup);
-        savedProfilesBody->setObjectName("sectionBody");
-        savedProfilesBody->setWordWrap(true);
         profilesList_ = new QListWidget(savedProfilesGroup);
         profilesList_->setAlternatingRowColors(true);
         profilesList_->setMinimumWidth(280);
@@ -45,8 +38,6 @@ namespace redisforge::presentation::connections
         paginationButtonsLayout->addWidget(previousPageButton_);
         paginationButtonsLayout->addWidget(nextPageButton_);
 
-        savedProfilesLayout->addWidget(savedProfilesEyebrow);
-        savedProfilesLayout->addWidget(savedProfilesBody);
         savedProfilesLayout->addWidget(profilesList_);
         savedProfilesLayout->addWidget(paginationLabel_);
         savedProfilesLayout->addLayout(paginationButtonsLayout);
@@ -56,17 +47,17 @@ namespace redisforge::presentation::connections
         auto* formLayout = new QFormLayout(formGroup);
         formLayout->setSpacing(12);
         nameEdit_ = new QLineEdit(formGroup);
-        nameEdit_->setPlaceholderText("Production Redis, Staging cache, Local dev...");
+        nameEdit_->setPlaceholderText("Production Redis");
         hostEdit_ = new QLineEdit(formGroup);
-        hostEdit_->setPlaceholderText("127.0.0.1 or switchyard.proxy.rlwy.net");
+        hostEdit_->setPlaceholderText("127.0.0.1");
         portSpinBox_ = new QSpinBox(formGroup);
         portSpinBox_->setRange(1, 65535);
         portSpinBox_->setValue(6379);
         usernameEdit_ = new QLineEdit(formGroup);
-        usernameEdit_->setPlaceholderText("Optional username");
+        usernameEdit_->setPlaceholderText("Optional");
         passwordEdit_ = new QLineEdit(formGroup);
         passwordEdit_->setEchoMode(QLineEdit::Password);
-        passwordEdit_->setPlaceholderText("Password or token");
+        passwordEdit_->setPlaceholderText("Password");
         databaseSpinBox_ = new QSpinBox(formGroup);
         databaseSpinBox_->setRange(0, 1024);
         timeoutSpinBox_ = new QSpinBox(formGroup);
@@ -94,22 +85,15 @@ namespace redisforge::presentation::connections
         actionLayout->addWidget(saveButton_);
         actionLayout->addWidget(testButton_);
 
-        auto* rightPaneIntro = new QLabel("Create or test a connection using raw Redis host, port, and credentials.", this);
-        rightPaneIntro->setObjectName("sectionBody");
-        rightPaneIntro->setWordWrap(true);
         statusLabel_ = new QLabel("Ready.", this);
         statusLabel_->setObjectName("statusCard");
         statusLabel_->setWordWrap(true);
 
         auto* rightPaneLayout = new QVBoxLayout();
         rightPaneLayout->setSpacing(14);
-        auto* rightPaneEyebrow = new QLabel("Connect", this);
-        rightPaneEyebrow->setObjectName("sectionEyebrow");
         auto* rightPaneTitle = new QLabel("Configure a Redis endpoint", this);
         rightPaneTitle->setObjectName("sectionTitle");
-        rightPaneLayout->addWidget(rightPaneEyebrow);
         rightPaneLayout->addWidget(rightPaneTitle);
-        rightPaneLayout->addWidget(rightPaneIntro);
         rightPaneLayout->addWidget(formGroup);
         rightPaneLayout->addLayout(actionLayout);
         rightPaneLayout->addWidget(statusLabel_);

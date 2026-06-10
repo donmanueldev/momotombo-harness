@@ -16,53 +16,42 @@ QString applicationStyleSheet()
 {
     return QString::fromUtf8(R"(
 QMainWindow {
-    background: #f4f1ea;
+    background: #f3f0ea;
 }
 QWidget {
-    color: #1f2933;
+    color: #1d2730;
     font-size: 13px;
 }
 QFrame#appHeader,
 QGroupBox,
 QWidget#panelCard {
-    background: #fbfaf7;
-    border: 1px solid #ddd6c8;
-    border-radius: 16px;
+    background: #fcfbf8;
+    border: 1px solid #ddd5c7;
+    border-radius: 14px;
 }
 QFrame#appHeader {
-    background: #1f4d3a;
+    background: #183d2f;
     border: 0;
 }
 QLabel#appTitle {
-    color: #f7f4ed;
-    font-size: 26px;
+    color: #f8f5ee;
+    font-size: 24px;
     font-weight: 700;
 }
 QLabel#appSubtitle {
-    color: #d8e7de;
-    font-size: 13px;
-}
-QLabel#sectionEyebrow {
-    color: #7a6f5f;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    color: #d7e3db;
+    font-size: 12px;
 }
 QLabel#sectionTitle {
     color: #18212b;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
-}
-QLabel#sectionBody {
-    color: #5f6b76;
-    font-size: 13px;
 }
 QLabel#statusCard {
     background: #fffdf8;
     border: 1px solid #ddd6c8;
     border-radius: 12px;
-    padding: 12px 14px;
+    padding: 10px 12px;
 }
 QLabel#statusCard[success="true"] {
     background: #eef8f1;
@@ -81,11 +70,19 @@ QComboBox,
 QListWidget,
 QTableView {
     background: #fffdf8;
-    border: 1px solid #d7cfbf;
-    border-radius: 10px;
-    padding: 8px 10px;
+    border: 1px solid #d3ccbf;
+    border-radius: 9px;
+    padding: 6px 9px;
     selection-background-color: #d7eadf;
     selection-color: #173325;
+}
+QLineEdit,
+QSpinBox,
+QComboBox {
+    min-height: 20px;
+}
+QLineEdit[echoMode="2"] {
+    letter-spacing: 0.15em;
 }
 QLineEdit:focus,
 QPlainTextEdit:focus,
@@ -95,11 +92,27 @@ QListWidget:focus,
 QTableView:focus {
     border: 1px solid #2f7d57;
 }
+QComboBox {
+    padding-right: 28px;
+}
+QComboBox::drop-down,
+QSpinBox::down-button,
+QSpinBox::up-button {
+    border: 0;
+    width: 22px;
+    background: transparent;
+}
+QComboBox QAbstractItemView {
+    background: #fffdf8;
+    border: 1px solid #d3ccbf;
+    selection-background-color: #d7eadf;
+    padding: 4px;
+}
 QPushButton {
     background: #ebe4d8;
     border: 1px solid #d2c8b7;
-    border-radius: 10px;
-    padding: 9px 14px;
+    border-radius: 9px;
+    padding: 8px 12px;
     font-weight: 600;
 }
 QPushButton:hover {
@@ -129,9 +142,9 @@ QTabBar::tab {
     background: #e8e0d2;
     border: 1px solid #d4cab8;
     border-bottom: 0;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-    padding: 10px 18px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 8px 16px;
     margin-right: 6px;
     font-weight: 600;
 }
@@ -144,20 +157,20 @@ QHeaderView::section {
     color: #5e5140;
     border: 0;
     border-bottom: 1px solid #d7cfbf;
-    padding: 9px 10px;
+    padding: 8px 10px;
     font-weight: 700;
 }
 QGroupBox {
-    margin-top: 16px;
-    padding: 18px 16px 16px 16px;
+    margin-top: 14px;
+    padding: 16px 14px 14px 14px;
     font-weight: 700;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
-    left: 14px;
+    left: 12px;
     top: -10px;
     padding: 2px 8px;
-    background: #fbfaf7;
+    background: #fcfbf8;
     color: #42505c;
 }
 QSplitter::handle {
@@ -188,16 +201,13 @@ namespace redisforge::presentation
         auto* header = new QFrame(root);
         header->setObjectName("appHeader");
         auto* headerLayout = new QVBoxLayout(header);
-        headerLayout->setContentsMargins(24, 22, 24, 22);
-        headerLayout->setSpacing(6);
+        headerLayout->setContentsMargins(22, 18, 22, 18);
+        headerLayout->setSpacing(4);
 
         auto* titleLabel = new QLabel("RedisForge", header);
         titleLabel->setObjectName("appTitle");
-        auto* subtitleLabel = new QLabel(
-            "Connect to local or hosted Redis instances, browse keys, inspect values, and edit supported records.",
-            header);
+        auto* subtitleLabel = new QLabel("Redis browser", header);
         subtitleLabel->setObjectName("appSubtitle");
-        subtitleLabel->setWordWrap(true);
 
         headerLayout->addWidget(titleLabel);
         headerLayout->addWidget(subtitleLabel);

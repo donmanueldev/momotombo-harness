@@ -23,19 +23,15 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
     setObjectName("inspectorDetails");
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(14);
+    rootLayout->setSpacing(12);
 
     auto* headerLayout = new QHBoxLayout();
     auto* headerTextLayout = new QVBoxLayout();
-    auto* headerEyebrow = new QLabel("Inspector", this);
-    headerEyebrow->setObjectName("sectionEyebrow");
     selectedKeyLabel_ = new QLabel("Selected key: none", this);
     selectedKeyLabel_->setObjectName("sectionTitle");
     selectedTypeLabel_ = new QLabel("Type: -", this);
-    selectedTypeLabel_->setObjectName("sectionBody");
     refreshButton_ = new QPushButton("Reload value", this);
     refreshButton_->setObjectName("ghostButton");
-    headerTextLayout->addWidget(headerEyebrow);
     headerTextLayout->addWidget(selectedKeyLabel_);
     headerTextLayout->addWidget(selectedTypeLabel_);
     headerLayout->addLayout(headerTextLayout, 1);
@@ -43,7 +39,6 @@ ValueInspectionDetailsWidget::ValueInspectionDetailsWidget(ValueInspectorViewMod
 
     contentStack_ = new QStackedWidget(this);
     emptyStateLabel_ = new QLabel("Select a key to inspect.", this);
-    emptyStateLabel_->setObjectName("sectionBody");
     emptyStateLabel_->setWordWrap(true);
     stringValueTextEdit_ = new QPlainTextEdit(this);
     stringValueTextEdit_->setMinimumHeight(280);
@@ -150,7 +145,7 @@ void ValueInspectionDetailsWidget::render()
     auto typeLabel = data.key.empty() ? QString("Type: -") : QString("Type: %1").arg(QString::fromStdString(data.typeLabel));
     if (data.hasAdditionalEntries)
     {
-        typeLabel.append(QString(" (preview: %1 entries)").arg(static_cast<qulonglong>(data.loadedEntryCount)));
+        typeLabel.append(QString("  preview: %1").arg(static_cast<qulonglong>(data.loadedEntryCount)));
     }
     selectedTypeLabel_->setText(typeLabel);
     refreshButton_->setEnabled(!data.key.empty());
@@ -211,7 +206,7 @@ void ValueInspectionDetailsWidget::renderString()
     stringValueTextEdit_->setPlainText(QString::fromStdString(data.stringValue));
     if (data.isStringTruncated)
     {
-        stringValueTextEdit_->appendPlainText("\n\n[preview truncated]");
+        stringValueTextEdit_->appendPlainText("\n\n[truncated]");
     }
     contentStack_->setCurrentWidget(stringValueTextEdit_);
     editorStack_->setCurrentWidget(stringEditorWidget_);

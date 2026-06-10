@@ -28,17 +28,10 @@ namespace redisforge::presentation::keys_explorer
         setObjectName("browserScreen");
         auto* rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
-        rootLayout->setSpacing(14);
+        rootLayout->setSpacing(12);
 
-        auto* titleEyebrow = new QLabel("Data browser", this);
-        titleEyebrow->setObjectName("sectionEyebrow");
-        auto* titleLabel = new QLabel("Browse keys and inspect records", this);
+        auto* titleLabel = new QLabel("Data Browser", this);
         titleLabel->setObjectName("sectionTitle");
-        auto* subtitleLabel = new QLabel(
-            "Search by pattern, filter by Redis type, and inspect values in a split-pane layout.",
-            this);
-        subtitleLabel->setObjectName("sectionBody");
-        subtitleLabel->setWordWrap(true);
         connectionLabel_ = new QLabel("Active connection: none", this);
         connectionLabel_->setObjectName("statusCard");
 
@@ -48,10 +41,12 @@ namespace redisforge::presentation::keys_explorer
         filtersLayout->setContentsMargins(16, 16, 16, 16);
         filtersLayout->setSpacing(12);
         patternEdit_ = new QLineEdit(this);
-        patternEdit_->setPlaceholderText("Pattern, e.g. user:*");
+        patternEdit_->setPlaceholderText("user:*");
         patternEdit_->setText("*");
         typeFilterComboBox_ = new QComboBox(this);
         typeFilterComboBox_->addItems({"All types", "string", "hash", "list", "set", "zset", "stream"});
+        typeFilterComboBox_->setMinimumContentsLength(10);
+        typeFilterComboBox_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
         pageSizeSpinBox_ = new QSpinBox(this);
         pageSizeSpinBox_->setRange(10, 1000);
         pageSizeSpinBox_->setValue(100);
@@ -99,9 +94,7 @@ namespace redisforge::presentation::keys_explorer
         statusLabel_->setObjectName("statusCard");
         statusLabel_->setWordWrap(true);
 
-        rootLayout->addWidget(titleEyebrow);
         rootLayout->addWidget(titleLabel);
-        rootLayout->addWidget(subtitleLabel);
         rootLayout->addWidget(connectionLabel_);
         rootLayout->addWidget(filtersCard);
         contentSplitter_ = new QSplitter(Qt::Horizontal, this);
@@ -110,13 +103,6 @@ namespace redisforge::presentation::keys_explorer
         auto* browserPaneLayout = new QVBoxLayout(browserPane);
         browserPaneLayout->setContentsMargins(16, 16, 16, 16);
         browserPaneLayout->setSpacing(10);
-        auto* browserTitle = new QLabel("Keys", browserPane);
-        browserTitle->setObjectName("sectionTitle");
-        auto* browserBody = new QLabel("Select a key to inspect its current value and available edit actions.", browserPane);
-        browserBody->setObjectName("sectionBody");
-        browserBody->setWordWrap(true);
-        browserPaneLayout->addWidget(browserTitle);
-        browserPaneLayout->addWidget(browserBody);
         browserPaneLayout->addWidget(keysTable_);
         auto* detailsPane = new QWidget(contentSplitter_);
         detailsPane->setObjectName("panelCard");
