@@ -5,6 +5,7 @@
 namespace redisforge::presentation::keys_explorer
 {
 class KeysExplorerViewModel;
+class KeysTableModel;
 }
 
 namespace redisforge::presentation::value_inspector
@@ -17,7 +18,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSpinBox;
-class QTableWidget;
+class QTableView;
 
 namespace redisforge::presentation::keys_explorer
 {
@@ -41,7 +42,8 @@ private:
     QPushButton* previousPageButton_{nullptr};
     QPushButton* nextPageButton_{nullptr};
     QLabel* paginationLabel_{nullptr};
-    QTableWidget* keysTable_{nullptr};
+    QTableView* keysTable_{nullptr};
+    KeysTableModel* keysTableModel_{nullptr};
     redisforge::presentation::value_inspector::ValueInspectionDetailsWidget* detailsWidget_{nullptr};
     QLabel* statusLabel_{nullptr};
 };

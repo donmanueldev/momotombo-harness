@@ -2,14 +2,15 @@
 
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
-#include <QTableWidget>
-#include <QTableWidgetItem>
+#include <QTableView>
 #include <QVBoxLayout>
 
+#include "presentation/keys_explorer/models/keys_table_model.h"
 #include "presentation/keys_explorer/viewmodels/keys_explorer_view_model.h"
 #include "presentation/value_inspector/viewmodels/value_inspector_view_model.h"
 #include "presentation/value_inspector/widgets/value_inspection_details_widget.h"
@@ -47,9 +48,9 @@ KeysExplorerWidget::KeysExplorerWidget(
     filtersLayout->addWidget(nextPageButton_);
     filtersLayout->addWidget(paginationLabel_);
 
-    keysTable_ = new QTableWidget(this);
-    keysTable_->setColumnCount(2);
-    keysTable_->setHorizontalHeaderLabels({"Key", "Type"});
+    keysTable_ = new QTableView(this);
+    keysTableModel_ = new KeysTableModel(this);
+    keysTable_->setModel(keysTableModel_);
     keysTable_->horizontalHeader()->setStretchLastSection(true);
     keysTable_->verticalHeader()->setVisible(false);
     keysTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -88,42 +89,29 @@ KeysExplorerWidget::KeysExplorerWidget(
     connect(nextPageButton_, &QPushButton::clicked, this, [this]() {
         viewModel_.nextPage();
     });
-    connect(keysTable_, &QTableWidget::itemSelectionChanged, this, [this]() {
-        const auto selectedItems = keysTable_->selectedItems();
-        if (selectedItems.isEmpty())
+    connect(keysTable_->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
+        const auto selectedRows = keysTable_->selectionModel()->selectedRows();
+        if (selectedRows.isEmpty())
         {
             return;
         }
 
-        const auto row = selectedItems.front()->row();
-        const auto* keyItem = keysTable_->item(row, 0);
-        if (keyItem == nullptr)
+        const auto row = selectedRows.front().row();
+        const auto key = keysTableModel_->keyAt(row);
+        if (key.isEmpty())
         {
             return;
         }
 
-        auto* typeItem = keysTable_->item(row, 1);
-        if (typeItem != nullptr)
-        {
-            typeItem->setText("Loading...");
-        }
-
-        valueInspectorViewModel_.inspectKey(keyItem->text());
+        keysTableModel_->setTypeForKey(key, "Loading...");
+        valueInspectorViewModel_.inspectKey(key);
     });
 
     connect(&viewModel_, &KeysExplorerViewModel::activeConnectionChanged, this, [this](const QString& summary) {
         connectionLabel_->setText(QString("Active connection: %1").arg(summary));
     });
     connect(&viewModel_, &KeysExplorerViewModel::keysChanged, this, [this](const QStringList& keys) {
-        keysTable_->clearContents();
-        keysTable_->setRowCount(keys.size());
-        for (int row = 0; row < keys.size(); ++row)
-        {
-            auto* keyItem = new QTableWidgetItem(keys.at(row));
-            auto* typeItem = new QTableWidgetItem("-");
-            keysTable_->setItem(row, 0, keyItem);
-            keysTable_->setItem(row, 1, typeItem);
-        }
+        keysTableModel_->setKeys(keys);
         keysTable_->clearSelection();
         valueInspectorViewModel_.clear();
     });
@@ -143,27 +131,20 @@ KeysExplorerWidget::KeysExplorerWidget(
         &redisforge::presentation::value_inspector::ValueInspectorViewModel::inspectionChanged,
         this,
         [this]() {
-            const auto selectedItems = keysTable_->selectedItems();
-            if (selectedItems.isEmpty())
-            {
-                return;
-            }
-
-            const auto row = selectedItems.front()->row();
-            const auto* keyItem = keysTable_->item(row, 0);
-            auto* typeItem = keysTable_->item(row, 1);
-            if (keyItem == nullptr || typeItem == nullptr)
+            const auto selectedRows = keysTable_->selectionModel()->selectedRows();
+            if (selectedRows.isEmpty())
             {
                 return;
             }
 
             const auto& data = valueInspectorViewModel_.viewData();
-            if (data.key != keyItem->text().toStdString())
+            const auto selectedKey = keysTableModel_->keyAt(selectedRows.front().row());
+            if (data.key != selectedKey.toStdString())
             {
                 return;
             }
 
-            typeItem->setText(QString::fromStdString(data.typeLabel));
+            keysTableModel_->setTypeForKey(selectedKey, QString::fromStdString(data.typeLabel));
         });
 }
 } // namespace redisforge::presentation::keys_explorer

@@ -5,12 +5,13 @@
 namespace redisforge::presentation::value_inspector
 {
 class ValueInspectorViewModel;
+class ValueEntriesTableModel;
 }
 
 class QLabel;
 class QPlainTextEdit;
 class QStackedWidget;
-class QTableWidget;
+class QTableView;
 
 namespace redisforge::presentation::value_inspector
 {
@@ -29,7 +30,6 @@ private:
     void renderSet();
     void renderSortedSet();
     void renderStream();
-    void clearTable(int columnCount, const QStringList& headers);
 
     ValueInspectorViewModel& viewModel_;
     QLabel* selectedKeyLabel_{nullptr};
@@ -37,6 +37,7 @@ private:
     QStackedWidget* contentStack_{nullptr};
     QLabel* emptyStateLabel_{nullptr};
     QPlainTextEdit* stringValueTextEdit_{nullptr};
-    QTableWidget* tableWidget_{nullptr};
+    QTableView* tableView_{nullptr};
+    ValueEntriesTableModel* tableModel_{nullptr};
 };
 } // namespace redisforge::presentation::value_inspector
