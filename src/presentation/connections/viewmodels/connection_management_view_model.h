@@ -4,10 +4,9 @@
 #include <QString>
 #include <QVector>
 
-#include "app/connections/services/active_connection_store.h"
 #include "app/connections/use_cases/list_connection_profiles_use_case.h"
 #include "app/connections/use_cases/save_connection_profile_use_case.h"
-#include "app/connections/use_cases/test_connection_use_case.h"
+#include "app/connections/use_cases/test_and_activate_connection_use_case.h"
 #include "shared/logging/logger.h"
 
 namespace redisforge::presentation::connections
@@ -22,7 +21,6 @@ namespace redisforge::presentation::connections
         QString password;
         int databaseIndex{0};
         int connectTimeoutMs{3000};
-        bool useTls{false};
     };
 
     struct ConnectionListItem
@@ -40,8 +38,7 @@ namespace redisforge::presentation::connections
         ConnectionManagementViewModel(
             app::connections::ListConnectionProfilesUseCase& listProfilesUseCase,
             app::connections::SaveConnectionProfileUseCase& saveProfileUseCase,
-            app::connections::TestConnectionUseCase& testConnectionUseCase,
-            app::connections::ActiveConnectionStore& activeConnectionStore,
+            app::connections::TestAndActivateConnectionUseCase& testAndActivateConnectionUseCase,
             shared::logging::ILogger& logger,
             QObject* parent = nullptr);
 
@@ -65,12 +62,12 @@ namespace redisforge::presentation::connections
 
         app::connections::ListConnectionProfilesUseCase& listProfilesUseCase_;
         app::connections::SaveConnectionProfileUseCase& saveProfileUseCase_;
-        app::connections::TestConnectionUseCase& testConnectionUseCase_;
-        app::connections::ActiveConnectionStore& activeConnectionStore_;
+        app::connections::TestAndActivateConnectionUseCase& testAndActivateConnectionUseCase_;
         shared::logging::ILogger& logger_;
         QVector<ConnectionFormData> currentProfiles_;
         std::size_t currentPage_{1U};
         std::size_t pageSize_{20U};
         bool busy_{false};
+        std::size_t activeRequestId_{0};
     };
 } // namespace redisforge::presentation::connections

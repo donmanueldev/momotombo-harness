@@ -7,67 +7,81 @@
 
 namespace
 {
-class NullLogger final : public redisforge::shared::logging::ILogger
-{
-public:
-    void info(std::string_view, redisforge::shared::logging::LogContext) override {}
-    void warning(std::string_view, redisforge::shared::logging::LogContext) override {}
-    void error(std::string_view, redisforge::shared::logging::LogContext) override {}
-};
-
-class FakeKeyExplorerGateway final : public redisforge::domain::keys_explorer::IKeyExplorerGateway
-{
-public:
-    redisforge::domain::keys_explorer::KeyScanPage scanKeys(
-        const redisforge::domain::connections::ConnectionProfile&,
-        const std::string& cursor,
-        const std::string& pattern,
-        const std::size_t pageSize) const override
+    class NullLogger final : public redisforge::shared::logging::ILogger
     {
-        lastCursor = cursor;
-        lastPattern = pattern;
-        lastPageSize = pageSize;
+    public:
+        void info(std::string_view, redisforge::shared::logging::LogContext) override
+        {
+        }
 
-        return redisforge::domain::keys_explorer::KeyScanPage{{"user:1", "user:2"}, "17", true};
-    }
+        void warning(std::string_view, redisforge::shared::logging::LogContext) override
+        {
+        }
 
-    mutable std::string lastCursor;
-    mutable std::string lastPattern;
-    mutable std::size_t lastPageSize{0};
-};
+        void error(std::string_view, redisforge::shared::logging::LogContext) override
+        {
+        }
+    };
+
+    class FakeKeyExplorerGateway final : public redisforge::domain::keys_explorer::IKeyExplorerGateway
+    {
+    public:
+        redisforge::domain::keys_explorer::KeyScanPage scanKeys(
+            const redisforge::domain::connections::ConnectionProfile&,
+            const std::string& cursor,
+            const std::string& pattern,
+            const std::size_t pageSize) const override
+        {
+            lastCursor = cursor;
+            lastPattern = pattern;
+            lastPageSize = pageSize;
+
+            return redisforge::domain::keys_explorer::KeyScanPage{
+                {{"user:1", "string"}, {"user:2", "hash"}},
+                "17",
+                true};
+        }
+
+        mutable std::string lastCursor;
+        mutable std::string lastPattern;
+        mutable std::size_t lastPageSize{0};
+    };
 } // namespace
 
 namespace redisforge::app::keys_explorer
 {
-TEST(ScanKeysUseCaseTests, FailsWhenNoActiveConnectionExists)
-{
-    auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
-    auto gateway = FakeKeyExplorerGateway{};
-    auto logger = NullLogger{};
-    auto useCase = ScanKeysUseCase{activeConnectionStore, gateway, logger};
+    TEST(ScanKeysUseCaseTests, FailsWhenNoActiveConnectionExists)
+    {
+        auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
+        auto gateway = FakeKeyExplorerGateway{};
+        auto logger = NullLogger{};
+        auto useCase = ScanKeysUseCase{activeConnectionStore, gateway, logger};
 
-    const auto result = useCase.execute(ScanKeysQuery{});
+        const auto result = useCase.execute(ScanKeysQuery{});
 
-    EXPECT_FALSE(result.isSuccessful);
-    ASSERT_FALSE(result.errors.empty());
-}
+        EXPECT_FALSE(result.isSuccessful);
+        ASSERT_FALSE(result.errors.empty());
+    }
 
-TEST(ScanKeysUseCaseTests, DelegatesScanToGatewayUsingActiveConnection)
-{
-    auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
-    activeConnectionStore.setActiveConnection(
-        redisforge::domain::connections::ConnectionProfile{"", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000, false});
-    auto gateway = FakeKeyExplorerGateway{};
-    auto logger = NullLogger{};
-    auto useCase = ScanKeysUseCase{activeConnectionStore, gateway, logger};
+    TEST(ScanKeysUseCaseTests, DelegatesScanToGatewayUsingActiveConnection)
+    {
+        auto activeConnectionStore = redisforge::app::connections::ActiveConnectionStore{};
+        activeConnectionStore.setActiveConnection(
+            redisforge::domain::connections::ConnectionProfile{
+                "", "Local Redis", "127.0.0.1", 6379, "", "", 0, 3000
+            });
+        auto gateway = FakeKeyExplorerGateway{};
+        auto logger = NullLogger{};
+        auto useCase = ScanKeysUseCase{activeConnectionStore, gateway, logger};
 
-    const auto result = useCase.execute(ScanKeysQuery{"0", "user:*", 50});
+        const auto result = useCase.execute(ScanKeysQuery{"0", "user:*", 50});
 
-    ASSERT_TRUE(result.isSuccessful);
-    EXPECT_EQ(gateway.lastCursor, "0");
-    EXPECT_EQ(gateway.lastPattern, "user:*");
-    EXPECT_EQ(gateway.lastPageSize, 50U);
-    EXPECT_EQ(result.value.keys.size(), 2U);
-    EXPECT_EQ(result.value.nextCursor, "17");
-}
+        ASSERT_TRUE(result.isSuccessful);
+        EXPECT_EQ(gateway.lastCursor, "0");
+        EXPECT_EQ(gateway.lastPattern, "user:*");
+        EXPECT_EQ(gateway.lastPageSize, 50U);
+        EXPECT_EQ(result.value.entries.size(), 2U);
+        EXPECT_EQ(result.value.entries.front().type, "string");
+        EXPECT_EQ(result.value.nextCursor, "17");
+    }
 } // namespace redisforge::app::keys_explorer

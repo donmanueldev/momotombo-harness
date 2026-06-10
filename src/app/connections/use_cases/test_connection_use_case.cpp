@@ -1,5 +1,6 @@
 #include "app/connections/use_cases/test_connection_use_case.h"
 
+#include <exception>
 #include <sstream>
 
 namespace redisforge::app::connections
@@ -46,7 +47,20 @@ domain::connections::ConnectionTestResult TestConnectionUseCase::execute(
         {"port", std::to_string(profile.port)},
     });
 
-    auto result = gateway_.testConnection(profile);
+    auto result = domain::connections::ConnectionTestResult{};
+    try
+    {
+        result = gateway_.testConnection(profile);
+    }
+    catch (const std::exception& exception)
+    {
+        result = domain::connections::ConnectionTestResult{
+            false,
+            exception.what(),
+            std::chrono::milliseconds{0},
+            {},
+        };
+    }
 
     logger_.info(
         result.isSuccessful ? "connections.test.succeeded" : "connections.test.failed",

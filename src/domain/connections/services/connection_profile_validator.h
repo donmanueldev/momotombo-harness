@@ -7,9 +7,9 @@
 
 namespace redisforge::domain::connections
 {
-class ConnectionProfileValidator
-{
-public:
-    [[nodiscard]] std::vector<std::string> validate(const ConnectionProfile& profile) const;
-};
+    class ConnectionProfileValidator
+    {
+    public:
+        [[nodiscard]] std::vector<std::string> validate(const ConnectionProfile& profile) const;
+    };
 } // namespace redisforge::domain::connections

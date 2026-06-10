@@ -26,7 +26,6 @@ set(REDISFORGE_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(redisforge_shared
         src/shared/logging/logger.h
-        src/shared/di/service_container.h
         src/shared/pagination/page.h
         src/shared/result/operation_result.h
 )
@@ -40,6 +39,8 @@ add_library(redisforge_domain
         src/domain/connections/services/i_redis_connection_gateway.h
         src/domain/connections/services/connection_profile_validator.h
         src/domain/connections/services/connection_profile_validator.cpp
+        src/domain/value_inspector/entities/key_inspection_result.h
+        src/domain/value_inspector/services/i_value_inspector_gateway.h
 )
 target_include_directories(redisforge_domain PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_domain PUBLIC redisforge_shared)
@@ -53,8 +54,16 @@ add_library(redisforge_app
         src/app/connections/use_cases/save_connection_profile_use_case.cpp
         src/app/connections/use_cases/test_connection_use_case.h
         src/app/connections/use_cases/test_connection_use_case.cpp
+        src/app/connections/use_cases/test_and_activate_connection_use_case.h
+        src/app/connections/use_cases/test_and_activate_connection_use_case.cpp
         src/app/keys_explorer/use_cases/scan_keys_use_case.h
         src/app/keys_explorer/use_cases/scan_keys_use_case.cpp
+        src/app/value_inspector/use_cases/inspect_key_use_case.h
+        src/app/value_inspector/use_cases/inspect_key_use_case.cpp
+        src/app/value_inspector/use_cases/save_string_value_use_case.h
+        src/app/value_inspector/use_cases/save_string_value_use_case.cpp
+        src/app/value_inspector/use_cases/save_hash_field_use_case.h
+        src/app/value_inspector/use_cases/save_hash_field_use_case.cpp
 )
 target_include_directories(redisforge_app PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_app PUBLIC redisforge_domain redisforge_shared)
@@ -70,6 +79,8 @@ add_library(redisforge_infrastructure
         src/infrastructure/keys_explorer/hiredis_key_explorer_gateway.cpp
         src/infrastructure/logging/qt_structured_logger.h
         src/infrastructure/logging/qt_structured_logger.cpp
+        src/infrastructure/value_inspector/hiredis_value_inspector_gateway.h
+        src/infrastructure/value_inspector/hiredis_value_inspector_gateway.cpp
 )
 target_include_directories(redisforge_infrastructure PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_infrastructure
@@ -78,16 +89,29 @@ target_link_libraries(redisforge_infrastructure
 )
 
 add_library(redisforge_presentation
+        src/bootstrap/application_bootstrap.h
+        src/bootstrap/application_bootstrap.cpp
         src/presentation/main_window.h
         src/presentation/main_window.cpp
         src/presentation/connections/viewmodels/connection_management_view_model.h
         src/presentation/connections/viewmodels/connection_management_view_model.cpp
         src/presentation/connections/widgets/connection_management_widget.h
         src/presentation/connections/widgets/connection_management_widget.cpp
+        src/presentation/keys_explorer/models/keys_table_model.h
+        src/presentation/keys_explorer/models/keys_table_model.cpp
         src/presentation/keys_explorer/viewmodels/keys_explorer_view_model.h
         src/presentation/keys_explorer/viewmodels/keys_explorer_view_model.cpp
         src/presentation/keys_explorer/widgets/keys_explorer_widget.h
         src/presentation/keys_explorer/widgets/keys_explorer_widget.cpp
+        src/presentation/value_inspector/models/value_entries_table_model.h
+        src/presentation/value_inspector/models/value_entries_table_model.cpp
+        src/presentation/value_inspector/viewmodels/value_inspection_view_data.h
+        src/presentation/value_inspector/viewmodels/value_inspection_view_data_mapper.h
+        src/presentation/value_inspector/viewmodels/value_inspection_view_data_mapper.cpp
+        src/presentation/value_inspector/viewmodels/value_inspector_view_model.h
+        src/presentation/value_inspector/viewmodels/value_inspector_view_model.cpp
+        src/presentation/value_inspector/widgets/value_inspection_details_widget.h
+        src/presentation/value_inspector/widgets/value_inspection_details_widget.cpp
 )
 target_include_directories(redisforge_presentation PUBLIC ${REDISFORGE_SRC_ROOT})
 target_link_libraries(redisforge_presentation
@@ -116,13 +140,19 @@ if (BUILD_TESTING)
     add_executable(redisforge_tests
             tests/domain/connections/connection_profile_validator_tests.cpp
             tests/app/connections/save_connection_profile_use_case_tests.cpp
+            tests/app/connections/test_and_activate_connection_use_case_tests.cpp
             tests/app/keys_explorer/scan_keys_use_case_tests.cpp
+            tests/app/value_inspector/inspect_key_use_case_tests.cpp
+            tests/app/value_inspector/save_string_value_use_case_tests.cpp
+            tests/app/value_inspector/save_hash_field_use_case_tests.cpp
+            tests/presentation/value_inspector/value_inspection_view_data_mapper_tests.cpp
             tests/integration/hiredis_connection_gateway_integration_tests.cpp
     )
     target_include_directories(redisforge_tests PRIVATE ${REDISFORGE_SRC_ROOT})
     target_link_libraries(redisforge_tests
             PRIVATE
             redisforge_app
+            redisforge_presentation
             redisforge_infrastructure
             GTest::gtest_main
     )

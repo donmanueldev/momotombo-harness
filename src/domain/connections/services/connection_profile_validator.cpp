@@ -2,35 +2,35 @@
 
 namespace redisforge::domain::connections
 {
-std::vector<std::string> ConnectionProfileValidator::validate(const ConnectionProfile& profile) const
-{
-    auto errors = std::vector<std::string>{};
-
-    if (profile.name.empty())
+    std::vector<std::string> ConnectionProfileValidator::validate(const ConnectionProfile& profile) const
     {
-        errors.emplace_back("Connection name is required.");
-    }
+        auto errors = std::vector<std::string>{};
 
-    if (profile.host.empty())
-    {
-        errors.emplace_back("Host is required.");
-    }
+        if (profile.name.empty())
+        {
+            errors.emplace_back("Connection name is required.");
+        }
 
-    if (profile.port == 0)
-    {
-        errors.emplace_back("Port must be between 1 and 65535.");
-    }
+        if (profile.host.empty())
+        {
+            errors.emplace_back("Host is required.");
+        }
 
-    if (profile.connectTimeoutMs <= 0)
-    {
-        errors.emplace_back("Connection timeout must be greater than zero.");
-    }
+        if (profile.port == 0)
+        {
+            errors.emplace_back("Port must be between 1 and 65535.");
+        }
 
-    if (profile.databaseIndex < 0)
-    {
-        errors.emplace_back("Database index cannot be negative.");
-    }
+        if (profile.connectTimeoutMs <= 0)
+        {
+            errors.emplace_back("Connection timeout must be greater than zero.");
+        }
 
-    return errors;
-}
+        if (profile.databaseIndex < 0)
+        {
+            errors.emplace_back("Database index cannot be negative.");
+        }
+
+        return errors;
+    }
 } // namespace redisforge::domain::connections

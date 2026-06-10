@@ -5,9 +5,15 @@
 
 namespace redisforge::domain::keys_explorer
 {
+struct KeyListEntry
+{
+    std::string key;
+    std::string type{"-"};
+};
+
 struct KeyScanPage
 {
-    std::vector<std::string> keys;
+    std::vector<KeyListEntry> entries;
     std::string nextCursor{"0"};
     bool hasMore{false};
 };

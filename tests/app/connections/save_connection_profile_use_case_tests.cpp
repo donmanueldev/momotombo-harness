@@ -41,7 +41,6 @@ namespace redisforge::app::connections
             "",
             0,
             3000,
-            false,
         });
 
         ASSERT_TRUE(result.isSuccessful);
