@@ -222,7 +222,9 @@ main() {
 
     # Codex agents (file symlinks per agent)
     if [ -d "$CONFIG_DIR/.codex/agents" ] && ls "$CONFIG_DIR/.codex/agents"/*.toml &>/dev/null; then
-        mkdir -p "$CODEX_HOME/agents"
+        if ! $DRY_RUN; then
+            mkdir -p "$CODEX_HOME/agents"
+        fi
         for agent in "$CONFIG_DIR/.codex/agents"/*.toml; do
             [ -f "$agent" ] || continue
             agent_name=$(basename "$agent")

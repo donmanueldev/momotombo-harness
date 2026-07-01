@@ -53,6 +53,7 @@ teardown() {
     run_install --dry-run
     [[ ! -L "$FAKE_HOME/.codex/skills/test-skill" ]]
     [[ ! -L "$FAKE_HOME/.codex/agents/planner.toml" ]]
+    [[ ! -d "$FAKE_HOME/.codex/agents" ]]
 }
 
 @test "install.sh --dry-run shows what would be done" {
@@ -123,7 +124,8 @@ teardown() {
 
     local latest
     latest="$(get_latest_backup)"
-    [[ -f "$FAKE_REPO/.backup/$latest/.codex/skills/test-skill/SKILL.md" ]]
+    [[ -f "$FAKE_REPO/.backup/$latest/.codex/skills/test-skill" ]]
+    grep -q "local content" "$FAKE_REPO/.backup/$latest/.codex/skills/test-skill"
 }
 
 @test "install.sh backup manifest has correct format" {
