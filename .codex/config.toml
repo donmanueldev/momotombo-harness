@@ -1,0 +1,94 @@
+[agents]
+max_threads = 6
+max_depth = 1
+
+[agents.planner]
+description = "Plan complex work, clarify scope, and route to specialist agents."
+config_file = "agents/planner.toml"
+
+[agents.web]
+description = "Frontend and UI specialist for React, Next.js, Tailwind, shadcn/ui, HeroUI, SEO, and ecommerce."
+config_file = "agents/web.toml"
+
+[agents.backend]
+description = "Backend specialist for TypeScript, Node.js, FastAPI, and Spring Boot."
+config_file = "agents/backend.toml"
+
+[agents.data]
+description = "Data specialist for Supabase, Postgres, Prisma, Drizzle, Redis, and Docker."
+config_file = "agents/data.toml"
+
+[agents.mobile]
+description = "Mobile specialist for Expo, React Native, Swift, SwiftUI, and Kotlin."
+config_file = "agents/mobile.toml"
+
+[agents.reviewer]
+description = "Read-only reviewer for correctness, regressions, security, performance, and missing tests."
+config_file = "agents/reviewer.toml"
+
+[plugins."build-web-apps@openai-curated"]
+enabled = true
+
+[plugins."expo@openai-curated"]
+enabled = true
+
+[plugins."supabase@openai-curated"]
+enabled = true
+
+[plugins."linear@openai-curated"]
+enabled = true
+
+[plugins."vercel-plugin@plugins-cli"]
+enabled = true
+
+[[skills.config]]
+name = "chrome-webstore-release-blueprint"
+enabled = false
+
+[[skills.config]]
+name = "electron-wrapper"
+enabled = false
+
+[[skills.config]]
+name = "fix-sentry-issues"
+enabled = false
+
+[[skills.config]]
+name = "agents-sdk"
+enabled = false
+
+[[skills.config]]
+name = "cloudflare"
+enabled = false
+
+[[skills.config]]
+name = "cloudflare-email-service"
+enabled = false
+
+[[skills.config]]
+name = "cloudflare-one"
+enabled = false
+
+[[skills.config]]
+name = "cloudflare-one-migrations"
+enabled = false
+
+[[skills.config]]
+name = "durable-objects"
+enabled = false
+
+[[skills.config]]
+name = "sandbox-sdk"
+enabled = false
+
+[[skills.config]]
+name = "turnstile-spin"
+enabled = false
+
+[[skills.config]]
+name = "workers-best-practices"
+enabled = false
+
+[[skills.config]]
+name = "wrangler"
+enabled = false
