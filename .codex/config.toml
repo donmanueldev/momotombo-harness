@@ -11,7 +11,7 @@ description = "Frontend and UI specialist for React, Next.js, Tailwind, shadcn/u
 config_file = "agents/web.toml"
 
 [agents.backend]
-description = "Backend specialist for TypeScript, Node.js, FastAPI, and Spring Boot."
+description = "Backend specialist for TypeScript, Node.js, and Spring Boot."
 config_file = "agents/backend.toml"
 
 [agents.data]

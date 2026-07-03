@@ -1,6 +1,6 @@
 # Backend Ticket
 
-Use this for backend-heavy work: Node.js, APIs, FastAPI, or Spring Boot.
+Use this for backend-heavy work: Node.js, APIs, or Spring Boot.
 
 Ticket:
 - Link or title:

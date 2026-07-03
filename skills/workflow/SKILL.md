@@ -34,7 +34,7 @@ description: "Orchestrate complex coding tasks with plans, subagents, and verifi
 ### 4. Stack Routing
 
 - `web` -> React, Next.js, Tailwind, shadcn/ui, HeroUI, SEO, ecommerce
-- `backend` -> TypeScript, Node.js, FastAPI, Spring Boot
+- `backend` -> TypeScript, Node.js, Spring Boot
 - `data` -> Supabase, Postgres, Prisma, Drizzle, Redis, Docker
 - `mobile` -> Expo, React Native, Swift, SwiftUI, Kotlin
 - `reviewer` -> read-only diff review, regressions, security, performance, missing tests
