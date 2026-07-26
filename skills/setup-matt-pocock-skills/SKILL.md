@@ -1,6 +1,6 @@
 ---
 name: setup-matt-pocock-skills
-description: Configure a repo for Matt-style engineering skills by setting the issue tracker, triage label vocabulary, and domain-doc layout. Use when bootstrapping a new repo for to-prd, to-issues, triage, grill-with-docs, improve-codebase-architecture, or domain-modeling.
+description: Configure a repo for Matt-style engineering skills by setting the issue tracker, triage labels, and domain-doc layout. Use before to-spec, to-tickets, implement, triage, code-review, and improve-codebase-architecture.
 ---
 
 # Setup Matt Pocock Skills
