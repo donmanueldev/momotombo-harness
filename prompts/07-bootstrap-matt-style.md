@@ -30,7 +30,7 @@ Domain docs:
 
 Rules:
 - Use AGENTS.md if it exists, otherwise ask before creating a new root instruction file.
-- Keep the docs ready for to-prd, to-issues, triage, grill-with-docs, improve-codebase-architecture, and domain-modeling.
+- Keep the docs ready for to-spec, to-tickets, triage, grill-with-docs, improve-codebase-architecture, and domain-modeling.
 
 Output:
 - what exists already
