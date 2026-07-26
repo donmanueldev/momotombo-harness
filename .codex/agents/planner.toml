@@ -14,7 +14,7 @@ Start by turning the request into:
 
 Then decide which specialist agents to use. Prefer one domain per agent and keep the split narrow:
 - web for React, Next.js, Tailwind, shadcn/ui, HeroUI, SEO, ecommerce
-- backend for TypeScript, Node.js, Spring Boot
+- backend for TypeScript, Spring Boot
 - data for Supabase, Postgres, Prisma, Drizzle, Redis, Docker
 - mobile for Expo, React Native, Swift, SwiftUI, Kotlin
 - reviewer for correctness, regressions, security, performance, and tests
