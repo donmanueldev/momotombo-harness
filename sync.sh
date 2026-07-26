@@ -130,6 +130,31 @@ validate_skill() {
     return 0
 }
 
+validate_agent() {
+    local agent_path="$1"
+    local agent_name
+    agent_name="$(basename "$agent_path")"
+    local errors=()
+
+    if [ ! -f "$agent_path" ]; then
+        errors+=("Missing agent file")
+    else
+        if ! grep -q '^name = ' "$agent_path"; then
+            errors+=("Missing 'name'")
+        fi
+        if ! grep -q '^description = ' "$agent_path"; then
+            errors+=("Missing 'description'")
+        fi
+    fi
+
+    if [ "${#errors[@]}" -gt 0 ]; then
+        echo -e "${YELLOW}⚠${RESET} $agent_name: ${errors[*]}"
+        return 1
+    fi
+
+    return 0
+}
+
 show_dir_status() {
     local repo_dir="$1"
     local local_dir="$2"
@@ -719,13 +744,15 @@ undo_last() {
 }
 
 validate_all_skills() {
-    echo -e "${BOLD}Validating Skills${RESET}"
-    echo "================="
+    echo -e "${BOLD}Validating Skills and Agents${RESET}"
+    echo "==========================="
     echo ""
 
     local has_errors=false
-    local checked=0
+    local checked_skills=0
+    local checked_agents=0
     local seen=" "
+    local seen_agents=" "
 
     if [ -d "$REPO_SKILL_DIR" ]; then
         local skill
@@ -734,7 +761,7 @@ validate_all_skills() {
             local skill_name
             skill_name="$(basename "$skill")"
             seen="$seen$skill_name "
-            ((checked++)) || true
+            ((checked_skills++)) || true
             if ! validate_skill "$skill"; then
                 has_errors=true
             else
@@ -755,7 +782,7 @@ validate_all_skills() {
             if is_repo_symlink "$skill"; then
                 continue
             fi
-            ((checked++)) || true
+            ((checked_skills++)) || true
             if ! validate_skill "$skill"; then
                 has_errors=true
             else
@@ -764,15 +791,53 @@ validate_all_skills() {
         done
     fi
 
+    if [ -d "$REPO_AGENT_DIR" ]; then
+        local agent
+        for agent in "$REPO_AGENT_DIR"/*.toml; do
+            [ -f "$agent" ] || continue
+            local agent_name
+            agent_name="$(basename "$agent")"
+            seen_agents="$seen_agents$agent_name "
+            ((checked_agents++)) || true
+            if ! validate_agent "$agent"; then
+                has_errors=true
+            else
+                echo -e "${GREEN}✓${RESET} $agent_name"
+            fi
+        done
+    fi
+
+    if [ -d "$AGENT_HOME" ]; then
+        local agent
+        for agent in "$AGENT_HOME"/*.toml; do
+            [ -f "$agent" ] || continue
+            local agent_name
+            agent_name="$(basename "$agent")"
+            case "$seen_agents" in
+                *" $agent_name "*) [ ! -L "$agent" ] && continue ;;
+            esac
+            if is_repo_symlink "$agent"; then
+                continue
+            fi
+            ((checked_agents++)) || true
+            if ! validate_agent "$agent"; then
+                has_errors=true
+            else
+                echo -e "${GREEN}✓${RESET} $agent_name (local)"
+            fi
+        done
+    fi
+
     echo ""
-    if [ "$checked" -eq 0 ]; then
-        echo "No skills found to validate."
+    if [ "$checked_skills" -eq 0 ] && [ "$checked_agents" -eq 0 ]; then
+        echo "No skills or agents found to validate."
     elif $has_errors; then
-        echo -e "${YELLOW}Some skills have issues.${RESET}"
+        echo -e "${YELLOW}Some items have issues.${RESET}"
         echo "Skills should have a SKILL.md with frontmatter containing 'name' and 'description'."
+        echo "Agents should define 'name' and 'description'."
         exit 1
     else
-        echo -e "${GREEN}All $checked skills valid.${RESET}"
+        echo -e "${GREEN}All $checked_skills skills and $checked_agents agents valid.${RESET}"
     fi
 }
 

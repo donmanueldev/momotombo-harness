@@ -18,7 +18,7 @@ teardown() {
 @test "sync.sh validate shows 'no skills' when empty" {
     run run_sync validate
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"No skills found"* ]]
+    [[ "$output" == *"No skills or agents found to validate."* ]]
 }
 
 @test "sync.sh validate passes for valid skills" {
@@ -78,6 +78,28 @@ EOF
     [[ "$output" == *"Missing 'description'"* ]]
 }
 
+@test "orchestration contract document exists" {
+    [[ -f "$PROJECT_DIR/docs/orchestration-output-contract.md" ]]
+    grep -q "Orchestration Output Contract" "$PROJECT_DIR/docs/orchestration-output-contract.md"
+}
+
+@test "orchestration log helper writes canonical entry line" {
+    mkdir -p "$FAKE_REPO/.codex" "$FAKE_REPO/scripts"
+    cp "$PROJECT_DIR/scripts/log-orchestration-event.sh" "$FAKE_REPO/scripts/log-orchestration-event.sh"
+
+    run bash "$FAKE_REPO/scripts/log-orchestration-event.sh" \
+        --agent workflow \
+        --goal "test goal" \
+        --status ok \
+        --decision "router-ready" \
+        --result "logged" \
+        --next-step "continue"
+
+    [[ "$status" -eq 0 ]]
+    [[ -f "$FAKE_REPO/.codex/orchestration.log" ]]
+    grep -q "agent=workflow" "$FAKE_REPO/.codex/orchestration.log"
+}
+
 @test "sync.sh validate checks repo and local skills" {
     create_fake_skill "repo-skill"
     create_fake_skill "local-skill" "$FAKE_HOME/.codex/skills"
@@ -98,6 +120,31 @@ EOF
     local count
     count=$(echo "$output" | grep "my-skill" | grep -v "(local)" | wc -l | tr -d ' ')
     [[ "$count" -eq 1 ]]
+}
+
+@test "sync.sh validate checks repo and local agents" {
+    mkdir -p "$FAKE_REPO/.codex/agents"
+    mkdir -p "$FAKE_HOME/.codex/agents"
+    create_fake_codex_agent "planner-agent" "$FAKE_REPO/.codex/agents"
+    create_fake_codex_agent "local-agent" "$FAKE_HOME/.codex/agents"
+
+    run run_sync validate
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"planner-agent"* ]]
+    [[ "$output" == *"local-agent.toml (local)"* ]]
+}
+
+@test "sync.sh validate fails for agent missing description" {
+    mkdir -p "$FAKE_REPO/.codex/agents"
+    cat > "$FAKE_REPO/.codex/agents/bad-agent.toml" << EOF
+name = "bad-agent"
+developer_instructions = "Bad agent without description."
+EOF
+
+    run run_sync validate
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"bad-agent"* ]]
+    [[ "$output" == *"Missing 'description'"* ]]
 }
 
 # =============================================================================

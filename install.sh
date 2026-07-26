@@ -162,6 +162,7 @@ dry_run_msg() {
 # Main installation
 main() {
     local skill_targets=("$CODEX_HOME/skills")
+    local docs_target="$CODEX_HOME/agent-config-docs"
 
     if $DRY_RUN; then
         echo -e "${BOLD}Dry run - showing what would be done:${RESET}"
@@ -218,6 +219,39 @@ main() {
                 fi
             done
         done
+    fi
+
+    # Shared docs for portable reference after install
+    if [ -d "$CONFIG_DIR/docs" ] && [ -n "$(ls -A "$CONFIG_DIR/docs" 2>/dev/null)" ]; then
+        if ! $DRY_RUN; then
+            mkdir -p "$docs_target"
+        fi
+
+        local docs_dest="$docs_target"
+        if $DRY_RUN; then
+            if has_conflict "$docs_dest"; then
+                dry_run_msg "Would backup and replace ~/.codex/agent-config-docs"
+            else
+                dry_run_msg "Would link ~/.codex/agent-config-docs"
+            fi
+        else
+            if has_conflict "$docs_dest"; then
+                [ -z "$backup_path" ] && backup_path=$(create_backup)
+                if handle_conflict "$CONFIG_DIR/docs" "$docs_dest" "$backup_path" "agent-config-docs"; then
+                    backed_up_items+=("agent-config-docs")
+                    rm -rf "$docs_dest"
+                    ln -sfn "$CONFIG_DIR/docs" "$docs_dest"
+                    echo -e "${GREEN}✓${RESET} ~/.codex/agent-config-docs (replaced, backup saved)"
+                    has_changes=true
+                else
+                    echo -e "${YELLOW}○${RESET} ~/.codex/agent-config-docs (kept local)"
+                fi
+            else
+                ln -sfn "$CONFIG_DIR/docs" "$docs_dest"
+                echo -e "${GREEN}✓${RESET} ~/.codex/agent-config-docs"
+                has_changes=true
+            fi
+        fi
     fi
 
     # Codex agents (file symlinks per agent)

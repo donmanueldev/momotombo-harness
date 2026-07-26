@@ -42,9 +42,19 @@ Reusable capabilities that your coding agents can invoke.
 | `simplify` | Code simplification specialist |
 | `deslop` | Remove AI-generated code slop |
 | `setup-matt-pocock-skills` | Configure issue tracker, triage labels, and domain docs |
-| `to-issues` | Break a PRD into independently grabbable vertical slices |
-| `to-prd` | Turn a settled conversation into a concise PRD or brief |
+| `to-spec` | Turn the current conversation into a durable spec |
+| `to-tickets` | Break a spec into independent vertical tickets |
 | `pr-comments` | Draft concise PR comments and review feedback |
+| `implement` | Implement a spec or ticket set at execution fidelity |
+| `code-review` | Review code on standards and spec-alignment axes |
+| `wayfinder` | Map large ambiguous efforts into decision tickets |
+| `resolving-merge-conflicts` | Resolve merge/rebase conflicts by intent |
+| `grilling` | Deeply grill an idea until every decision branch is resolved |
+| `research` | Investigate technical questions with high-trust references |
+| `prototype` | Build a low-fidelity prototype for design validation |
+| `handoff` | Create a compact handoff brief for continuation across sessions |
+| `teach` | Teach a topic with incremental, multi-session coaching |
+| `writing-great-skills` | Maintain and refine skill documentation quality |
 | `triage` | Triage incoming issues or PRs into clear states |
 
 ## Managing your config

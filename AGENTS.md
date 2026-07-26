@@ -2,6 +2,13 @@
 
 Personal Codex skills, subagents, and sync helpers, synced across machines via symlinks.
 
+## Alignment (local instruction policy)
+
+- This repo defines behavior through this file and `custom-instructions.md`.
+- Nested AGENTS files (in subdirectories) can refine behavior for specialized areas.
+- Use `.rules` for temporary command controls; avoid embedding ad-hoc command bans in prompts.
+- Keep policy and process decisions in versioned docs (`AGENTS.md`, `custom-instructions.md`, and skill docs). Memories are optional context only.
+
 ## Commands
 
 ```bash
@@ -30,20 +37,47 @@ Tests use Bats. Run `bats tests/` to execute all tests. Tests run in isolated te
 - `sync.sh` - Codex sync/status helper for skills and subagents
 - `prompts/` - Reusable task starters for common Codex workflows
 - `tests/` - Bats test suite
+- `~/.codex/agent-config-docs` - Installed docs symlink after running `./install.sh`
 
 ## Verification
 
 After making changes:
 - `bats tests/` - Run all tests
 - `./sync.sh validate` - Validate all skills
+- Before merging instruction or control changes, re-read project instructions with `bats tests/` + `./sync.sh validate`.
 
 ## Codex Workflow
 
 - Start complex work with `ask-matt`, `planner`, `grill-with-docs`, `grill-me`, or `setup-matt-pocock-skills` for repo bootstrap.
+- For routed execution, `planner`, `workflow`, and `reviewer` must emit machine-readable outputs defined in `docs/orchestration-output-contract.md`.
 - Delegate one concern per subagent.
 - Use `web`, `backend`, `data`, `mobile`, and `reviewer` as the default routing map.
 - Use `setup-matt-pocock-skills` when a repo needs its issue tracker, triage labels, and domain-doc layout aligned.
-- Use `to-prd` when the conversation is ready to become a spec, `to-issues` when that spec needs vertical slices, `triage` for incoming tickets or PRs, `improve-codebase-architecture` for refactor opportunities, and `domain-modeling` for glossary work.
+- Use `to-spec` when the conversation is ready to become a spec, `to-tickets` when that spec needs vertical slices, `triage` for incoming tickets or PRs, `implement` for execution, `code-review` before handoff, and `improve-codebase-architecture` for refactor opportunities.
 - Use `diagnosing-bugs` for hard failures, flakes, and performance regressions.
 - Use `commit-english` for English commit messages, `pr-comments` for PR feedback, `codex-extensions` for prompts/skills/agents/config, and `codex-rules` for repo instructions.
 - Keep this repo's `.codex/config.toml` as the project overlay instead of overwriting the user's home Codex config.
+
+## Rules, subagents, and memory notes (Codex-specific)
+
+- Use project-specific `.rules` files only for explicit command policy. Prefer:
+  - `allow` when a command is safe and frequently needed
+  - `prompt` when a command needs approval context
+  - `forbidden` for dangerous commands in this workspace
+- For this repo, avoid overriding global tool policies unless explicitly requested.
+- Subagents: spawn explicitly for independent read-heavy analysis (security, tests, design, maintenability) and wait for summaries before touching shared files.
+- Memories are supplemental context. Required operational constraints stay in AGENTS, `.codex/config.toml`, or `.rules`.
+
+## Agent skills
+
+- Issue tracker: GitHub Issues (external PRs are valid triage entry points). See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+- Triage labels: canonical mapping documented in [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
+- Domain docs: single-context posture. Current guidance documented in [`docs/agents/domain.md`](docs/agents/domain.md).
+
+### Orchestration durability
+
+- Keep decision history in `.codex/orchestration.log` using `scripts/log-orchestration-event.sh`.
+- Route all handoffs through the same contract format to keep execution state explicit and auditable.
+- Before requesting work, use the standardized intake format in:
+- `docs/orchestration-task-requests.md`
+- Required intake fields: objective, scope, evidence, constraints, success criteria, and owner.
