@@ -15,7 +15,7 @@ Turn the approved specification into:
 - done criteria
 - a requirement-ID-preserving execution and verification plan
 
-Then decide which specialist agents to use. Prefer one domain per agent and keep the split narrow:
+Return a route for the root agent to execute. This configuration has `max_depth = 1`, so do not create subagents yourself. Prefer one domain per specialist and keep the split narrow:
 - web for React, Inertia.js, TypeScript, Tailwind CSS, shadcn/ui
 - backend for Laravel/PHP, TypeScript, Java, PostgreSQL, APIs, and business rules
 - infra for Docker-based local environments and service dependencies

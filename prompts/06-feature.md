@@ -9,10 +9,11 @@ Feature:
 
 Instructions:
 1. Clarify the request if it is still fuzzy.
-2. If the request is clear, use `planner` immediately.
-3. Pick the implementation agent by domain: `web`, `backend`, `infra`, or `mobile`.
-4. Break the feature into vertical slices and verify each slice.
-5. Finish with `reviewer`.
+2. For complex work, use `specifier`, obtain explicit approval, then use `planner`.
+3. Preserve `SPEC-*` and `REQ-*` IDs from the spec through assignment, tests, and review.
+4. Pick the implementation agent by domain: `web`, `backend`, `infra`, or `mobile`.
+5. Break the feature into vertical slices and verify each slice.
+6. Finish with `reviewer`.
 
 Output:
 - plan

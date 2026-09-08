@@ -115,7 +115,7 @@ EOF
     mkdir -p "$FAKE_REPO/scripts"
     cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
     cat > "$FAKE_REPO/route.json" <<'JSON'
-{"agent":"orchestrator","goal":"route work","status":"ok","decision":"continue","evidence":[],"result":"route created","route":"plan","agent_order":["planner"],"risk_register":[],"verification_plan":["bats tests/"]}
+{"agent":"orchestrator","goal":"route work","status":"ok","decision":"continue","evidence":[],"result":"route created","specification_id":"SPEC-42","specification_revision":1,"route":"plan","agent_order":["planner"],"risk_register":[],"verification_plan":["bats tests/"],"requirement_assignments":[{"requirement_id":"REQ-1","owner":"backend","scope":"validator","verification":"bats tests/"}]}
 JSON
 
     run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent orchestrator --input "$FAKE_REPO/route.json"
@@ -127,7 +127,7 @@ JSON
     mkdir -p "$FAKE_REPO/scripts"
     cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
     cat > "$FAKE_REPO/spec.json" <<'JSON'
-{"agent":"specifier","goal":"define login change","status":"ok","decision":"request approval","evidence":["ticket-42"],"result":"draft specification","approval_status":"draft","scope_in":["email login"],"scope_out":["social login"],"requirements":[{"id":"REQ-1","description":"Users can sign in with an email and password.","acceptance_criteria":["Valid credentials create a session."]}],"non_functional_requirements":["Do not log credentials."],"contracts":[],"assumptions":[],"open_questions":[],"verification_matrix":[{"requirement_id":"REQ-1","method":"integration test","evidence":"auth integration test"}],"risks":[]}
+{"agent":"specifier","goal":"define login change","status":"ok","decision":"request approval","evidence":["ticket-42"],"result":"draft specification","approval_status":"draft","specification_id":"SPEC-42","specification_revision":1,"scope_in":["email login"],"scope_out":["social login"],"requirements":[{"id":"REQ-1","description":"Users can sign in with an email and password.","acceptance_criteria":["Valid credentials create a session."]}],"non_functional_requirements":["Do not log credentials."],"contracts":[],"assumptions":[],"open_questions":[],"verification_matrix":[{"requirement_id":"REQ-1","method":"integration test","evidence":"auth integration test"}],"risks":[]}
 JSON
 
     run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent specifier --input "$FAKE_REPO/spec.json"
@@ -139,12 +139,31 @@ JSON
     mkdir -p "$FAKE_REPO/scripts"
     cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
     cat > "$FAKE_REPO/spec.json" <<'JSON'
-{"agent":"specifier","goal":"define login change","status":"ok","decision":"approved","evidence":["ticket-42"],"result":"approved specification","approval_status":"approved","scope_in":["email login"],"scope_out":[],"requirements":[{"id":"REQ-1","description":"Users can sign in with an email and password.","acceptance_criteria":["Valid credentials create a session."]}],"non_functional_requirements":[],"contracts":[],"assumptions":[],"open_questions":[],"verification_matrix":[{"requirement_id":"REQ-1","method":"integration test","evidence":"auth integration test"}],"risks":[]}
+{"agent":"specifier","goal":"define login change","status":"ok","decision":"approved","evidence":["ticket-42"],"result":"approved specification","approval_status":"approved","specification_id":"SPEC-42","specification_revision":1,"scope_in":["email login"],"scope_out":[],"requirements":[{"id":"REQ-1","description":"Users can sign in with an email and password.","acceptance_criteria":["Valid credentials create a session."]}],"non_functional_requirements":[],"contracts":[],"assumptions":[],"open_questions":[],"verification_matrix":[{"requirement_id":"REQ-1","method":"integration test","evidence":"auth integration test"}],"risks":[]}
 JSON
 
     run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent specifier --input "$FAKE_REPO/spec.json"
     [[ "$status" -ne 0 ]]
     [[ "$output" == *"approval_evidence must be a non-empty string"* ]]
+}
+
+@test "orchestration validator accepts traceable planner and reviewer payloads" {
+    mkdir -p "$FAKE_REPO/scripts"
+    cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
+    cat > "$FAKE_REPO/planner.json" <<'JSON'
+{"agent":"planner","goal":"plan login change","status":"ok","decision":"route implementation","evidence":["SPEC-42"],"result":"plan created","specification_id":"SPEC-42","specification_revision":1,"context":"login","constraints":[],"done_criteria":["REQ-1 verified"],"execution_plan":["backend"],"risks":[],"verification":["integration test"],"requirement_plan":[{"requirement_id":"REQ-1","owner":"backend","work":"implement login","verification":"integration test"}]}
+JSON
+    cat > "$FAKE_REPO/reviewer.json" <<'JSON'
+{"agent":"reviewer","goal":"review login change","status":"ok","decision":"ready","evidence":["integration test"],"result":"review complete","specification_id":"SPEC-42","specification_revision":1,"findings":[],"blocking_items":[],"requirement_coverage":[{"requirement_id":"REQ-1","status":"verified","evidence":"integration test"}]}
+JSON
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent planner --input "$FAKE_REPO/planner.json"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"valid"* ]]
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent reviewer --input "$FAKE_REPO/reviewer.json"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"valid"* ]]
 }
 
 @test "sync.sh validate checks repo and local skills" {

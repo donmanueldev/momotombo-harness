@@ -124,11 +124,12 @@ Codex skills are linked from this repo into `~/.codex/skills`.
 Codex agents from `.codex/agents/` are linked into `~/.codex/agents` by `./install.sh`.
 Matt Pocock skills are installed separately by `skills.sh` and reconciled by `./sync.sh matt`.
 
-Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. For complex product work, use `specifier` to produce an approved, testable specification before `planner` and `orchestrator` delegate implementation. The specification preserves requirement IDs through planning, routing, verification, and review.
+Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. For complex product work, use `specifier` to produce an approved, testable specification before `planner` and `orchestrator` return a route for the root agent to execute. The specification preserves requirement IDs through planning, routing, verification, and review.
 
 Prompt starters:
 - `Turn this request into a spec with scope, non-goals, acceptance criteria, and a verification matrix. Wait for my approval before planning.`
 - `Plan this feature, split it into web/backend/infra work, and tell me which subagents to run first.`
+- `Create and approve a SPEC before planning this complex feature; preserve REQ IDs through tests and staff-level review.`
 - `Diagnose this bug and build the smallest reproducible loop before changing code.`
 - `Review this diff for regressions, missing tests, and any risky behavior.`
 - `Write a concise English commit message for this diff and explain the grouping.`

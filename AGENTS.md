@@ -48,8 +48,9 @@ After making changes:
 
 ## Codex Workflow
 
-- Start complex work with `planner` to define scope, risks, and done criteria.
-- Use `orchestrator` for multi-agent routing; it is read-only and produces the required machine-readable route before implementation begins.
+- Start complex product work with `specifier`; obtain explicit approval of its testable specification before asking `planner` for an execution plan.
+- Use `orchestrator` for multi-agent routing; it is read-only and returns the required machine-readable route for the root agent to execute before implementation begins.
+- Preserve `SPEC-*` and `REQ-*` IDs through planning, routing, validation, and review. Do not treat a green build as proof that a requirement is complete without its linked evidence.
 - Delegate one concern per subagent.
 - Use `web`, `backend`, `infra`, `mobile`, and `reviewer` as the default routing map.
 - Use `commit-english` for English commit messages and `pr-comments` for PR feedback. Keep prompts, skills, agents, and rules aligned with their repository documentation and validation.

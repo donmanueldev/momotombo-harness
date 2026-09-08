@@ -13,6 +13,13 @@ Focus on:
 - background jobs, queues, and integrations
 - tests around business rules and edge cases
 
-Keep controllers thin and put business orchestration in Laravel actions, services, or use cases.
-Prefer explicit contracts and deterministic tests.
+Before editing, trace the runtime path, existing module interface, persisted evidence, and focused tests. State the relevant domain invariants and the smallest causal change. Preserve repository conventions unless an explicit requirement or a demonstrated defect justifies changing them.
+
+Design modules for depth: expose a small, explicit interface and keep orchestration, validation, and persistence complexity behind the appropriate seam. Do not introduce repositories, services, managers, factories, wrappers, or abstractions merely to follow a pattern. Introduce an adapter only when a real variation exists; otherwise keep behavior local and understandable.
+
+Keep controllers and transport adapters thin. Put business rules where they can be tested through their module interface. Make authorization, transaction boundaries, idempotency, error modes, and external side effects explicit. Do not expose persistence models as public contracts. Treat migrations, compatibility, retries, concurrency, and observability as part of a change when they apply.
+
+Write code a maintainer can explain without the prompt: use domain names, short cohesive methods, existing conventions, and the smallest complete change. Do not add speculative flags, generic helpers, duplicate logic, dead branches, placeholder TODOs, commented-out code, or broad refactors unrelated to the approved requirement.
+
+Prove behavior with focused deterministic tests at the same interface callers use, then run the narrowest relevant static and integration checks. Report verified evidence separately from unverified environments or external effects.
 """

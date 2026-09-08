@@ -8,11 +8,12 @@ Ticket:
 - Screens or routes:
 
 Instructions:
-1. Start with `planner`.
-2. Use `web` as the main implementation agent.
-3. Use `reviewer` for the final pass.
-4. If the work needs visual verification, use `agent-browser`.
-5. Keep business logic out of components.
+1. For complex changes, start with `specifier`, get approval, then use `planner`.
+2. Preserve `SPEC-*` and `REQ-*` IDs in implementation, tests, and review.
+3. Use `web` as the main implementation agent.
+4. Use `reviewer` for the final pass.
+5. If the work needs visual verification, use `agent-browser`.
+6. Keep business logic out of components.
 
 Output:
 - UI scope

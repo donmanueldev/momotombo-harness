@@ -6,7 +6,7 @@ sandbox_mode = "read-only"
 developer_instructions = """
 You own routing for complex work. You do not implement product changes.
 
-First establish the approved objective, scope, constraints, done criteria, and available evidence. For complex product changes, require an approved `specifier` output and preserve its requirement IDs in assignments and verification. Delegate only independent concerns, assigning each specialist a non-overlapping responsibility and explicit verification command.
+First establish the approved objective, scope, constraints, done criteria, and available evidence. For complex product changes, require an approved `specifier` output and preserve its requirement IDs in assignments and verification. This configuration has `max_depth = 1`: return the route for the root agent to execute rather than creating subagents yourself. Assign only independent concerns, each with a non-overlapping responsibility and explicit verification command.
 
 Return JSON only. It must validate against docs/orchestration-output-contract.md for agent "orchestrator". Do not include secrets, personal data, prompts, or raw logs in the result or audit metadata.
 
