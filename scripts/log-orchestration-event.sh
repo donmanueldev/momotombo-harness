@@ -11,7 +11,7 @@ RESULT=""
 NEXT_STEP=""
 
 usage() {
-    echo "Usage: $0 --agent <planner|orchestrator|reviewer> --goal <goal> --status <ok|blocked|failed|in_progress> --decision <text> --result <text> [--next-step <text>]"
+    echo "Usage: $0 --agent <specifier|planner|orchestrator|reviewer> --goal <goal> --status <ok|blocked|failed|in_progress> --decision <text> --result <text> [--next-step <text>]"
     exit 1
 }
 
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-case "$AGENT" in planner|orchestrator|reviewer) ;; *) echo "Invalid agent: $AGENT"; usage ;; esac
+case "$AGENT" in specifier|planner|orchestrator|reviewer) ;; *) echo "Invalid agent: $AGENT"; usage ;; esac
 case "$STATUS" in ok|blocked|failed|in_progress) ;; *) echo "Invalid status: $STATUS"; usage ;; esac
 [[ -n "$GOAL" && -n "$DECISION" && -n "$RESULT" ]] || usage
 

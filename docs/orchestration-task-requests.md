@@ -23,7 +23,7 @@ criterios_de_exito:
   - login más rápido/robusto
 ```
 
-Con eso, el orquestador puede convertir el objetivo en una especificación, un plan y tareas verificables.
+Con eso, `specifier` puede producir una especificación verificable. Tras su aprobación explícita, `planner` prepara el plan y `orchestrator` enruta tareas verificables.
 
 ## Campos mínimos (siempre)
 
@@ -81,7 +81,9 @@ criterios_de_exito:
 
 Ruta sugerida:
 
-- especificación si los requisitos evolucionan
+- `specifier` produce una spec con alcance, no-alcance, requisitos, aceptación y matriz de verificación
+- aprobación explícita de la spec antes de planificar o implementar
+- `planner` conserva IDs de requisito en el plan
 - tareas separables con dependencias explícitas
 - implementación por vertical slices
 - revisión independiente antes de marcar listo
@@ -110,7 +112,7 @@ Ruta sugerida:
 
 ## Reglas de salida esperadas
 
-- El planificador y el orquestador deben responder con un único objeto JSON según:
+- `specifier`, el planificador y el orquestador deben responder con un único objeto JSON según:
 - `docs/orchestration-output-contract.md`
 - Antes de finalizar cada fase, registrar en:
   - `.codex/orchestration.jsonl`
@@ -118,7 +120,7 @@ Ruta sugerida:
 
 ```bash
 bash scripts/log-orchestration-event.sh \
-  --agent <planner|orchestrator> \
+  --agent <specifier|planner|orchestrator|reviewer> \
   --goal "<objetivo>" \
   --status <ok|blocked|failed|in_progress> \
   --decision "<decision>" \

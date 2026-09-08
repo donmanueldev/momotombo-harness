@@ -12,14 +12,16 @@ Context:
 - Success criteria:
 
 Instructions:
-1. Use `planner` first to define scope, risks, and done criteria.
-2. Ask only the minimum clarifying questions needed to avoid rework.
-3. Route work to `backend`, `infra`, `web`, `mobile`, or `reviewer` as needed.
-4. Prefer vertical slices, tests, and explicit verification.
-5. End with a short execution brief that can be recorded in the issue or PR.
+1. Use `specifier` first to create a testable scope, non-goals, requirement IDs, acceptance criteria, and verification matrix.
+2. Obtain explicit approval of the spec; ask only the minimum questions needed to do so.
+3. Use `planner` to turn the approved spec into an execution plan.
+4. Route work to `backend`, `infra`, `web`, `mobile`, or `reviewer` as needed.
+5. Prefer vertical slices, tests, and explicit verification linked to requirement IDs.
+6. End with a short execution brief that can be recorded in the issue or PR.
 
 Output:
 - plan
+- approved specification
 - agent order
 - risks
 - verification

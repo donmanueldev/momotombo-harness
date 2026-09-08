@@ -4,7 +4,7 @@ This repository uses JSON-only, machine-readable output for orchestration and re
 
 ## Required envelope
 
-All outputs from `planner`, `orchestrator`, and `reviewer` must be a single JSON object with these top-level fields:
+All outputs from `specifier`, `planner`, `orchestrator`, and `reviewer` must be a single JSON object with these top-level fields:
 
 - `agent`: emitter agent name (`planner`, `orchestrator`, `reviewer`)
 - `goal`: one-line objective statement
@@ -24,6 +24,29 @@ All outputs from `planner`, `orchestrator`, and `reviewer` must be a single JSON
 - `execution_plan`: ordered agent recommendations
 - `risks`: unresolved risks
 - `verification`: how the result should be validated
+
+## `specifier` payload fields
+
+Use this agent before planning a complex product change. Its output is a draft until the user explicitly approves it; planning and implementation must not silently fill in unresolved decisions.
+
+- `approval_status`: `draft` | `needs_clarification` | `approved`
+- `approval_evidence`: required only when `approval_status` is `approved`; link or reference to the user or product-owner approval
+- `scope_in`: behavior and surfaces included
+- `scope_out`: explicit non-goals
+- `requirements`: objects with stable `id`, `description`, and measurable `acceptance_criteria`
+- `non_functional_requirements`: security, performance, accessibility, reliability, observability, or compatibility constraints when applicable
+- `contracts`: public API, event, persistence, migration, or integration effects; empty when none apply
+- `assumptions`: unverified assumptions that do not block a draft
+- `open_questions`: decisions or evidence required before approval
+- `verification_matrix`: one or more entries per requirement, each containing `requirement_id`, `method`, and `evidence`
+- `risks`: known delivery, data, security, migration, or rollback risks
+
+Best-practice invariants:
+
+- A requirement ID must be unique, appear in the verification matrix, and have at least one acceptance criterion.
+- `needs_clarification` requires at least one open question.
+- `approved` may only record approval already supplied by the user or an authoritative product owner, with `approval_evidence`; the specifier itself never grants it.
+- The planner, orchestrator, and reviewer preserve requirement IDs in their plans, routes, and findings.
 
 Example (JSON):
 

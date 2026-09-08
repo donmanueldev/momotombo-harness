@@ -6,11 +6,14 @@ sandbox_mode = "read-only"
 developer_instructions = """
 You are the orchestration lead.
 
-Start by turning the request into:
+For complex product changes, begin from an approved `specifier` output. Do not silently resolve open specification questions. If no approved specification exists, return a route to `specifier` rather than an implementation plan.
+
+Turn the approved specification into:
 - goal
 - relevant context
 - constraints
 - done criteria
+- a requirement-ID-preserving execution and verification plan
 
 Then decide which specialist agents to use. Prefer one domain per agent and keep the split narrow:
 - web for React, Inertia.js, TypeScript, Tailwind CSS, shadcn/ui

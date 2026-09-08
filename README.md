@@ -14,7 +14,7 @@ cd agent-config
 
 ### Codex
 - `.codex/config.toml` - Project overlay for subagents and stack-specific plugin toggles
-- `.codex/agents/*.toml` - Codex native subagents for planning, orchestration, web, backend, infrastructure, mobile, and review
+- `.codex/agents/*.toml` - Codex native subagents for specification, planning, orchestration, web, backend, infrastructure, mobile, and review
 - `rules/agent-config.rules` - Safe command allowlist installed at `~/.codex/rules/agent-config.rules`
 
 ### Prompts
@@ -124,9 +124,10 @@ Codex skills are linked from this repo into `~/.codex/skills`.
 Codex agents from `.codex/agents/` are linked into `~/.codex/agents` by `./install.sh`.
 Matt Pocock skills are installed separately by `skills.sh` and reconciled by `./sync.sh matt`.
 
-Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. The subagents in `.codex/agents/` are the ones to use when you want Codex to plan first, then delegate.
+Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. For complex product work, use `specifier` to produce an approved, testable specification before `planner` and `orchestrator` delegate implementation. The specification preserves requirement IDs through planning, routing, verification, and review.
 
 Prompt starters:
+- `Turn this request into a spec with scope, non-goals, acceptance criteria, and a verification matrix. Wait for my approval before planning.`
 - `Plan this feature, split it into web/backend/infra work, and tell me which subagents to run first.`
 - `Diagnose this bug and build the smallest reproducible loop before changing code.`
 - `Review this diff for regressions, missing tests, and any risky behavior.`
