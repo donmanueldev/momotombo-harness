@@ -27,22 +27,14 @@ Matt Pocock skills are managed globally by the official `skills.sh` installer, o
 
 | Skill | Description |
 |-------|-------------|
-| `agent-browser` | Browser automation for web testing and interaction |
-| `chrome-webstore-release-blueprint` | Prepare Chrome Web Store releases |
+| `agent-browser` | Evidence-based browser verification for web interfaces |
 | `commit-english` | Write git commit messages in English |
-| `codex-extensions` | Add or update Codex prompts, skills, agents, and config |
-| `codex-rules` | Write and maintain repository instructions and guardrails |
-| `favicon` | Generate favicons from a source image |
-| `find-skills` | Locate relevant reusable skills |
 | `fix-sentry-issues` | Investigate and address Sentry issues |
-| `knip` | Find and remove unused files, dependencies, and exports |
-| `playwriter` | Browser-driven UI testing and inspection |
 | `pr-comments` | Draft concise PR comments and review feedback |
 | `rams` | Run accessibility and visual design review |
-| `sentry` | Work with Sentry observability workflows |
-| `simplify` | Code simplification specialist |
-| `deslop` | Remove AI-generated code slop |
-| `skill-creator` | Create and maintain Codex skills |
+| `deslop` | Remove verified redundant code from an approved scope |
+| `favicon` (optional) | Generate favicons from a source image |
+| `knip` (optional) | Investigate potentially unused Node.js code and dependencies |
 
 ## Managing your config
 

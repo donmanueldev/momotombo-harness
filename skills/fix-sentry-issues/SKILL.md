@@ -25,7 +25,7 @@ Ask **"Why does this fail?"** — not **"How do I make Sentry quiet?"** Never tr
 
 ## Phase 1: Discover & Triage
 
-Use Sentry MCP (`ToolSearch` first to load tools): `find_organizations` → `find_projects` → `search_issues` with `naturalLanguageQuery: "all unresolved issues sorted by events"`.
+If an authorized Sentry connector is available, discover its tools first and inspect the requested organization, project, issue, and event evidence. Otherwise, ask the user for the issue link or exported evidence; do not infer live Sentry state.
 
 Build a triage table. Action = **Investigate** or **Ignore** only:
 
@@ -37,7 +37,7 @@ Build a triage table. Action = **Investigate** or **Ignore** only:
 **Investigate:** multiple events, degraded user experience, high-volume warnings, recurring on every run.
 **Ignore:** browser extension code, `ChunkLoadError` (self-resolving), single-event transients, already fixed.
 
-Apply: `mcp__sentry__update_issue(..., status: "ignored")` or `status: "resolved"` for already-fixed.
+Do not change an issue's status during triage. Closing, ignoring, or resolving it is an external write and requires explicit user authorization after the root cause or completed fix is evidenced.
 
 ## Phase 2: Investigate (one issue at a time)
 
@@ -45,15 +45,13 @@ Work through these steps **in order**. Do not skip or batch issues.
 
 1. **Pull event-level data** — Issue summaries hide details. Use `get_issue_details` and `search_issue_events` with `naturalLanguageQuery: "all events with extra data"`. Extract: URLs, params, stack traces, status codes, timestamps.
 
-2. **Cross-reference Axiom** — Events have `traceId`. `axiom query "['shiori-events'] | where traceId == '<traceId>'" -f json` for surrounding context (authMethod, client_version, request metadata).
+2. **Read the failing code path** — Follow the stack trace. Read every relevant file. Understand before proposing changes.
 
-3. **Read the failing code path** — Follow the stack trace. Read every file. Understand before proposing changes.
+3. **Trace the input path upstream** *(most often skipped, most important)* — What data reaches the failing function? Should it have reached this path at all? Is there a missing filter? Is the input wrong (binary URL, redirect, bad format)? Can we prevent bad inputs upstream?
 
-4. **Trace the input path upstream** *(most often skipped, most important)* — What data reaches the failing function? Should it have reached this path at all? Is there a missing filter? Is the input wrong (binary URL, redirect, bad format)? Can we prevent bad inputs upstream?
+4. **Reproduce** — Use redacted, safe failing inputs where possible. Verify your understanding without replaying an external mutation or exposing sensitive event data.
 
-5. **Reproduce** — Use actual failing inputs from Sentry. Call the function with exact data. `fetch()` the URLs that timed out. Verify your understanding.
-
-6. **Identify root cause** — Why does this input fail? Why does it reach this path? What's the right fix? (e.g., "Filter binary URLs before Firecrawl" — not "suppress the log")
+5. **Identify root cause** — Why does this input fail? Why does it reach this path? What's the right fix? (e.g., "Filter binary URLs before Firecrawl" — not "suppress the log")
 
 | Pattern | Real Fix |
 |---------|----------|
@@ -64,9 +62,9 @@ Work through these steps **in order**. Do not skip or batch issues.
 
 ## Phase 3: Fix
 
-One branch per issue. `git checkout main && git pull && git checkout -b fix/<descriptive-name>`
+Work from the current repository checkout and its documented base branch. Do not switch branches, pull, or create a branch unless the user requests it.
 
 - **Tests first** — Use data from actual Sentry events. Test fails before fix, passes after.
 - **Implement** — Fix the root cause, not the symptom. If the fix is primarily a log level change, STOP: did you investigate why it fails, or just suppress?
 - **Verify** — Tests pass, lint passes, fix handles actual failing inputs.
-- **PR** — Include **Root cause** (upstream reason) and **Fix** (what changed and why it prevents the failure). Resolve in Sentry only after merge.
+- **PR** — Include **Root cause** (upstream reason) and **Fix** (what changed and why it prevents the failure). Resolve in Sentry only after merge and explicit authorization.

@@ -52,7 +52,7 @@ After making changes:
 - Use `orchestrator` for multi-agent routing; it is read-only and produces the required machine-readable route before implementation begins.
 - Delegate one concern per subagent.
 - Use `web`, `backend`, `infra`, `mobile`, and `reviewer` as the default routing map.
-- Use `commit-english` for English commit messages, `pr-comments` for PR feedback, `codex-extensions` for prompts/skills/agents/config, and `codex-rules` for repo instructions.
+- Use `commit-english` for English commit messages and `pr-comments` for PR feedback. Keep prompts, skills, agents, and rules aligned with their repository documentation and validation.
 - Keep this repo's `.codex/config.toml` as the project overlay instead of overwriting the user's home Codex config.
 
 ## Rules, subagents, and memory notes (Codex-specific)

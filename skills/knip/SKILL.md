@@ -1,24 +1,24 @@
 ---
 name: knip
-description: Find and remove unused files and exports.
+description: Find and verify potentially unused files, exports, and dependencies.
 ---
 
 # Knip Code Cleanup
 
-Run knip to find and remove unused files, dependencies, and exports from this codebase.
+Use Knip to find candidates for cleanup. Its output is evidence to investigate, not permission to delete.
 
 ## Setup
 
 1. Check if knip is available:
    - Run `npx knip --version` to test
    - If it fails or is very slow, check if `knip` is in package.json devDependencies
-   - If not installed locally, install with `npm install -D knip` (or pnpm/yarn/bun equivalent based on lockfile present)
+   - If it is not installed locally, report that prerequisite and ask before adding a dependency or changing a lockfile
 
 2. Knip does NOT remove unused imports/variables inside files — that's a linter's job. Knip finds unused files, dependencies, and exports across the project.
 
 ## Workflow
 
-Always follow this configuration-first workflow. Even for simple "run knip" or "clean up codebase" prompts, configure knip properly before acting on reported issues.
+Always inspect the project and existing configuration before acting on reported issues. Do not create or rewrite a Knip configuration without evidence that the current one is wrong.
 
 ### Step 1: Understand the project
 
@@ -34,9 +34,9 @@ npx knip
 
 Focus on **configuration hints** before anything else. These appear at the top of the output and suggest config adjustments to reduce false positives.
 
-### Step 3: Address hints by adjusting knip.json
+### Step 3: Evaluate configuration hints
 
-Fix configuration hints before addressing reported issues. Common adjustments:
+Only adjust configuration when the hint maps to a confirmed framework entry point or project convention. Common adjustments:
 - Enable/disable plugins for detected frameworks
 - Add entry patterns for non-standard entry points
 - Configure workspace settings for monorepos
@@ -47,7 +47,7 @@ Re-run knip after each config change. Repeat until configuration hints are resol
 
 ### Step 5: Address actual issues
 
-Once the configuration is settled, work through reported issues. Prioritize in this order:
+Once the configuration is settled, trace each reported issue through repository references, runtime entry points, package scripts, framework conventions, and public API boundaries. Prioritize the investigation in this order:
 
 1. **Unused files** — address these first ("inbox zero" approach removes the most noise)
 2. **Unused dependencies** — remove from package.json
@@ -83,11 +83,10 @@ This excludes test files, config files, and other non-production entry points. D
 
 ## Cleanup Confidence Levels
 
-### Auto-delete (high confidence):
-- Unused exports that are clearly internal (not part of public API)
-- Unused type exports
-- Unused dependencies (remove from package.json)
-- Unused files that are clearly orphaned (not entry points, not config files)
+### Eligible for a proposed deletion:
+- Clearly internal exports with no static, dynamic, generated, or public consumer
+- Dependencies confirmed unused by manifests, scripts, CI, tooling, and runtime configuration
+- Files confirmed orphaned and not framework entry points, generated inputs, or configuration
 
 ### Ask first (needs clarification):
 - Files that might be entry points or dynamically imported
@@ -95,21 +94,11 @@ This excludes test files, config files, and other non-production entry points. D
 - Dependencies that might be used via CLI or peer dependencies
 - Anything in paths like `src/index`, `lib/`, or files with "public" or "api" in the name
 
-Use the AskUserQuestion tool to clarify before deleting these.
+Ask before deleting candidates or changing dependencies. Explain the consumer search and validation that supports each removal.
 
 ## Auto-fix
 
-Once configuration is settled and you're confident in the results:
-
-```bash
-# Auto-fix safe changes (removes unused exports and dependencies)
-npx knip --fix
-
-# Auto-fix including file deletion
-npx knip --fix --allow-remove-files
-```
-
-Only use `--fix` after the configuration-first workflow is complete.
+Do not use `--fix` or `--allow-remove-files`. Make reviewed removals as small explicit changes, then rerun the relevant checks.
 
 ## Error Handling
 
