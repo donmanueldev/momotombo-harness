@@ -126,6 +126,8 @@ Matt Pocock skills are installed separately by `skills.sh` and reconciled by `./
 
 Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. For complex product work, use `specifier` to produce an approved, testable specification before `planner` and `orchestrator` return a route for the root agent to execute. The specification preserves requirement IDs through planning, routing, verification, and review.
 
+For Laravel projects that use [Laravel Boost](https://laravel.com/framework/docs/boost), the backend agent first follows the project's Boost guidelines, `.ai/rules`, and package-detected skills. This keeps Inertia, Pest, Filament, and other package-specific conventions local to the application rather than duplicating or overriding them in this global configuration.
+
 Prompt starters:
 - `Turn this request into a spec with scope, non-goals, acceptance criteria, and a verification matrix. Wait for my approval before planning.`
 - `Plan this feature, split it into web/backend/infra work, and tell me which subagents to run first.`

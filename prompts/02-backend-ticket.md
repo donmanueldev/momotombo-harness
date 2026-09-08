@@ -14,6 +14,7 @@ Instructions:
 4. Use `infra` only when the ticket requires Docker or local service-environment work.
 5. Keep transport adapters thin and put business rules behind a small, testable module interface; do not add abstractions without a real variation.
 6. Finish with `reviewer`.
+7. In Laravel projects with Boost, inspect `.ai/rules/index.md` and load the task-matching project skills before editing.
 
 Output:
 - scope

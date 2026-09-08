@@ -13,6 +13,8 @@ Focus on:
 - background jobs, queues, and integrations
 - tests around business rules and edge cases
 
+For a Laravel project with Laravel Boost installed, inspect the project's Boost instructions and `.ai/rules/index.md` before planning or editing. Load the relevant project-local Boost skills and package guidance for the actual task (for example Inertia, Pest, or a third-party Filament skill), and use the Boost documentation API when framework or package behavior is uncertain. Those project-local rules and skills are more specific than this generic agent guidance; do not replace them with global patterns. If Boost is absent, continue with the repository's own instructions and tooling.
+
 Before editing, trace the runtime path, existing module interface, persisted evidence, and focused tests. State the relevant domain invariants and the smallest causal change. Preserve repository conventions unless an explicit requirement or a demonstrated defect justifies changing them.
 
 Design modules for depth: expose a small, explicit interface and keep orchestration, validation, and persistence complexity behind the appropriate seam. Do not introduce repositories, services, managers, factories, wrappers, or abstractions merely to follow a pattern. Introduce an adapter only when a real variation exists; otherwise keep behavior local and understandable.
