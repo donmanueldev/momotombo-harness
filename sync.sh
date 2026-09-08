@@ -336,6 +336,9 @@ show_status() {
     echo "  ./sync.sh delete <type> <name>  Remove item from repo and local copy"
     echo "  ./sync.sh pull                  Pull latest and reinstall"
     echo "  ./sync.sh matt                  Update Matt Pocock skills"
+    echo "  ./sync.sh android               Update official Android skills"
+    echo "  ./sync.sh kotlin                Update official Kotlin skills"
+    echo "  ./sync.sh mobile                Update official Android and Kotlin skills"
     echo "  ./sync.sh push                  Commit and push changes"
     echo "  ./sync.sh undo                  Restore from last backup"
     echo "  ./sync.sh validate              Validate all skills"
@@ -637,6 +640,29 @@ sync_matt_skills() {
     fi
 
     bash "$CONFIG_DIR/scripts/sync-matt-skills.sh"
+}
+
+sync_android_skills() {
+    if $DRY_RUN; then
+        bash "$CONFIG_DIR/scripts/sync-android-skills.sh" --dry-run
+        return
+    fi
+
+    bash "$CONFIG_DIR/scripts/sync-android-skills.sh"
+}
+
+sync_kotlin_skills() {
+    if $DRY_RUN; then
+        bash "$CONFIG_DIR/scripts/sync-kotlin-skills.sh" --dry-run
+        return
+    fi
+
+    bash "$CONFIG_DIR/scripts/sync-kotlin-skills.sh"
+}
+
+sync_mobile_skills() {
+    sync_android_skills
+    sync_kotlin_skills
 }
 
 push_changes() {
@@ -961,6 +987,15 @@ case "${1:-}" in
         ;;
     matt)
         sync_matt_skills
+        ;;
+    android)
+        sync_android_skills
+        ;;
+    kotlin)
+        sync_kotlin_skills
+        ;;
+    mobile)
+        sync_mobile_skills
         ;;
     push)
         push_changes

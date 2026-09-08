@@ -23,7 +23,15 @@ cd agent-config
 ### Skills
 Reusable capabilities that your coding agents can invoke.
 
-Matt Pocock skills are managed globally by the official `skills.sh` installer, outside this repository. Run `./sync.sh matt` when you explicitly want to install or update that source for Codex; `./install.sh --with-matt` does the same during setup. They are never copied into this repository, which avoids duplicate local copies.
+Matt Pocock, official Android, and official Kotlin skills are managed globally by the official `skills.sh` installer, outside this repository. They are never copied into this repository, which avoids duplicate local copies.
+
+| External source | Synchronize | Setup opt-in |
+|---|---|---|
+| Matt Pocock | `./sync.sh matt` | `./install.sh --with-matt` |
+| [Android](https://github.com/android/skills) | `./sync.sh android` | `./install.sh --with-mobile` |
+| [Kotlin](https://github.com/Kotlin/kotlin-agent-skills) | `./sync.sh kotlin` | `./install.sh --with-mobile` |
+
+Run `./sync.sh mobile` to reconcile both official mobile sources. Local community skills remain in this repository so their Codex integration can be reviewed and adapted; they do not automatically update from their upstream repositories.
 
 | Skill | Description |
 |-------|-------------|
@@ -35,6 +43,9 @@ Matt Pocock skills are managed globally by the official `skills.sh` installer, o
 | `deslop` | Remove verified redundant code from an approved scope |
 | `favicon` (optional) | Generate favicons from a source image |
 | `knip` (optional) | Investigate potentially unused Node.js code and dependencies |
+| `mobile-android-design` | Local Android Material 3 and adaptive UI guidance |
+| `compose-multiplatform-patterns` | Local Compose Multiplatform state and platform-boundary guidance |
+| `android-clean-architecture` | Local Android/KMP layering and data-flow guidance |
 
 ## Managing your config
 
@@ -61,8 +72,16 @@ Matt Pocock skills are managed globally by the official `skills.sh` installer, o
 # Update Matt Pocock skills only
 ./sync.sh matt
 
+# Update official Android or Kotlin skills, or both
+./sync.sh android
+./sync.sh kotlin
+./sync.sh mobile
+
 # Install this configuration and explicitly reconcile Matt Pocock skills
 ./install.sh --with-matt
+
+# Install this configuration and explicitly reconcile official Android + Kotlin skills
+./install.sh --with-mobile
 
 # Remove a skill or subagent from repo (keeps local copy)
 ./sync.sh remove skill my-skill
@@ -122,7 +141,7 @@ If a skill keeps coming back, it is usually coming from a plugin or marketplace 
 
 Codex skills are linked from this repo into `~/.codex/skills`.
 Codex agents from `.codex/agents/` are linked into `~/.codex/agents` by `./install.sh`.
-Matt Pocock skills are installed separately by `skills.sh` and reconciled by `./sync.sh matt`.
+Matt Pocock, official Android, and official Kotlin skills are installed separately by `skills.sh` and reconciled with `./sync.sh matt`, `./sync.sh android`, `./sync.sh kotlin`, or `./sync.sh mobile`.
 
 Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. For complex product work, use `specifier` to produce an approved, testable specification before `planner` and `orchestrator` return a route for the root agent to execute. The specification preserves requirement IDs through planning, routing, verification, and review.
 

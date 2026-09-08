@@ -6,6 +6,7 @@ BACKUP_DIR="$CONFIG_DIR/.backup"
 DRY_RUN=false
 FORCE=false
 SYNC_MATT_SKILLS=false
+SYNC_MOBILE_SKILLS=false
 CODEX_HOME="$HOME/.codex"
 
 # Colors
@@ -30,6 +31,10 @@ while [[ $# -gt 0 ]]; do
             SYNC_MATT_SKILLS=true
             shift
             ;;
+        --with-mobile)
+            SYNC_MOBILE_SKILLS=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: ./install.sh [options]"
             echo ""
@@ -37,6 +42,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -n, --dry-run  Show what would be done without making changes"
             echo "  -f, --force    Overwrite conflicts without prompting"
             echo "      --with-matt Synchronize Matt Pocock skills globally"
+            echo "      --with-mobile Synchronize official Android and Kotlin skills globally"
             echo "  -h, --help     Show this help message"
             exit 0
             ;;
@@ -337,6 +343,11 @@ main() {
             "$CONFIG_DIR/scripts/sync-matt-skills.sh"
         fi
 
+        if $SYNC_MOBILE_SKILLS; then
+            "$CONFIG_DIR/scripts/sync-android-skills.sh"
+            "$CONFIG_DIR/scripts/sync-kotlin-skills.sh"
+        fi
+
         if [ -n "$backup_path" ] && [ ${#backed_up_items[@]} -gt 0 ]; then
             write_manifest "$backup_path" "install" "${backed_up_items[@]}"
             echo -e "${BLUE}Backup saved:${RESET} $backup_path"
@@ -347,7 +358,7 @@ main() {
         echo "Done! Agent config installed."
         echo ""
         echo "Local-only items in ~/.codex/ are preserved."
-        echo "Use ./sync.sh to manage synced skills and subagents. Run ./sync.sh matt to install or update Matt Pocock skills."
+        echo "Use ./sync.sh to manage synced skills and subagents. Run ./sync.sh mobile to install or update official Android and Kotlin skills."
     fi
 }
 

@@ -21,6 +21,8 @@ setup_test_env() {
     cp "$PROJECT_DIR/sync.sh" "$FAKE_REPO/"
     mkdir -p "$FAKE_REPO/scripts"
     cp "$PROJECT_DIR/scripts/sync-matt-skills.sh" "$FAKE_REPO/scripts/"
+    cp "$PROJECT_DIR/scripts/sync-android-skills.sh" "$FAKE_REPO/scripts/"
+    cp "$PROJECT_DIR/scripts/sync-kotlin-skills.sh" "$FAKE_REPO/scripts/"
 
     # Make scripts use fake HOME
     # We'll override HOME when running scripts
