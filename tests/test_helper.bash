@@ -19,6 +19,8 @@ setup_test_env() {
     # Copy scripts to fake repo
     cp "$PROJECT_DIR/install.sh" "$FAKE_REPO/"
     cp "$PROJECT_DIR/sync.sh" "$FAKE_REPO/"
+    mkdir -p "$FAKE_REPO/scripts"
+    cp "$PROJECT_DIR/scripts/sync-matt-skills.sh" "$FAKE_REPO/scripts/"
 
     # Make scripts use fake HOME
     # We'll override HOME when running scripts

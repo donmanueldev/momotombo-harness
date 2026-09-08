@@ -4,7 +4,7 @@
 
 - **Tracker**: GitHub Issues
 - **Repository**: `manuelduarte077/agent-config`
-- **Primary intake source**: GitHub issues/PRs and local prompts routed through `ask-matt`.
+- **Primary intake source**: GitHub issues, PRs, and local prompts using the standard intake template.
 
 ## PRs as triage source
 

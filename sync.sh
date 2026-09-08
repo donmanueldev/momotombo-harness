@@ -39,6 +39,15 @@ capitalize() {
     printf '%s%s' "$(echo "$first" | tr '[:lower:]' '[:upper:]')" "$rest"
 }
 
+validate_item_name() {
+    local name="$1"
+
+    if [[ ! "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+        echo "Invalid item name: '$name'. Use lowercase letters, digits, and hyphens only." >&2
+        return 1
+    fi
+}
+
 create_backup() {
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
@@ -153,6 +162,46 @@ validate_agent() {
     fi
 
     return 0
+}
+
+validate_project_config() {
+    local config_file="$CONFIG_DIR/.codex/config.toml"
+    [ -f "$config_file" ] || return 0
+
+    python3 - "$config_file" "$CONFIG_DIR/.codex" <<'PY'
+import pathlib
+import sys
+import tomllib
+
+config_path = pathlib.Path(sys.argv[1]).resolve()
+codex_dir = pathlib.Path(sys.argv[2]).resolve()
+with config_path.open("rb") as handle:
+    config = tomllib.load(handle)
+
+agents = config.get("agents")
+if not isinstance(agents, dict):
+    raise SystemExit("config.toml: [agents] must be a table")
+
+for name, metadata in agents.items():
+    if not isinstance(metadata, dict):
+        continue
+    config_file = metadata.get("config_file")
+    if not isinstance(config_file, str) or not config_file:
+        raise SystemExit("config.toml: agents.%s.config_file must be a non-empty string" % name)
+    agent_path = (codex_dir / config_file).resolve()
+    if codex_dir not in agent_path.parents or agent_path.parent != codex_dir / "agents":
+        raise SystemExit("config.toml: agents.%s.config_file must reference .codex/agents" % name)
+    if not agent_path.is_file():
+        raise SystemExit("config.toml: missing agent file %s" % agent_path.relative_to(codex_dir))
+    with agent_path.open("rb") as handle:
+        agent = tomllib.load(handle)
+    if agent.get("name") != name:
+        raise SystemExit("config.toml: %s name must be '%s'" % (agent_path.name, name))
+    if not isinstance(agent.get("description"), str) or not agent["description"].strip():
+        raise SystemExit("config.toml: %s must define a non-empty description" % agent_path.name)
+
+print("config.toml valid")
+PY
 }
 
 show_dir_status() {
@@ -286,6 +335,7 @@ show_status() {
     echo "  ./sync.sh remove <type> <name>  Remove an item from repo (keeps local)"
     echo "  ./sync.sh delete <type> <name>  Remove item from repo and local copy"
     echo "  ./sync.sh pull                  Pull latest and reinstall"
+    echo "  ./sync.sh matt                  Update Matt Pocock skills"
     echo "  ./sync.sh push                  Commit and push changes"
     echo "  ./sync.sh undo                  Restore from last backup"
     echo "  ./sync.sh validate              Validate all skills"
@@ -580,27 +630,41 @@ pull_changes() {
     ./install.sh
 }
 
-push_changes() {
-    cd "$CONFIG_DIR"
-
-    if [ -z "$(git status --porcelain)" ]; then
-        echo "Nothing to push - working tree clean"
-        exit 0
-    fi
-
+sync_matt_skills() {
     if $DRY_RUN; then
-        echo -e "${BLUE}[dry-run]${RESET} Would commit and push:"
-        git status --short
+        bash "$CONFIG_DIR/scripts/sync-matt-skills.sh" --dry-run
         return
     fi
 
-    echo "Changes to push:"
-    git status --short
-    echo ""
+    bash "$CONFIG_DIR/scripts/sync-matt-skills.sh"
+}
+
+push_changes() {
+    cd "$CONFIG_DIR"
+
+    if git diff --cached --quiet; then
+        echo "No staged changes. Stage only the intended paths with git add <paths>."
+        exit 0
+    fi
+
+    if ! git diff --quiet; then
+        echo "Unstaged changes exist. Stage only the intended paths before pushing."
+        git status --short
+        exit 1
+    fi
+
+    if $DRY_RUN; then
+        echo -e "${BLUE}[dry-run]${RESET} Would validate, sign, and push staged changes:"
+        git diff --cached --stat
+        return
+    fi
+
+    validate_all_skills
+    git diff --cached --check
 
     read -p "Commit message (or Ctrl+C to cancel): " msg
-    git add -A
-    git commit -m "$msg"
+    [ -n "$msg" ] || { echo "Commit message is required."; exit 1; }
+    git commit -S -m "$msg"
     git push
 
     echo -e "${GREEN}✓${RESET} Pushed to remote"
@@ -754,6 +818,10 @@ validate_all_skills() {
     local seen=" "
     local seen_agents=" "
 
+    if ! validate_project_config; then
+        return 1
+    fi
+
     if [ -d "$REPO_SKILL_DIR" ]; then
         local skill
         for skill in "$REPO_SKILL_DIR"/*/; do
@@ -859,6 +927,7 @@ case "${1:-}" in
         type="${2:-}"
         name="${3:-}"
         [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh add <type> <name>"; echo "Types: skill, agent, subagent"; exit 1; }
+        validate_item_name "$name"
         case "$type" in
             skill) add_skill "$name" ;;
             agent|subagent) add_agent "$name" ;;
@@ -869,6 +938,7 @@ case "${1:-}" in
         type="${2:-}"
         name="${3:-}"
         [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh remove <type> <name>"; echo "Types: skill, agent, subagent"; exit 1; }
+        validate_item_name "$name"
         case "$type" in
             skill) remove_skill "$name" ;;
             agent|subagent) remove_agent "$name" ;;
@@ -879,6 +949,7 @@ case "${1:-}" in
         type="${2:-}"
         name="${3:-}"
         [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh delete <type> <name>"; echo "Types: skill, agent, subagent"; exit 1; }
+        validate_item_name "$name"
         case "$type" in
             skill) delete_skill "$name" ;;
             agent|subagent) delete_agent "$name" ;;
@@ -887,6 +958,9 @@ case "${1:-}" in
         ;;
     pull)
         pull_changes
+        ;;
+    matt)
+        sync_matt_skills
         ;;
     push)
         push_changes

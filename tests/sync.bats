@@ -66,6 +66,13 @@ teardown() {
     assert_regular_file "$FAKE_HOME/.codex/skills/my-skill/SKILL.md"
 }
 
+@test "sync.sh rejects traversal in an item name" {
+    run run_sync --dry-run delete skill ../outside
+
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"Invalid item name"* ]]
+}
+
 @test "sync.sh add skill fails if already synced" {
     create_fake_skill "my-skill"
     run_install

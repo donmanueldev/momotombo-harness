@@ -5,7 +5,7 @@ My Codex configuration for skills, subagents, and synced workflow files.
 ## Quick start
 
 ```bash
-git clone https://github.com/brianlovin/agent-config.git
+git clone https://github.com/manuelduarte077/agent-config.git
 cd agent-config
 ./install.sh
 ```
@@ -14,7 +14,8 @@ cd agent-config
 
 ### Codex
 - `.codex/config.toml` - Project overlay for subagents and stack-specific plugin toggles
-- `.codex/agents/*.toml` - Codex native subagents for planning, web, backend, data, mobile, and review
+- `.codex/agents/*.toml` - Codex native subagents for planning, orchestration, web, backend, infrastructure, mobile, and review
+- `rules/agent-config.rules` - Safe command allowlist installed at `~/.codex/rules/agent-config.rules`
 
 ### Prompts
 - `prompts/` - Copy-paste task starters for zero-to-one work, tickets, backend, frontend, fullstack, fixes, and features
@@ -22,40 +23,26 @@ cd agent-config
 ### Skills
 Reusable capabilities that your coding agents can invoke.
 
+Matt Pocock skills are managed globally by the official `skills.sh` installer, outside this repository. Run `./sync.sh matt` when you explicitly want to install or update that source for Codex; `./install.sh --with-matt` does the same during setup. They are never copied into this repository, which avoids duplicate local copies.
+
 | Skill | Description |
 |-------|-------------|
-| `ask-matt` | Route a task to the right Matt-style workflow skill |
 | `agent-browser` | Browser automation for web testing and interaction |
-| `codebase-design` | Establish architecture vocabulary and choose deep seams |
+| `chrome-webstore-release-blueprint` | Prepare Chrome Web Store releases |
 | `commit-english` | Write git commit messages in English |
 | `codex-extensions` | Add or update Codex prompts, skills, agents, and config |
 | `codex-rules` | Write and maintain repository instructions and guardrails |
 | `favicon` | Generate favicons from a source image |
-| `domain-modeling` | Keep the project domain glossary and model consistent |
-| `workflow` | Orchestrate complex tasks with plans, subagents, and verification |
-| `grill-with-docs` | Interview a plan in a real codebase and sharpen it with docs |
-| `grill-me` | Stress-test a plan and turn it into execution notes |
-| `improve-codebase-architecture` | Find deepening opportunities and propose refactors |
-| `diagnosing-bugs` | Diagnose hard bugs and regressions with a tight feedback loop |
+| `find-skills` | Locate relevant reusable skills |
+| `fix-sentry-issues` | Investigate and address Sentry issues |
 | `knip` | Find and remove unused files, dependencies, and exports |
+| `playwriter` | Browser-driven UI testing and inspection |
+| `pr-comments` | Draft concise PR comments and review feedback |
 | `rams` | Run accessibility and visual design review |
+| `sentry` | Work with Sentry observability workflows |
 | `simplify` | Code simplification specialist |
 | `deslop` | Remove AI-generated code slop |
-| `setup-matt-pocock-skills` | Configure issue tracker, triage labels, and domain docs |
-| `to-spec` | Turn the current conversation into a durable spec |
-| `to-tickets` | Break a spec into independent vertical tickets |
-| `pr-comments` | Draft concise PR comments and review feedback |
-| `implement` | Implement a spec or ticket set at execution fidelity |
-| `code-review` | Review code on standards and spec-alignment axes |
-| `wayfinder` | Map large ambiguous efforts into decision tickets |
-| `resolving-merge-conflicts` | Resolve merge/rebase conflicts by intent |
-| `grilling` | Deeply grill an idea until every decision branch is resolved |
-| `research` | Investigate technical questions with high-trust references |
-| `prototype` | Build a low-fidelity prototype for design validation |
-| `handoff` | Create a compact handoff brief for continuation across sessions |
-| `teach` | Teach a topic with incremental, multi-session coaching |
-| `writing-great-skills` | Maintain and refine skill documentation quality |
-| `triage` | Triage incoming issues or PRs into clear states |
+| `skill-creator` | Create and maintain Codex skills |
 
 ## Managing your config
 
@@ -78,6 +65,12 @@ Reusable capabilities that your coding agents can invoke.
 
 # Pull changes on another machine
 ./sync.sh pull
+
+# Update Matt Pocock skills only
+./sync.sh matt
+
+# Install this configuration and explicitly reconcile Matt Pocock skills
+./install.sh --with-matt
 
 # Remove a skill or subagent from repo (keeps local copy)
 ./sync.sh remove skill my-skill
@@ -137,16 +130,12 @@ If a skill keeps coming back, it is usually coming from a plugin or marketplace 
 
 Codex skills are linked from this repo into `~/.codex/skills`.
 Codex agents from `.codex/agents/` are linked into `~/.codex/agents` by `./install.sh`.
+Matt Pocock skills are installed separately by `skills.sh` and reconciled by `./sync.sh matt`.
 
 Project-specific Codex config lives in `.codex/config.toml` so the repo can narrow the skill and plugin surface without overwriting your home Codex config. The subagents in `.codex/agents/` are the ones to use when you want Codex to plan first, then delegate.
 
 Prompt starters:
-- `Interview this plan using the repo docs and codebase, then tell me the safest execution path.`
-- `Set up this repo for Matt-style engineering skills and align tracker, labels, and domain docs.`
-- `Bootstrap a new repo for Matt-style skills using the setup skill and the repo conventions.`
-- `Bootstrap a new repo with the short Matt-style prompt.`
-- `Turn this conversation into a PRD and then split it into vertical-slice issues.`
-- `Plan this feature, split it into web/backend/data work, and tell me which subagents to run first.`
+- `Plan this feature, split it into web/backend/infra work, and tell me which subagents to run first.`
 - `Diagnose this bug and build the smallest reproducible loop before changing code.`
 - `Review this diff for regressions, missing tests, and any risky behavior.`
 - `Write a concise English commit message for this diff and explain the grouping.`
@@ -164,7 +153,3 @@ agent-config/
 ├── skills/            # Skills (subdirectories with SKILL.md)
 └── tests/             # Bats tests
 ```
-
-## See also
-
-- [My dotfiles](https://github.com/brianlovin/dotfiles) - Shell, git, SSH config

@@ -5,6 +5,7 @@ CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$CONFIG_DIR/.backup"
 DRY_RUN=false
 FORCE=false
+SYNC_MATT_SKILLS=false
 CODEX_HOME="$HOME/.codex"
 
 # Colors
@@ -25,12 +26,17 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
+        --with-matt)
+            SYNC_MATT_SKILLS=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: ./install.sh [options]"
             echo ""
             echo "Options:"
             echo "  -n, --dry-run  Show what would be done without making changes"
             echo "  -f, --force    Overwrite conflicts without prompting"
+            echo "      --with-matt Synchronize Matt Pocock skills globally"
             echo "  -h, --help     Show this help message"
             exit 0
             ;;
@@ -163,6 +169,8 @@ dry_run_msg() {
 main() {
     local skill_targets=("$CODEX_HOME/skills")
     local docs_target="$CODEX_HOME/agent-config-docs"
+    local rules_source="$CONFIG_DIR/rules/agent-config.rules"
+    local rules_dest="$CODEX_HOME/rules/agent-config.rules"
 
     if $DRY_RUN; then
         echo -e "${BOLD}Dry run - showing what would be done:${RESET}"
@@ -254,6 +262,35 @@ main() {
         fi
     fi
 
+    # Command-policy rules
+    if [ -f "$rules_source" ]; then
+        if $DRY_RUN; then
+            if has_conflict "$rules_dest"; then
+                dry_run_msg "Would backup and replace ~/.codex/rules/agent-config.rules"
+            else
+                dry_run_msg "Would link ~/.codex/rules/agent-config.rules"
+            fi
+        else
+            mkdir -p "$(dirname "$rules_dest")"
+            if has_conflict "$rules_dest"; then
+                [ -z "$backup_path" ] && backup_path=$(create_backup)
+                if handle_conflict "$rules_source" "$rules_dest" "$backup_path" "rules/agent-config.rules"; then
+                    backed_up_items+=("rules/agent-config.rules")
+                    rm -f "$rules_dest"
+                    ln -sfn "$rules_source" "$rules_dest"
+                    echo -e "${GREEN}✓${RESET} ~/.codex/rules/agent-config.rules (replaced, backup saved)"
+                    has_changes=true
+                else
+                    echo -e "${YELLOW}○${RESET} ~/.codex/rules/agent-config.rules (kept local)"
+                fi
+            else
+                ln -sfn "$rules_source" "$rules_dest"
+                echo -e "${GREEN}✓${RESET} ~/.codex/rules/agent-config.rules"
+                has_changes=true
+            fi
+        fi
+    fi
+
     # Codex agents (file symlinks per agent)
     if [ -d "$CONFIG_DIR/.codex/agents" ] && ls "$CONFIG_DIR/.codex/agents"/*.toml &>/dev/null; then
         if ! $DRY_RUN; then
@@ -296,6 +333,10 @@ main() {
     if $DRY_RUN; then
         echo "Run without --dry-run to apply changes."
     else
+        if $SYNC_MATT_SKILLS; then
+            "$CONFIG_DIR/scripts/sync-matt-skills.sh"
+        fi
+
         if [ -n "$backup_path" ] && [ ${#backed_up_items[@]} -gt 0 ]; then
             write_manifest "$backup_path" "install" "${backed_up_items[@]}"
             echo -e "${BLUE}Backup saved:${RESET} $backup_path"
@@ -306,7 +347,7 @@ main() {
         echo "Done! Agent config installed."
         echo ""
         echo "Local-only items in ~/.codex/ are preserved."
-        echo "Use ./sync.sh to manage synced skills and subagents."
+        echo "Use ./sync.sh to manage synced skills and subagents. Run ./sync.sh matt to install or update Matt Pocock skills."
     fi
 }
 

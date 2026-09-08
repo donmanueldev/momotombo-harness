@@ -43,6 +43,34 @@ teardown() {
     assert_symlink "$FAKE_HOME/.codex/agents/planner.toml" "$FAKE_REPO/.codex/agents/planner.toml"
 }
 
+@test "install.sh symlinks command-policy rules" {
+    mkdir -p "$FAKE_REPO/rules"
+    cat > "$FAKE_REPO/rules/agent-config.rules" <<'EOF'
+prefix_rule(pattern=["git", "status"], decision="allow")
+EOF
+
+    run_install
+
+    assert_symlink "$FAKE_HOME/.codex/rules/agent-config.rules" "$FAKE_REPO/rules/agent-config.rules"
+}
+
+@test "install.sh synchronizes Matt skills only when explicitly requested" {
+    mkdir -p "$TEST_TMP/bin"
+    cat > "$TEST_TMP/bin/npx" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$NPX_LOG"
+EOF
+    chmod +x "$TEST_TMP/bin/npx"
+
+    run env PATH="$TEST_TMP/bin:$PATH" NPX_LOG="$TEST_TMP/npx.log" HOME="$FAKE_HOME" bash ./install.sh
+    [[ "$status" -eq 0 ]]
+    [[ ! -e "$TEST_TMP/npx.log" ]]
+
+    run env PATH="$TEST_TMP/bin:$PATH" NPX_LOG="$TEST_TMP/npx.log" HOME="$FAKE_HOME" bash ./install.sh --with-matt
+    [[ "$status" -eq 0 ]]
+    grep -q "skills@latest add mattpocock/skills --global --agent codex --skill \* --yes" "$TEST_TMP/npx.log"
+}
+
 # =============================================================================
 # Dry Run Tests
 # =============================================================================
