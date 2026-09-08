@@ -1,53 +1,54 @@
-# Commit Instructions (agent-config)
+# Commit Instructions
 
-## Scope and intent
+Use this file when generating a commit message or proposing how to split a change into commits.
 
-- Keep commit history intentional: one logical change per commit.
-- Use conventional commits with explicit scope: `type(scope): description`.
-- Scope examples for this repo:
-  - `skills(...)` for skill changes
-  - `agents(...)` for agent/agent-doc updates
-  - `chore(...)` for workflow/sync/tooling documentation
-  - `docs(...)` for markdown/docs-only updates
+## Evidence first
 
-## Before commit
+1. Inspect the intended diff and its target branch before suggesting a message.
+2. Group files by one user-visible behavior, contract, or maintenance intent.
+3. Separate unrelated changes into distinct proposed commits.
+4. Report the exact validation that was run; mark unrun checks as not run.
 
-- Confirm target files and avoid unrelated edits.
-- `git status --short` to verify only expected files changed.
-- If behavior changes are added:
-  - update only the minimum files required
-  - keep naming and conventions consistent with surrounding files
-- If tests or scripts changed:
-  - run `bats tests/`.
-- Run `git diff --check` to catch whitespace/formatting issues.
+Never infer issue IDs, tests, migrations, or deployment status from filenames alone.
 
-- If `AGENTS.md`, `SKILL.md`, or automation files are changed, include rationale in the commit body.
+## Message format
 
-## Commit message format
+Use Conventional Commits in English:
 
-Use:
+```
+type(scope): imperative summary
+```
+
+- Keep the subject lowercase after the colon, imperative, specific, and without a final period.
+- Prefer 72 characters or fewer for the subject.
+- Use a narrow scope that identifies the affected surface, such as `agents`, `sync`, `skills`, `docs`, or `tests`.
+- Use one of `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf`, or `revert`.
+- Add a body only when the subject cannot convey a material decision, compatibility change, migration, or risk.
+
+When a body is needed:
 
 ```
 type(scope): imperative summary
 
-- Why: why this change
-- What: what changed
-- Validation: commands executed
-- Risk: level + mitigation
+Why: <reason for the change>
+Validation: <commands actually run>
+Risk: <risk and rollback or mitigation>
 ```
 
-Examples:
-- `feat(skills): add workflow orchestration guardrails`
-- `fix(skills): remove stale routing in workflow skill`
-- `chore(agents): sync codex doc references`
+## Commit plan output
 
-## Validation checklist
+When more than one commit is appropriate, provide:
 
-- Keep at least one test/validation command run when touched logic can affect behavior.
-- For command-policy or instruction changes, validate discoverability manually by running the related flow once (e.g., sync/plan).
-- Prefer small, reversible commits over broad monolith commits.
+1. The ordered commit groups and the paths in each group.
+2. One proposed message per group.
+3. The dependency between groups, if ordering matters.
+4. The validation that applies to each group or to the complete series.
 
-## Approval policy
+Do not stage, commit, amend, or push while generating messages. Ask for confirmation before any Git write.
 
-- Ask before committing changes that touch destructive command execution paths or security-sensitive automation.
-- Proceed with user confirmation for potentially wide-ranging instruction changes.
+## Examples
+
+- `feat(agents): add native orchestration routing`
+- `fix(sync): reject unsafe item names`
+- `docs(pr): clarify validation evidence`
+- `test(sync): cover Matt skill synchronization`

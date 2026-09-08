@@ -1,40 +1,58 @@
-# Pull Request Instructions (agent-config)
+# Pull Request Instructions
 
-## PR title and summary
+Use this file when generating a pull request title or description.
 
-- Title: concise, imperative, English.
-- Summary: 2–4 bullets with:
-  - objective
-  - changed surface
-  - risk level
+## Evidence first
 
-## PR body template
+Inspect the branch diff, target branch, changed contracts, and executed validation before drafting. The PR must distinguish verified behavior from planned or unverified work.
 
-1. **Summary**
-   - What problem this PR solves.
-2. **What changed**
-   - File-level list by group (`AGENTS.md`, `skills`, `prompts`, `docs`).
-3. **Validation**
-   - Commands executed and results.
-4. **Risk / rollback**
-   - Risk rating (low/med/high), blast radius, rollback path.
-5. **Notes**
-   - Any follow-ups, known limitations, or environment caveats.
+## Title
 
-## Required proof
+Write an English Conventional Commit-style title:
 
-- Include at least one verification line (for example: `bats tests/`, `git diff --check`, `./sync.sh validate`).
-- Mention if evidence is partial (e.g., local-only scope, no full-suite run).
+```
+type(scope): imperative summary
+```
 
-## Review expectations
+- Keep it specific, imperative, and 72 characters or fewer.
+- Use the same change type and narrow scope as the primary commit.
+- State the user or system outcome, not an implementation detail.
+- Omit ticket prefixes unless the repository or user explicitly requires one.
 
-- Keep language factual and concise.
-- Call out trade-offs and why alternatives were not selected.
-- Explicitly list dependency/behavior coupling outside this repo if any.
-- Link to related notes/rollout context when relevant.
+## Description
 
-## Merge criteria
+Use this structure and remove sections that have no meaningful content:
 
-- No unrelated files or scope creep.
-- No broken instructions or conflicting process docs.
-- Validation attached to the PR body (or clearly marked as pending with reason).
+```md
+## Problem
+<What was wrong, missing, or being improved.>
+
+## Changes
+- <Behavior or contract change>
+- <Supporting implementation change>
+
+## Validation
+- [x] `<command actually run>` — <result>
+- [ ] `<command not run>` — <reason>
+
+## Risk and rollback
+- Risk: <low|medium|high and blast radius>
+- Rollback: <revert path, migration consideration, or why no rollback is needed>
+```
+
+Add these sections only when applicable:
+
+- `## Migration` for schema, configuration, or compatibility changes.
+- `## Screenshots` for visible UI changes.
+- `## Follow-ups` for intentionally deferred work.
+- `## Related work` for issues, ADRs, or dependent PRs.
+
+## Quality bar
+
+- Explain outcomes and contracts; group file-level detail only when it helps review.
+- State validation exactly as observed. Do not mark a check complete unless it ran successfully.
+- Name behavior outside the repository that is affected, including APIs, configuration, or deployment steps.
+- Keep the description reviewable: no unrelated history, raw logs, secrets, or speculative claims.
+- Call out risk and rollback whenever a change can affect users, data, automation, or compatibility.
+
+Do not create, update, merge, or comment on a PR while drafting its title or description unless the user explicitly requests that action.
