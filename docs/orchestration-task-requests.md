@@ -2,6 +2,15 @@
 
 Esta plantilla estandariza cómo pedir trabajo para que el orquestador y los agentes especializados puedan enrutar y ejecutar de forma confiable.
 
+## Inicio: entender antes de especializar
+
+Antes de seleccionar skills, delegar o planificar, el agente lee
+[`project-memory.md`](project-memory.md), identifica el objetivo, repositorio o
+módulo, alcance, restricciones y criterio observable de éxito. Luego elige
+sólo las skills que cambian decisiones para esa tarea. La memoria de sesión es
+una ayuda verificable; las instrucciones y documentos versionados son la
+fuente de verdad.
+
 ## Comportamiento con entradas cortas
 
 Si escribes algo ambiguo como:

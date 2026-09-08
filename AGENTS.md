@@ -8,6 +8,7 @@ Personal Codex skills, subagents, and sync helpers, synced across machines via s
 - Nested AGENTS files (in subdirectories) can refine behavior for specialized areas.
 - Use `.rules` for temporary command controls; avoid embedding ad-hoc command bans in prompts.
 - Keep policy and process decisions in versioned docs (`AGENTS.md`, `custom-instructions.md`, and skill docs). Memories are optional context only.
+- **Project memory:** for a new task, read [`docs/project-memory.md`](docs/project-memory.md) after this file. It defines the small, progressive context needed to understand the objective before selecting task skills.
 
 ## Commands
 
