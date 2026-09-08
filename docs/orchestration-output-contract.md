@@ -1,12 +1,12 @@
 # Orchestration Output Contract
 
-This repository uses machine-readable output for planning and review agents to keep decisions deterministic and reviewable.
+This repository uses JSON-only, machine-readable output for orchestration and review agents. It keeps decisions deterministic, reviewable, and safe to append to the audit trail.
 
-## Required envelope (YAML/JSON)
+## Required envelope
 
-All outputs from `planner`, `workflow`, and `reviewer` must include these top-level fields:
+All outputs from `planner`, `orchestrator`, and `reviewer` must be a single JSON object with these top-level fields:
 
-- `agent`: emitter agent name (`planner`, `workflow`, `reviewer`)
+- `agent`: emitter agent name (`planner`, `orchestrator`, `reviewer`)
 - `goal`: one-line objective statement
 - `status`: `ok` | `blocked` | `failed` | `in_progress`
 - `decision`: short human-readable summary of what was decided
@@ -14,7 +14,7 @@ All outputs from `planner`, `workflow`, and `reviewer` must include these top-le
 - `next_step`: optional next action or next owner
 - `result`: short outcome phrase
 
-`status` must be one of `ok`, `blocked`, `failed`, or `in_progress` for all agents.
+`goal`, `decision`, and `result` must be non-empty strings. `evidence` must be an array. `status` must be one of `ok`, `blocked`, `failed`, or `in_progress`.
 
 ## `planner` payload fields
 
@@ -47,7 +47,7 @@ Example (JSON):
     "validation enforces format references"
   ],
   "execution_plan": [
-    "update planner/workflow outputs",
+    "update planner/orchestrator outputs",
     "add orchestration logger",
     "add sync validation"
   ],
@@ -63,7 +63,7 @@ Example (JSON):
 }
 ```
 
-## `workflow` payload fields
+## `orchestrator` payload fields
 
 - `route`: `start`, `plan`, `implement`, `review`, `verify`
 - `agent_order`: ordered list of specialist assignments
@@ -78,7 +78,7 @@ Example (JSON):
 
 ## Logging convention
 
-Append a single line entry per routing decision to `.codex/orchestration.log` with:
+Append a single JSON object per routing decision to `.codex/orchestration.jsonl` with:
 
 - `timestamp` (ISO-8601 UTC)
 - `agent`
@@ -93,7 +93,7 @@ Recommended command:
 
 ```bash
 bash scripts/log-orchestration-event.sh \
-  --agent planner \
+  --agent orchestrator \
   --goal "Add orchestration output contract" \
   --status <ok|blocked|failed|in_progress> \
   --decision "planner-approved" \

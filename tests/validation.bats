@@ -83,12 +83,12 @@ EOF
     grep -q "Orchestration Output Contract" "$PROJECT_DIR/docs/orchestration-output-contract.md"
 }
 
-@test "orchestration log helper writes canonical entry line" {
+@test "orchestration log helper writes a canonical JSON entry" {
     mkdir -p "$FAKE_REPO/.codex" "$FAKE_REPO/scripts"
     cp "$PROJECT_DIR/scripts/log-orchestration-event.sh" "$FAKE_REPO/scripts/log-orchestration-event.sh"
 
     run bash "$FAKE_REPO/scripts/log-orchestration-event.sh" \
-        --agent workflow \
+        --agent orchestrator \
         --goal "test goal" \
         --status ok \
         --decision "router-ready" \
@@ -96,8 +96,31 @@ EOF
         --next-step "continue"
 
     [[ "$status" -eq 0 ]]
-    [[ -f "$FAKE_REPO/.codex/orchestration.log" ]]
-    grep -q "agent=workflow" "$FAKE_REPO/.codex/orchestration.log"
+    [[ -f "$FAKE_REPO/.codex/orchestration.jsonl" ]]
+    run python3 -c 'import json, sys; entry = json.load(open(sys.argv[1])); assert entry["agent"] == "orchestrator"; assert entry["next_step"] == "continue"' "$FAKE_REPO/.codex/orchestration.jsonl"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "orchestration validator rejects non-JSON output" {
+    mkdir -p "$FAKE_REPO/scripts"
+    cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
+    printf 'agent: planner\n' > "$FAKE_REPO/route.yaml"
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent planner --input "$FAKE_REPO/route.yaml"
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"input must be valid JSON"* ]]
+}
+
+@test "orchestration validator accepts a complete orchestrator payload" {
+    mkdir -p "$FAKE_REPO/scripts"
+    cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/validate-orchestration-output.sh"
+    cat > "$FAKE_REPO/route.json" <<'JSON'
+{"agent":"orchestrator","goal":"route work","status":"ok","decision":"continue","evidence":[],"result":"route created","route":"plan","agent_order":["planner"],"risk_register":[],"verification_plan":["bats tests/"]}
+JSON
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent orchestrator --input "$FAKE_REPO/route.json"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"valid"* ]]
 }
 
 @test "sync.sh validate checks repo and local skills" {

@@ -13,17 +13,15 @@ Start by turning the request into:
 - done criteria
 
 Then decide which specialist agents to use. Prefer one domain per agent and keep the split narrow:
-- web for React, Next.js, Tailwind, shadcn/ui, HeroUI, SEO, ecommerce
-- backend for TypeScript, Spring Boot
-- data for Supabase, Postgres, Prisma, Drizzle, Redis, Docker
-- mobile for Expo, React Native, Swift, SwiftUI, Kotlin
+- web for React, Inertia.js, TypeScript, Tailwind CSS, shadcn/ui
+- backend for Laravel/PHP, TypeScript, Java, PostgreSQL, APIs, and business rules
+- infra for Docker-based local environments and service dependencies
+- mobile for Expo, React Native, Kotlin/KMP, Jetpack Compose, Swift, SwiftUI
 - reviewer for correctness, regressions, security, performance, and tests
 
-Return a short execution brief with:
-- the recommended order
-- what each agent should do
-- open risks or questions
-- how the result should be verified
+Return JSON only. It must validate against docs/orchestration-output-contract.md for agent "planner".
+
+Do not include secrets, personal data, prompts, or raw logs in the result or audit metadata.
 
 If the task is ambiguous, ask the minimum questions needed before delegating.
 """

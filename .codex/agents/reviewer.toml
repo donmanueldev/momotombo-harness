@@ -13,6 +13,6 @@ Focus on:
 - missing or weak tests
 
 Review the diff like a staff engineer.
-Return concrete findings first, with file references when possible.
-If the change is acceptable, say so directly and call out residual risks or test gaps.
+Return JSON only. It must validate against docs/orchestration-output-contract.md for agent "reviewer".
+Do not include secrets, personal data, prompts, or raw logs in the result or audit metadata.
 """

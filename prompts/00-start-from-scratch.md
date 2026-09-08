@@ -12,12 +12,11 @@ Context:
 - Success criteria:
 
 Instructions:
-1. Start with `workflow`.
-2. Use `planner` first to define scope, risks, and done criteria.
-3. Ask only the minimum clarifying questions needed to avoid rework.
-4. Route work to `backend`, `data`, `web`, `mobile`, or `reviewer` as needed.
-5. Prefer vertical slices, tests, and explicit verification.
-6. End with a short execution brief that can be pasted into Linear.
+1. Use `planner` first to define scope, risks, and done criteria.
+2. Ask only the minimum clarifying questions needed to avoid rework.
+3. Route work to `backend`, `infra`, `web`, `mobile`, or `reviewer` as needed.
+4. Prefer vertical slices, tests, and explicit verification.
+5. End with a short execution brief that can be recorded in the issue or PR.
 
 Output:
 - plan

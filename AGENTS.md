@@ -48,13 +48,10 @@ After making changes:
 
 ## Codex Workflow
 
-- Start complex work with `ask-matt`, `planner`, `grill-with-docs`, `grill-me`, or `setup-matt-pocock-skills` for repo bootstrap.
-- For routed execution, `planner`, `workflow`, and `reviewer` must emit machine-readable outputs defined in `docs/orchestration-output-contract.md`.
+- Start complex work with `planner` to define scope, risks, and done criteria.
+- Use `orchestrator` for multi-agent routing; it is read-only and produces the required machine-readable route before implementation begins.
 - Delegate one concern per subagent.
-- Use `web`, `backend`, `data`, `mobile`, and `reviewer` as the default routing map.
-- Use `setup-matt-pocock-skills` when a repo needs its issue tracker, triage labels, and domain-doc layout aligned.
-- Use `to-spec` when the conversation is ready to become a spec, `to-tickets` when that spec needs vertical slices, `triage` for incoming tickets or PRs, `implement` for execution, `code-review` before handoff, and `improve-codebase-architecture` for refactor opportunities.
-- Use `diagnosing-bugs` for hard failures, flakes, and performance regressions.
+- Use `web`, `backend`, `infra`, `mobile`, and `reviewer` as the default routing map.
 - Use `commit-english` for English commit messages, `pr-comments` for PR feedback, `codex-extensions` for prompts/skills/agents/config, and `codex-rules` for repo instructions.
 - Keep this repo's `.codex/config.toml` as the project overlay instead of overwriting the user's home Codex config.
 
@@ -76,7 +73,7 @@ After making changes:
 
 ### Orchestration durability
 
-- Keep decision history in `.codex/orchestration.log` using `scripts/log-orchestration-event.sh`.
+- Keep decision history in `.codex/orchestration.jsonl` using `scripts/log-orchestration-event.sh`.
 - Route all handoffs through the same contract format to keep execution state explicit and auditable.
 - Before requesting work, use the standardized intake format in:
 - `docs/orchestration-task-requests.md`

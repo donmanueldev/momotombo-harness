@@ -1,6 +1,6 @@
 # Frontend Ticket
 
-Use this for frontend work in React, Next.js, Tailwind, shadcn/ui, HeroUI, or SEO-related UI changes.
+Use this for frontend work in React, Inertia.js, TypeScript, Tailwind CSS, or shadcn/ui.
 
 Ticket:
 - Link or title:

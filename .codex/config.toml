@@ -7,88 +7,31 @@ description = "Plan complex work, clarify scope, and route to specialist agents.
 config_file = "agents/planner.toml"
 
 [agents.web]
-description = "Frontend and UI specialist for React, Next.js, Tailwind, shadcn/ui, HeroUI, SEO, and ecommerce."
+description = "Frontend specialist for React, Inertia.js, TypeScript, Tailwind CSS, and shadcn/ui."
 config_file = "agents/web.toml"
 
 [agents.backend]
-description = "Backend specialist for TypeScript and Spring Boot."
+description = "Backend specialist for Laravel/PHP, TypeScript, Java, and PostgreSQL."
 config_file = "agents/backend.toml"
 
-[agents.data]
-description = "Data specialist for Supabase, Postgres, Prisma, Drizzle, Redis, and Docker."
-config_file = "agents/data.toml"
+[agents.infra]
+description = "Docker specialist for local environments and service dependencies."
+config_file = "agents/infra.toml"
 
 [agents.mobile]
-description = "Mobile specialist for Expo, React Native, Swift, SwiftUI, and Kotlin."
+description = "Mobile specialist for Expo, React Native, Kotlin/KMP, Jetpack Compose, Swift, and SwiftUI."
 config_file = "agents/mobile.toml"
 
 [agents.reviewer]
 description = "Read-only reviewer for correctness, regressions, security, performance, and missing tests."
 config_file = "agents/reviewer.toml"
 
+[agents.orchestrator]
+description = "Read-only orchestration lead for structured routing, evidence, and verification."
+config_file = "agents/orchestrator.toml"
+
 [plugins."build-web-apps@openai-curated"]
 enabled = true
 
 [plugins."expo@openai-curated"]
 enabled = true
-
-[plugins."supabase@openai-curated"]
-enabled = true
-
-[plugins."linear@openai-curated"]
-enabled = true
-
-[plugins."vercel-plugin@plugins-cli"]
-enabled = true
-
-[[skills.config]]
-name = "chrome-webstore-release-blueprint"
-enabled = false
-
-[[skills.config]]
-name = "electron-wrapper"
-enabled = false
-
-[[skills.config]]
-name = "fix-sentry-issues"
-enabled = false
-
-[[skills.config]]
-name = "agents-sdk"
-enabled = false
-
-[[skills.config]]
-name = "cloudflare"
-enabled = false
-
-[[skills.config]]
-name = "cloudflare-email-service"
-enabled = false
-
-[[skills.config]]
-name = "cloudflare-one"
-enabled = false
-
-[[skills.config]]
-name = "cloudflare-one-migrations"
-enabled = false
-
-[[skills.config]]
-name = "durable-objects"
-enabled = false
-
-[[skills.config]]
-name = "sandbox-sdk"
-enabled = false
-
-[[skills.config]]
-name = "turnstile-spin"
-enabled = false
-
-[[skills.config]]
-name = "workers-best-practices"
-enabled = false
-
-[[skills.config]]
-name = "wrangler"
-enabled = false

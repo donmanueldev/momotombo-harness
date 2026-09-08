@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG_FILE="$REPO_DIR/.codex/orchestration.log"
+LOG_FILE="$REPO_DIR/.codex/orchestration.jsonl"
 AGENT=""
 GOAL=""
 STATUS="ok"
@@ -11,85 +11,53 @@ RESULT=""
 NEXT_STEP=""
 
 usage() {
-    echo "Usage: $0 --agent <name> --goal <goal> --status <ok|blocked|failed|in_progress> --decision <text> --result <text> [--next-step <text>]"
-    echo "Optional flags:"
-    echo "  --log-file <path>   Override destination log file (default: <repo-root>/.codex/orchestration.log)"
+    echo "Usage: $0 --agent <planner|orchestrator|reviewer> --goal <goal> --status <ok|blocked|failed|in_progress> --decision <text> --result <text> [--next-step <text>]"
     exit 1
-}
-
-sanitize() {
-    local value="${1:-}"
-    value="${value//$'\n'/ }"
-    value="${value//$'\r'/ }"
-    value="${value//$'\t'/ }"
-    printf '%s' "$value"
-}
-
-validate_status() {
-    local status_value="$1"
-    case "$status_value" in
-        ok|blocked|failed|in_progress)
-            return 0
-            ;;
-        *)
-            echo "Invalid status: $status_value"
-            echo "Allowed statuses: ok | blocked | failed | in_progress"
-            return 1
-            ;;
-    esac
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --agent)
-            AGENT="$(sanitize "$2")"
-            shift 2
-            ;;
-        --goal)
-            GOAL="$(sanitize "$2")"
-            shift 2
-            ;;
-        --status)
-            STATUS="$(sanitize "$2")"
-            shift 2
-            ;;
-        --decision)
-            DECISION="$(sanitize "$2")"
-            shift 2
-            ;;
-        --result)
-            RESULT="$(sanitize "$2")"
-            shift 2
-            ;;
-        --next-step)
-            NEXT_STEP="$(sanitize "$2")"
-            shift 2
-            ;;
-        --log-file)
-            LOG_FILE="$2"
-            shift 2
-            ;;
-        -h|--help)
-            usage
-            ;;
-        *)
-            usage
-            ;;
+        --agent) AGENT="$2"; shift 2 ;;
+        --goal) GOAL="$2"; shift 2 ;;
+        --status) STATUS="$2"; shift 2 ;;
+        --decision) DECISION="$2"; shift 2 ;;
+        --result) RESULT="$2"; shift 2 ;;
+        --next-step) NEXT_STEP="$2"; shift 2 ;;
+        -h|--help) usage ;;
+        *) usage ;;
     esac
 done
 
-if ! validate_status "$STATUS"; then
-    exit 1
-fi
+case "$AGENT" in planner|orchestrator|reviewer) ;; *) echo "Invalid agent: $AGENT"; usage ;; esac
+case "$STATUS" in ok|blocked|failed|in_progress) ;; *) echo "Invalid status: $STATUS"; usage ;; esac
+[[ -n "$GOAL" && -n "$DECISION" && -n "$RESULT" ]] || usage
 
-if [[ -z "$AGENT" || -z "$GOAL" || -z "$DECISION" || -z "$RESULT" ]]; then
-    usage
-fi
+python3 - "$LOG_FILE" "$AGENT" "$GOAL" "$STATUS" "$DECISION" "$RESULT" "$NEXT_STEP" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
 
-mkdir -p "$(dirname "$LOG_FILE")"
-ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+path, agent, goal, status, decision, result, next_step = sys.argv[1:]
+entry = {
+    "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    "agent": agent,
+    "goal": goal,
+    "status": status,
+    "decision": decision,
+    "result": result,
+}
+if next_step:
+    entry["next_step"] = next_step
 
-printf '%s | agent=%s | goal=%s | status=%s | decision=%s | result=%s | next_step=%s\n' \
-    "$ts" "$AGENT" "$GOAL" "$STATUS" "$DECISION" "$RESULT" "$NEXT_STEP" >> "$LOG_FILE"
+os.makedirs(os.path.dirname(path), exist_ok=True)
+flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
+descriptor = os.open(path, flags, 0o600)
+try:
+    os.write(descriptor, (json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n").encode())
+finally:
+    os.close(descriptor)
+os.chmod(path, 0o600)
+PY
 
 echo "logged: $LOG_FILE"

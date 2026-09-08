@@ -11,7 +11,7 @@ Instructions:
 1. Read the ticket and any linked context first.
 2. Use `planner` to clarify scope, dependencies, and done criteria.
 3. Delegate one concern per agent.
-4. Use `backend` for API work, `web` for UI work, and `data` for schema or persistence work.
+4. Use `backend` for API, PostgreSQL, schema, and persistence work; use `infra` only for Docker or local service environments.
 5. Finish with `reviewer` before calling it done.
 
 Output:

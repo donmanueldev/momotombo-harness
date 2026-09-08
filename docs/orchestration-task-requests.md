@@ -1,6 +1,6 @@
 # Plantilla de solicitud para orquestación (bug, mejora, estado)
 
-Esta plantilla estandariza cómo pedir trabajo para que `ask-matt`, `planner` y `workflow` puedan enrutar y ejecutar de forma confiable.
+Esta plantilla estandariza cómo pedir trabajo para que el orquestador y los agentes especializados puedan enrutar y ejecutar de forma confiable.
 
 ## Comportamiento con entradas cortas
 
@@ -23,7 +23,7 @@ criterios_de_exito:
   - login más rápido/robusto
 ```
 
-Con eso, se puede enrutar de forma determinista a `to-spec`, después `to-tickets` si lo requiere.
+Con eso, el orquestador puede convertir el objetivo en una especificación, un plan y tareas verificables.
 
 ## Campos mínimos (siempre)
 
@@ -57,9 +57,9 @@ criterios_de_exito:
 
 Ruta sugerida:
 
-- `diagnosing-bugs`
-- al cerrar: `workflow` -> `reviewer` si hay riesgo
-- o `code-review` cuando hay cambio de scope funcional
+- planificación y reproducción del fallo
+- implementación por el especialista de dominio
+- `reviewer` si hay riesgo o cambio de alcance funcional
 
 ## Plantilla para MEJORA
 
@@ -81,10 +81,10 @@ criterios_de_exito:
 
 Ruta sugerida:
 
-- `to-spec` (si hay requisitos en evolución o debate)
-- `to-tickets` (si hay entregas separables)
-- `implement`
-- `code-review` antes de marcar listo
+- especificación si los requisitos evolucionan
+- tareas separables con dependencias explícitas
+- implementación por vertical slices
+- revisión independiente antes de marcar listo
 
 ## Plantilla para ESTADO / ANALISIS
 
@@ -105,21 +105,20 @@ criterios_de_exito:
 
 Ruta sugerida:
 
-- `grill-with-docs` (si existe código y docs del repo)
-- `grill-me` (si no hay código en contexto)
-- `triage` si se requiere etiquetar y pasar a tablero
+- inspección de código, documentación y evidencia disponible
+- clasificación por impacto si requiere seguimiento en tablero
 
 ## Reglas de salida esperadas
 
-- `planner` y `workflow` deben responder con estructura JSON/YAML según:
+- El planificador y el orquestador deben responder con un único objeto JSON según:
 - `docs/orchestration-output-contract.md`
 - Antes de finalizar cada fase, registrar en:
-  - `.codex/orchestration.log`
+  - `.codex/orchestration.jsonl`
 - Comando recomendado:
 
 ```bash
 bash scripts/log-orchestration-event.sh \
-  --agent <planner|workflow> \
+  --agent <planner|orchestrator> \
   --goal "<objetivo>" \
   --status <ok|blocked|failed|in_progress> \
   --decision "<decision>" \
