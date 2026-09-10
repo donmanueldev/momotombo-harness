@@ -166,6 +166,28 @@ JSON
     [[ "$output" == *"valid"* ]]
 }
 
+@test "orchestration validator accepts a reviewer payload without an invented spec" {
+    cat > "$FAKE_REPO/review.json" <<'JSON'
+{"agent":"reviewer","status":"ok","goal":"review current configuration","decision":"needs_work","evidence":["git diff"],"result":"one finding","findings":[{"severity":"medium","file":"sync.sh:1","summary":"Example finding","impact":"Example impact","requirement_ids":[]}],"blocking_items":[],"requirement_coverage":[]}
+JSON
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent reviewer --input "$FAKE_REPO/review.json"
+
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"valid"* ]]
+}
+
+@test "orchestration validator rejects partial reviewer specification metadata" {
+    cat > "$FAKE_REPO/review.json" <<'JSON'
+{"agent":"reviewer","status":"ok","goal":"review","decision":"ready","evidence":[],"result":"clean","specification_id":"SPEC-1","findings":[],"blocking_items":[],"requirement_coverage":[]}
+JSON
+
+    run bash "$FAKE_REPO/scripts/validate-orchestration-output.sh" --agent reviewer --input "$FAKE_REPO/review.json"
+
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"must be provided together"* ]]
+}
+
 @test "sync.sh validate checks repo and local skills" {
     create_fake_skill "repo-skill"
     create_fake_skill "local-skill" "$FAKE_HOME/.codex/skills"

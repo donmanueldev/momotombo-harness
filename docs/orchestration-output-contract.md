@@ -128,9 +128,13 @@ Each run is stored under the ignored path
 - `state.json` is atomically replaced with mode `0600` and holds the current
   versioned run state.
 - `events.jsonl` is an append-only, mode-`0600` allow-listed audit journal.
-  Events contain run ID, monotonic sequence, timestamp, phase/state change,
-  actor, decision, result, and next step. Prompts, secrets, tokens, PII, and
-  raw logs are not accepted fields.
+  Schema version 2 events contain only the run ID, monotonic sequence,
+  timestamp, phase/state change, actor, decision, an empty evidence array,
+  result, next step, and a SHA-256 digest of the corresponding state. The
+  digest detects divergence without copying authorization evidence or other
+  state into the journal. Result and next-step values are controller-defined
+  metadata, never copied from free-form input. Prompts, secrets, tokens, PII,
+  raw logs, and state snapshots are not accepted fields.
 
 The lifecycle is:
 
@@ -151,9 +155,10 @@ python3 scripts/orchestration-controller.py advance --run-id SPEC-42-r1 --to awa
 python3 scripts/orchestration-controller.py approve --run-id SPEC-42-r1 --evidence 'user message reference'
 ```
 
-`record-output` preserves planner, orchestrator, and reviewer artifacts only
-in their respective phase and only when their specification ID/revision and
-exact requirement coverage match the run. A reviewer must return `status: ok`,
+`record-output` validates planner, orchestrator, and reviewer artifacts against
+this complete contract, preserves them only in their respective phase, and
+requires their specification ID/revision and exact requirement coverage to
+match the run. A reviewer must return `status: ok`,
 `decision: ready`, and non-empty evidence for every requirement. An
 orchestrator route must name an allowed owner and repository-relative file
 scope for every requirement. `advance`, `status`, `validate`, `resume`,
@@ -186,9 +191,10 @@ overlapping scopes without a declared dependency are rejected. The controller
 also rejects commit, push, deploy, publish, network, service, hook, and
 destructive effect kinds; it cannot execute effects of any kind.
 
-For recovery, run `validate`, then `resume`; if state and journal disagree,
-the controller fails closed. To stop safely, use `cancel` or `stop` with a
-reason and next step. Roll back the automation by ceasing use of this
+For recovery, run `validate`, then `resume`; both verify the journal sequence
+and final state digest, and fail closed if state and journal disagree. They do
+not reconstruct state from journal contents. To stop safely, use `cancel` or
+`stop` with a reason and next step. Roll back the automation by ceasing use of this
 controller and returning to the existing manual root-agent route; retain the
 run directory and legacy `.codex/orchestration.jsonl` for audit. The legacy
 JSONL helper remains compatible and is intentionally separate from per-run
@@ -202,6 +208,12 @@ journals.
 - `decision`: `ready` or `needs_work`
 - `blocking_items`: required follow-ups before close
 - `requirement_coverage`: objects with `requirement_id`, `status` (`verified` | `unverified` | `not_applicable`), and `evidence`
+
+For a review outside a spec-driven workflow, omit `specification_id` and
+`specification_revision`, return an empty `requirement_coverage`, and use an
+empty `requirement_ids` array on each finding. The two specification fields
+must otherwise be supplied together. Controlled orchestration runs are always
+spec-driven and require exact, non-empty requirement coverage.
 
 The root agent must provide the approved requirement IDs to the planner, orchestrator, and reviewer. Their payloads preserve those IDs; validation proves shape and references, while the root compares completeness against the approved spec.
 

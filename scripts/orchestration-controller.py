@@ -9,8 +9,8 @@ write, while host permissions remain authoritative.
 from __future__ import annotations
 
 import argparse
-import copy
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -19,12 +19,30 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from orchestration_contract import ContractError, validate_payload
+
 STATES = ("intake", "specify", "awaiting_approval", "plan", "route", "execute", "review", "verify", "completed", "blocked", "failed", "cancelled")
 TERMINAL = {"completed", "blocked", "failed", "cancelled"}
 NEXT = {"intake": {"specify"}, "specify": {"awaiting_approval"}, "awaiting_approval": {"plan"}, "plan": {"route", "blocked", "failed", "cancelled"}, "route": {"execute", "blocked", "failed", "cancelled"}, "execute": {"review", "blocked", "failed", "cancelled"}, "review": {"verify", "blocked", "failed", "cancelled"}, "verify": {"completed", "blocked", "failed", "cancelled"}}
 READ_ONLY = {"specifier", "planner", "reviewer", "orchestrator"}
 FORBIDDEN_EFFECTS = {"commit", "push", "deploy", "publish", "network", "service", "hook", "destructive"}
 RUN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+EVENT_FIELDS = {
+    "schema_version", "run_id", "sequence", "timestamp", "phase",
+    "previous_state", "state", "actor", "decision", "evidence", "result",
+    "next_step", "state_digest",
+}
+FORBIDDEN_JOURNAL_FIELDS = {"prompt", "secret", "token", "pii", "raw_log"}
+EVENT_TEXT = {
+    "start": ("run initialized", "advance to specify"),
+    "stop": None,
+    "transition": None,
+    "authorize": ("material scope recorded", "dispatch approved work"),
+    "dispatch_ready": ("dispatch recorded", "root invokes approved specialist"),
+    "dispatch_completed": ("dispatch completed", "advance when all assignments complete"),
+    "record_output": ("validated output reference", "advance phase"),
+    "complete": ("all requirements verified", "none"),
+}
 
 
 class ControllerError(Exception):
@@ -77,14 +95,46 @@ def atomic_json(path, value):
         if os.path.exists(temporary): os.unlink(temporary)
 
 
+def state_digest(state):
+    encoded = json.dumps(
+        state,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def contains_forbidden_journal_field(value):
+    if isinstance(value, dict):
+        return any(
+            str(key).lower() in FORBIDDEN_JOURNAL_FIELDS
+            or contains_forbidden_journal_field(child)
+            for key, child in value.items()
+        )
+    if isinstance(value, list):
+        return any(contains_forbidden_journal_field(child) for child in value)
+    return False
+
+
+def expected_event_text(event):
+    decision = event["decision"]
+    if decision == "transition":
+        return f"advanced to {event['state']}", "continue from durable state"
+    if decision == "stop":
+        return f"run marked {event['state']}", "inspect durable state"
+    return EVENT_TEXT.get(decision)
+
+
 def append_event(directory, state, actor, decision, previous=None, result="", next_step=""):
     state["sequence"] += 1
-    event = {"schema_version": 1, "run_id": state["run_id"], "sequence": state["sequence"], "timestamp": utcnow(), "phase": state["state"], "previous_state": previous, "state": state["state"], "actor": actor, "decision": decision, "evidence": [], "result": result, "next_step": next_step, "state_snapshot": copy.deepcopy(state)}
+    event = {"schema_version": 2, "run_id": state["run_id"], "sequence": state["sequence"], "timestamp": utcnow(), "phase": state["state"], "previous_state": previous, "state": state["state"], "actor": actor, "decision": decision, "evidence": [], "result": result, "next_step": next_step, "state_digest": state_digest(state)}
     path = journal_path(directory); path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as handle:
-        os.chmod(path, 0o600)
+    descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
         handle.flush(); os.fsync(handle.fileno())
+    os.chmod(path, 0o600)
     return event
 
 
@@ -105,17 +155,14 @@ def write_state(directory, state): atomic_json(state_path(directory), state)
 
 
 def requirements_from_spec(spec):
-    if spec.get("agent") != "specifier" or spec.get("approval_status") != "approved":
+    try:
+        validate_payload(spec, "specifier")
+    except ContractError as error:
+        raise ControllerError(f"invalid specifier artifact: {error}") from error
+    if spec["approval_status"] != "approved":
         raise ControllerError("start requires an approved specifier artifact")
-    require_string(spec.get("approval_evidence"), "approval_evidence")
-    specification_id = require_string(spec.get("specification_id"), "specification_id")
-    revision = spec.get("specification_revision")
-    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1: raise ControllerError("specification_revision must be positive")
-    requirements = spec.get("requirements")
-    if not isinstance(requirements, list) or not requirements: raise ControllerError("approved specification requires requirements")
-    identifiers = [item.get("id") for item in requirements if isinstance(item, dict)]
-    if len(identifiers) != len(requirements) or any(not isinstance(x, str) or not x for x in identifiers) or len(set(identifiers)) != len(identifiers): raise ControllerError("specification requirement IDs must be unique")
-    return specification_id, revision, identifiers
+    identifiers = [item["id"] for item in spec["requirements"]]
+    return spec["specification_id"], spec["specification_revision"], identifiers
 
 
 def transition(directory, state, target, actor="controller", reason="", next_step=""):
@@ -136,7 +183,7 @@ def transition(directory, state, target, actor="controller", reason="", next_ste
     if target == "completed":
         raise ControllerError("completed is only reachable from verify")
     state["state"] = target; state["updated_at"] = utcnow()
-    append_event(directory, state, actor, "transition", current, reason or f"advanced to {target}", next_step)
+    append_event(directory, state, actor, "transition", current, f"advanced to {target}", "continue from durable state")
     write_state(directory, state)
 
 
@@ -145,7 +192,7 @@ def stop(directory, state, target, reason, next_step):
     require_string(reason, "reason"); require_string(next_step, "next_step")
     if state["state"] in TERMINAL: raise ControllerError("terminal runs cannot transition")
     previous = state["state"]; state.update({"state": target, "terminal_reason": reason, "next_step": next_step, "updated_at": utcnow()})
-    append_event(directory, state, "controller", "stop", previous, reason, next_step); write_state(directory, state)
+    append_event(directory, state, "controller", "stop", previous, f"run marked {target}", "inspect durable state"); write_state(directory, state)
 
 
 def parse_requirements(value, known):
@@ -164,7 +211,7 @@ def command_start(args):
 
 
 def command_advance(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory)
     if args.to == "completed":
         if state["state"] != "verify": raise ControllerError("completed requires verify")
         coverage = state.get("review_coverage", {})
@@ -175,7 +222,7 @@ def command_advance(args):
 
 
 def command_approve(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory)
     if state["state"] != "awaiting_approval": raise ControllerError("specification approval is only accepted while awaiting_approval")
     require_string(args.evidence, "evidence")
     state["specification_approved"] = True; state["approval_evidence"] = args.evidence
@@ -183,7 +230,7 @@ def command_approve(args):
 
 
 def command_authorize(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory)
     ensure_active(state)
     require_string(args.evidence, "evidence"); requirements = parse_requirements(args.requirements, state["requirements"])
     if not args.paths and not args.responsibility: raise ControllerError("authorization requires paths or responsibility")
@@ -209,7 +256,7 @@ def valid_authorization(state, args, requirements, paths):
 
 
 def command_dispatch(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory)
     if state["state"] != "execute": raise ControllerError("dispatch is only accepted in execute")
     if args.owner in READ_ONLY or args.owner not in {"backend", "web", "infra", "mobile"}: raise ControllerError("owner is not an allowed first-layer specialist")
     if args.parent: raise ControllerError("nested dispatch is prohibited")
@@ -229,28 +276,27 @@ def command_dispatch(args):
         if overlap and not args.depends_on: raise ControllerError("overlapping scope requires declared dependency")
     if not valid_authorization(state, args, requirements, paths): raise ControllerError("no valid scoped authorization")
     state["dispatches"][args.assignment_id] = {"owner": args.owner, "requirements": requirements, "paths": paths, "responsibility": args.responsibility or "", "status": "ready", "depends_on": args.depends_on or ""}; state["updated_at"] = utcnow()
-    append_event(directory, state, "controller", "dispatch_ready", result=args.assignment_id, next_step="root invokes approved specialist"); write_state(directory, state)
+    append_event(directory, state, "controller", "dispatch_ready", result="dispatch recorded", next_step="root invokes approved specialist"); write_state(directory, state)
 
 
 def command_complete_dispatch(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory); ensure_active(state)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory); ensure_active(state)
     item = state["dispatches"].get(args.assignment_id)
     if not item or item["status"] != "ready": raise ControllerError("dispatch is not ready for completion")
     item["status"] = "completed"; state["updated_at"] = utcnow()
-    append_event(directory, state, "root", "dispatch_completed", result=args.assignment_id, next_step="advance when all assignments complete"); write_state(directory, state)
+    append_event(directory, state, "root", "dispatch_completed", result="dispatch completed", next_step="advance when all assignments complete"); write_state(directory, state)
 
 
 def command_record_output(args):
-    directory = run_dir(args.root, args.run_id); state = read_state(directory); payload = load_json(args.input)
+    directory = run_dir(args.root, args.run_id); state = read_verified_state(directory); payload = load_json(args.input)
     ensure_active(state)
     expected_state = {"planner": "plan", "orchestrator": "route", "reviewer": "review"}[args.agent]
     if state["state"] != expected_state: raise ControllerError(f"{args.agent} output is only accepted in {expected_state}")
-    if payload.get("agent") != args.agent: raise ControllerError("output agent mismatch")
+    try:
+        validate_payload(payload, args.agent, require_spec=True)
+    except ContractError as error:
+        raise ControllerError(f"invalid {args.agent} artifact: {error}") from error
     if payload.get("specification_id") != state["specification_id"] or payload.get("specification_revision") != state["specification_revision"]: raise ControllerError("output specification does not match run")
-    if payload.get("status") not in {"ok", "blocked", "failed", "in_progress"}: raise ControllerError("output status is invalid")
-    for field in ("goal", "decision", "result"):
-        require_string(payload.get(field), f"output.{field}")
-    if not isinstance(payload.get("evidence"), list): raise ControllerError("output evidence must be an array")
     if args.agent == "reviewer":
         if payload.get("status") != "ok" or payload.get("decision") != "ready": raise ControllerError("reviewer output must be ready")
         coverage = payload.get("requirement_coverage")
@@ -258,6 +304,13 @@ def command_record_output(args):
         if any(not isinstance(entry, dict) or not isinstance(entry.get("evidence"), str) or not entry["evidence"].strip() for entry in coverage): raise ControllerError("reviewer coverage requires evidence")
         mapped = {entry.get("requirement_id"): entry.get("status") for entry in coverage if isinstance(entry, dict)}
         if len(mapped) != len(coverage) or set(mapped) != set(state["requirements"]): raise ControllerError("reviewer coverage must exactly match requirements")
+        referenced = {
+            requirement_id
+            for finding in payload["findings"]
+            for requirement_id in finding["requirement_ids"]
+        }
+        if referenced - set(state["requirements"]):
+            raise ControllerError("reviewer findings must reference approved requirements")
         state["review_coverage"] = mapped
     elif args.agent in {"planner", "orchestrator"}:
         key = "requirement_plan" if args.agent == "planner" else "requirement_assignments"; entries = payload.get(key)
@@ -280,28 +333,56 @@ def command_record_output(args):
     state["outputs"][args.agent] = str(Path(args.input)); state["updated_at"] = utcnow(); append_event(directory, state, args.agent, "record_output", result="validated output reference", next_step="advance phase"); write_state(directory, state)
 
 
-def replay_journal(directory, state, recover=False):
+def replay_journal(directory, state):
     expected = 1
     try: lines = journal_path(directory).read_text(encoding="utf-8").splitlines()
     except OSError as error: raise ControllerError("journal not found") from error
-    last_snapshot = None
+    last_digest = None
     for line in lines:
-        event = json.loads(line)
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ControllerError("journal contains invalid JSON") from error
+        if not isinstance(event, dict) or set(event) != EVENT_FIELDS:
+            raise ControllerError("journal event fields are invalid")
+        if event.get("schema_version") != 2:
+            raise ControllerError("journal schema version is unsupported")
         if event.get("run_id") != state["run_id"] or event.get("sequence") != expected: raise ControllerError("journal sequence is invalid")
-        forbidden = {"prompt", "secret", "token", "pii", "raw_log"}.intersection(event)
-        if forbidden: raise ControllerError("journal contains forbidden fields")
-        snapshot = event.get("state_snapshot")
-        if not isinstance(snapshot, dict) or snapshot.get("run_id") != state["run_id"] or snapshot.get("sequence") != expected: raise ControllerError("journal snapshot is invalid")
-        last_snapshot = snapshot
+        if not RUN_RE.fullmatch(event["run_id"]):
+            raise ControllerError("journal run ID is invalid")
+        if not isinstance(event["sequence"], int) or isinstance(event["sequence"], bool):
+            raise ControllerError("journal sequence is invalid")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", event.get("timestamp", "")):
+            raise ControllerError("journal timestamp is invalid")
+        if event.get("state") not in STATES or event.get("phase") != event.get("state"):
+            raise ControllerError("journal state is invalid")
+        if event.get("previous_state") is not None and event["previous_state"] not in STATES:
+            raise ControllerError("journal previous state is invalid")
+        if event.get("evidence") != []:
+            raise ControllerError("journal evidence must be empty")
+        for field in ("timestamp", "actor", "decision", "result", "next_step"):
+            if not isinstance(event.get(field), str):
+                raise ControllerError(f"journal {field} must be a string")
+        if event["actor"] not in READ_ONLY | {"controller", "human", "root"}:
+            raise ControllerError("journal actor is invalid")
+        expected_text = expected_event_text(event)
+        if expected_text is None or (event["result"], event["next_step"]) != expected_text:
+            raise ControllerError("journal metadata is invalid")
+        if not isinstance(event.get("state_digest"), str) or not re.fullmatch(r"[0-9a-f]{64}", event["state_digest"]):
+            raise ControllerError("journal state digest is invalid")
+        if contains_forbidden_journal_field(event):
+            raise ControllerError("journal contains forbidden fields")
+        last_digest = event["state_digest"]
         expected += 1
-    if state["sequence"] > expected - 1: raise ControllerError("state is ahead of the journal")
-    if last_snapshot != state:
-        if recover and last_snapshot and last_snapshot.get("sequence", 0) >= state["sequence"]:
-            write_state(directory, last_snapshot)
-            state = last_snapshot
-        else:
-            raise ControllerError("state does not match the journal replay")
+    if state["sequence"] != expected - 1:
+        raise ControllerError("state and journal sequences differ")
+    if last_digest != state_digest(state):
+        raise ControllerError("state does not match the journal digest")
     return state
+
+
+def read_verified_state(directory):
+    return replay_journal(directory, read_state(directory))
 
 
 def command_validate(args):
@@ -312,10 +393,10 @@ def command_validate(args):
 
 def command_status(args): print(json.dumps(read_state(run_dir(args.root, args.run_id)), sort_keys=True))
 def command_resume(args):
-    directory = run_dir(args.root, args.run_id); state = replay_journal(directory, read_state(directory), recover=True)
+    directory = run_dir(args.root, args.run_id); state = replay_journal(directory, read_state(directory))
     print(json.dumps({"run_id": state["run_id"], "state": state["state"], "next_step": state.get("next_step", "continue from current state")}, sort_keys=True))
-def command_cancel(args): stop(run_dir(args.root, args.run_id), read_state(run_dir(args.root, args.run_id)), "cancelled", args.reason, args.next_step)
-def command_stop(args): stop(run_dir(args.root, args.run_id), read_state(run_dir(args.root, args.run_id)), args.to, args.reason, args.next_step)
+def command_cancel(args): stop(run_dir(args.root, args.run_id), read_verified_state(run_dir(args.root, args.run_id)), "cancelled", args.reason, args.next_step)
+def command_stop(args): stop(run_dir(args.root, args.run_id), read_verified_state(run_dir(args.root, args.run_id)), args.to, args.reason, args.next_step)
 
 
 def parser():
