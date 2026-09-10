@@ -53,6 +53,9 @@ Run `./sync.sh mobile` to reconcile both official mobile sources. Local communit
 | `swift-testing-pro` | Modern Swift Testing patterns, async tests, and XCTest migration |
 | `website-seo-finalization` | Automated URL reports plus pre-launch SEO, AEO and GEO readiness, metadata, structured data, crawler controls, answers, and citations |
 | `pagespeed-optimization` | Reproducible Lighthouse medians, CI budgets, CrUX interpretation, and React, Next.js, Astro, or static HTML adapters |
+| `frontend-design` | Creative direction and implementation guidance for distinctive React, Inertia.js, HTML, and CSS interfaces |
+| `ui-ux-pro-max` | Offline UI/UX lookup for React, Laravel/Inertia, and HTML/Tailwind decisions |
+| `web-design-guidelines` | Versioned source audit for accessibility and web-interface quality |
 
 SwiftUI Expert, Swift Concurrency, Build iOS Apps, and Build macOS Apps remain installed as Codex plugins and are intentionally not duplicated here. The vendored Swift skills use these reviewed upstream snapshots:
 
@@ -70,6 +73,16 @@ The SEO launch skills are also reviewed and versioned locally:
 | `pagespeed-optimization` | Locally authored from official Google Search, Chrome, Lighthouse, CrUX, and web.dev guidance | Local |
 
 OpenGraph.to is used by `website-seo-finalization` only as an optional public-URL preview check. It is not installed as a plugin and its score is not a release gate.
+
+The web design skills are reviewed, narrowed to the supported web stack, and versioned locally:
+
+| Skill | Origin | Revision |
+|-------|--------|----------|
+| `frontend-design` | Adapted from [`anthropics/skills`](https://github.com/anthropics/skills/tree/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/frontend-design) | `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f` |
+| `ui-ux-pro-max` | Adapted from [`nextlevelbuilder/ui-ux-pro-max-skill`](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/4aad0584d92131626b16d4ff4d77f0455385013c/.claude/skills/ui-ux-pro-max) | `4aad0584d92131626b16d4ff4d77f0455385013c` |
+| `web-design-guidelines` | Adapted from [`vercel-labs/agent-skills`](https://github.com/vercel-labs/agent-skills/tree/063bee94c3f4df8453406c830b0a7df0f2860278/skills/web-design-guidelines); rules from [`web-interface-guidelines`](https://github.com/vercel-labs/web-interface-guidelines/blob/e3d624baaf29dc1fc645aff3e38f03e564d2d6b1/command.md) | `063bee94c3f4df8453406c830b0a7df0f2860278` / `e3d624baaf29dc1fc645aff3e38f03e564d2d6b1` |
+
+For substantial web design work, `frontend-design` owns creative direction, `ui-ux-pro-max` supplies focused local research, `web-design-guidelines` audits the implemented source, and `agent-browser` provides separate rendered-browser evidence. Project instructions, an approved brief, and an existing design system always take precedence.
 
 ## Managing your config
 
