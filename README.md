@@ -46,6 +46,19 @@ Run `./sync.sh mobile` to reconcile both official mobile sources. Local communit
 | `mobile-android-design` | Local Android Material 3 and adaptive UI guidance |
 | `compose-multiplatform-patterns` | Local Compose Multiplatform state and platform-boundary guidance |
 | `android-clean-architecture` | Local Android/KMP layering and data-flow guidance |
+| `write-swift` | Modern Swift language, value semantics, generics, ARC, testing, and performance guidance |
+| `swift-api-design-guidelines` | Swift API naming, argument labels, documentation, and call-site clarity |
+| `swift-architecture` | Apple-platform architecture selection, boundaries, and incremental migration |
+| `swift-codable` | Codable contracts, JSON encoding and decoding, and persistence boundaries |
+| `swift-testing-pro` | Modern Swift Testing patterns, async tests, and XCTest migration |
+
+SwiftUI Expert, Swift Concurrency, Build iOS Apps, and Build macOS Apps remain installed as Codex plugins and are intentionally not duplicated here. The vendored Swift skills use these reviewed upstream snapshots:
+
+| Skills | Upstream | Revision |
+|--------|----------|----------|
+| `write-swift` | [`emilkowalski/skills`](https://github.com/emilkowalski/skills) | `d23d7f88a2e21c9e4b1418c7abe420f5c1052ba7` |
+| `swift-api-design-guidelines`, `swift-architecture`, `swift-codable` | [`dpearson2699/swift-ios-skills`](https://github.com/dpearson2699/swift-ios-skills) | `8d90fd121a263355a4fb44fd082af1416a5c1c2a` |
+| `swift-testing-pro` | [`twostraws/swift-testing-agent-skill`](https://github.com/twostraws/swift-testing-agent-skill) | `2d6bba14a3c8bf3694f218b92fffe617c41ae43e` |
 
 ## Managing your config
 
