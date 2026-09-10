@@ -111,4 +111,3 @@ Do not download tools implicitly, weaken existing checks, or use a score of 100
 as the contract. Validate the configuration locally where the environment
 allows it and report anything that remains CI-only.
 ```
-
