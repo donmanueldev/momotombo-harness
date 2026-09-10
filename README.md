@@ -51,6 +51,8 @@ Run `./sync.sh mobile` to reconcile both official mobile sources. Local communit
 | `swift-architecture` | Apple-platform architecture selection, boundaries, and incremental migration |
 | `swift-codable` | Codable contracts, JSON encoding and decoding, and persistence boundaries |
 | `swift-testing-pro` | Modern Swift Testing patterns, async tests, and XCTest migration |
+| `website-seo-finalization` | Pre-launch SEO, AEO and GEO readiness, indexability, answer and citation clarity, metadata, structured data, and crawler controls |
+| `pagespeed-optimization` | Evidence-based PageSpeed, Lighthouse, CrUX, and Core Web Vitals measurement and optimization |
 
 SwiftUI Expert, Swift Concurrency, Build iOS Apps, and Build macOS Apps remain installed as Codex plugins and are intentionally not duplicated here. The vendored Swift skills use these reviewed upstream snapshots:
 
@@ -59,6 +61,15 @@ SwiftUI Expert, Swift Concurrency, Build iOS Apps, and Build macOS Apps remain i
 | `write-swift` | [`emilkowalski/skills`](https://github.com/emilkowalski/skills) | `d23d7f88a2e21c9e4b1418c7abe420f5c1052ba7` |
 | `swift-api-design-guidelines`, `swift-architecture`, `swift-codable` | [`dpearson2699/swift-ios-skills`](https://github.com/dpearson2699/swift-ios-skills) | `8d90fd121a263355a4fb44fd082af1416a5c1c2a` |
 | `swift-testing-pro` | [`twostraws/swift-testing-agent-skill`](https://github.com/twostraws/swift-testing-agent-skill) | `2d6bba14a3c8bf3694f218b92fffe617c41ae43e` |
+
+The SEO launch skills are also reviewed and versioned locally:
+
+| Skill | Origin | Revision |
+|-------|--------|----------|
+| `website-seo-finalization` | Adapted from [`YankielDBC2/codex-skills-library`](https://github.com/YankielDBC2/codex-skills-library/tree/674d9e1c74bbf3a922bae483747bc89158bf1507/plugins/skills-pack/skills/website-seo-finalization) | `674d9e1c74bbf3a922bae483747bc89158bf1507` |
+| `pagespeed-optimization` | Locally authored from official Google Search, Chrome, Lighthouse, CrUX, and web.dev guidance | Local |
+
+OpenGraph.to is used by `website-seo-finalization` only as an optional public-URL preview check. It is not installed as a plugin and its score is not a release gate.
 
 ## Managing your config
 
