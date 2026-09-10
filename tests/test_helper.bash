@@ -23,6 +23,8 @@ setup_test_env() {
     cp "$PROJECT_DIR/scripts/sync-matt-skills.sh" "$FAKE_REPO/scripts/"
     cp "$PROJECT_DIR/scripts/sync-android-skills.sh" "$FAKE_REPO/scripts/"
     cp "$PROJECT_DIR/scripts/sync-kotlin-skills.sh" "$FAKE_REPO/scripts/"
+    cp "$PROJECT_DIR/scripts/orchestration_contract.py" "$FAKE_REPO/scripts/"
+    cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/"
 
     # Make scripts use fake HOME
     # We'll override HOME when running scripts
