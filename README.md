@@ -18,7 +18,7 @@ cd agent-config
 - `rules/agent-config.rules` - Safe command allowlist installed at `~/.codex/rules/agent-config.rules`
 
 ### Prompts
-- `prompts/` - Copy-paste task starters for zero-to-one work, tickets, backend, frontend, fullstack, fixes, and features
+- `prompts/` - Copy-paste task starters for zero-to-one work, tickets, backend, frontend, fullstack, fixes, features, and SEO/PageSpeed launch preparation
 
 ### Skills
 Reusable capabilities that your coding agents can invoke.
@@ -180,6 +180,13 @@ Prompt starters:
 - `Write a concise English commit message for this diff and explain the grouping.`
 - `Draft PR review comments for this diff, ordered by severity.`
 - `Update the repo rules or Codex extensions without reintroducing Claude/Cursor files.`
+- `Use $website-seo-finalization and $pagespeed-optimization to audit, improve, rebuild, and remeasure this site before launch.`
+- `Audit this public site with $website-seo-finalization and $pagespeed-optimization without modifying files; return prioritized JSON/Markdown findings.`
+- `Verify the existing SEO and Lighthouse reports against the current source, implement confirmed findings, and show before/after evidence.`
+
+See [`prompts/07-seo-pagespeed-launch.md`](prompts/07-seo-pagespeed-launch.md)
+for complete examples covering launch optimization, read-only audits, report-driven
+remediation, route-level work, and configurable CI performance budgets.
 
 ## Creating your own
 
