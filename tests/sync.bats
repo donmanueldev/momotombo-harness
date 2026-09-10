@@ -157,3 +157,53 @@ teardown() {
     assert_symlink "$FAKE_HOME/.codex/skills/my-skill" "$FAKE_REPO/skills/my-skill"
     assert_dir "$FAKE_REPO/skills/my-skill"
 }
+
+@test "sync.sh undo fully reverts add skill" {
+    create_fake_skill "my-skill" "$FAKE_HOME/.codex/skills"
+    run_sync add skill my-skill
+
+    run bash -c 'printf "y\n" | HOME="'"$FAKE_HOME"'" bash "'"$FAKE_REPO"'/sync.sh" undo'
+
+    [[ "$status" -eq 0 ]]
+    assert_absent "$FAKE_REPO/skills/my-skill"
+    assert_regular_file "$FAKE_HOME/.codex/skills/my-skill/SKILL.md"
+}
+
+@test "sync.sh undo fully reverts add agent" {
+    create_fake_codex_agent "planner" "$FAKE_HOME/.codex/agents"
+    run_sync add agent planner
+
+    run bash -c 'printf "y\n" | HOME="'"$FAKE_HOME"'" bash "'"$FAKE_REPO"'/sync.sh" undo'
+
+    [[ "$status" -eq 0 ]]
+    assert_absent "$FAKE_REPO/.codex/agents/planner.toml"
+    assert_regular_file "$FAKE_HOME/.codex/agents/planner.toml"
+}
+
+@test "sync.sh undo refuses to delete an added item after its symlink changed" {
+    create_fake_skill "my-skill" "$FAKE_HOME/.codex/skills"
+    run_sync add skill my-skill
+    rm "$FAKE_HOME/.codex/skills/my-skill"
+    mkdir -p "$FAKE_HOME/.codex/skills/my-skill"
+    echo "new local state" > "$FAKE_HOME/.codex/skills/my-skill/KEEP"
+
+    run bash -c 'printf "y\n" | HOME="'"$FAKE_HOME"'" bash "'"$FAKE_REPO"'/sync.sh" undo'
+
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"Cannot safely undo"* ]]
+    assert_dir "$FAKE_REPO/skills/my-skill"
+    grep -q "new local state" "$FAKE_HOME/.codex/skills/my-skill/KEEP"
+}
+
+@test "sync.sh undo preserves edits made through an added symlink" {
+    create_fake_skill "my-skill" "$FAKE_HOME/.codex/skills"
+    run_sync add skill my-skill
+    echo "new repository work" > "$FAKE_HOME/.codex/skills/my-skill/NEW"
+
+    run bash -c 'printf "y\n" | HOME="'"$FAKE_HOME"'" bash "'"$FAKE_REPO"'/sync.sh" undo'
+
+    [[ "$status" -eq 0 ]]
+    assert_absent "$FAKE_REPO/skills/my-skill"
+    assert_regular_file "$FAKE_HOME/.codex/skills/my-skill/SKILL.md"
+    grep -q "new repository work" "$FAKE_REPO"/.backup/*.restored/added-current/skills/my-skill/NEW
+}

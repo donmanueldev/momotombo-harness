@@ -237,10 +237,6 @@ main() {
 
     # Shared docs for portable reference after install
     if [ -d "$CONFIG_DIR/docs" ] && [ -n "$(ls -A "$CONFIG_DIR/docs" 2>/dev/null)" ]; then
-        if ! $DRY_RUN; then
-            mkdir -p "$docs_target"
-        fi
-
         local docs_dest="$docs_target"
         if $DRY_RUN; then
             if has_conflict "$docs_dest"; then

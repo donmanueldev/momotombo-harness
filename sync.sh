@@ -744,6 +744,9 @@ restore_tree() {
     fi
 
     if [ -d "$path" ]; then
+        if [ -L "$dest" ]; then
+            rm -f "$dest"
+        fi
         mkdir -p "$dest"
         local child
         for child in "$path"/.[!.]* "$path"/..?* "$path"/*; do
@@ -785,6 +788,43 @@ undo_last() {
     local operation timestamp
     operation=$(grep -o '"operation": *"[^"]*"' "$manifest" | cut -d'"' -f4)
     timestamp=$(grep -o '"timestamp": *"[^"]*"' "$manifest" | cut -d'"' -f4)
+    local add_repo_path=""
+    local add_local_path=""
+    local add_preserved_path=""
+
+    if [[ "$operation" == "add-skill" || "$operation" == "add-agent" ]]; then
+        local added_item
+        added_item=$(python3 - "$manifest" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    manifest = json.load(handle)
+items = manifest.get("items")
+if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], str):
+    raise SystemExit("add backup manifest must contain exactly one item")
+item = items[0]
+pattern = r"[a-z0-9][a-z0-9-]*" if manifest.get("operation") == "add-skill" else r"[a-z0-9][a-z0-9-]*\.toml"
+if not re.fullmatch(pattern, item):
+    raise SystemExit("add backup manifest contains an invalid item")
+print(item)
+PY
+)
+        if [[ "$operation" == "add-skill" ]]; then
+            add_repo_path="$REPO_SKILL_DIR/$added_item"
+            add_local_path="$SKILL_HOME/$added_item"
+            add_preserved_path="$backup_path/added-current/skills/$added_item"
+        else
+            add_repo_path="$REPO_AGENT_DIR/$added_item"
+            add_local_path="$AGENT_HOME/$added_item"
+            add_preserved_path="$backup_path/added-current/agents/$added_item"
+        fi
+        if [ ! -L "$add_local_path" ] || [[ "$(normalize_path "$(readlink "$add_local_path")")" != "$(normalize_path "$add_repo_path")" ]]; then
+            echo "Error: Cannot safely undo $operation because the installed symlink changed" >&2
+            exit 1
+        fi
+    fi
 
     echo -e "${BOLD}Last backup:${RESET} $latest"
     echo "  Operation: $operation"
@@ -807,6 +847,19 @@ undo_last() {
 
     echo ""
     echo "Restoring..."
+
+    if [ -n "$add_repo_path" ]; then
+        if [ ! -L "$add_local_path" ] || [[ "$(normalize_path "$(readlink "$add_local_path")")" != "$(normalize_path "$add_repo_path")" ]]; then
+            echo "Error: Cannot safely undo $operation because the installed symlink changed" >&2
+            exit 1
+        fi
+        if [[ "$operation" == "add-skill" && ! -d "$add_repo_path" ]] || [[ "$operation" == "add-agent" && ! -f "$add_repo_path" ]]; then
+            echo "Error: Cannot safely undo $operation because the added repository item is missing" >&2
+            exit 1
+        fi
+        mkdir -p "$(dirname "$add_preserved_path")"
+        mv "$add_repo_path" "$add_preserved_path"
+    fi
 
     if [ -d "$backup_path/home" ] || [ -d "$backup_path/repo" ]; then
         [ -d "$backup_path/home" ] && restore_tree "$backup_path/home" "$HOME" "$backup_path/home"
@@ -831,6 +884,9 @@ undo_last() {
     echo ""
     echo -e "${GREEN}Done!${RESET} Backup restored and marked as used."
     echo "The backup is now at: $backup_path.restored"
+    if [ -n "$add_preserved_path" ]; then
+        echo "The removed repository item was preserved inside that backup under added-current/."
+    fi
 }
 
 validate_all_skills() {

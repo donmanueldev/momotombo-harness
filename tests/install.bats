@@ -54,6 +54,17 @@ EOF
     assert_symlink "$FAKE_HOME/.codex/rules/agent-config.rules" "$FAKE_REPO/rules/agent-config.rules"
 }
 
+@test "install.sh links shared docs on a fresh noninteractive install" {
+    mkdir -p "$FAKE_REPO/docs"
+    echo "project docs" > "$FAKE_REPO/docs/project-memory.md"
+
+    run run_install
+
+    [[ "$status" -eq 0 ]]
+    assert_symlink "$FAKE_HOME/.codex/agent-config-docs" "$FAKE_REPO/docs"
+    [[ "$output" != *"Conflict:"* ]]
+}
+
 @test "install.sh synchronizes Matt skills only when explicitly requested" {
     mkdir -p "$TEST_TMP/bin"
     cat > "$TEST_TMP/bin/npx" <<'EOF'
