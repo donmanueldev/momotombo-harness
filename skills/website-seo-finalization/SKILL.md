@@ -2,7 +2,7 @@
 name: website-seo-finalization
 description: Finalize a public website for launch by auditing and, when requested, correcting SEO, AEO and GEO readiness, indexability, metadata, Open Graph previews, structured data, answer and citation clarity, crawler access, headings, links, images, sitemaps, and robots directives. Use for pre-launch search or generative-discovery readiness; do not use for paid acquisition or general performance tuning.
 category: seo
-version: 1.2.0
+version: 2.0.0
 status: stable
 ---
 
@@ -74,6 +74,38 @@ Never report these as universal SEO errors:
 - failing a single prompt, generated answer, citation check, or vendor score.
 
 ## Validate and report
+
+For repeatable URL-level checks, run the bundled zero-dependency auditor:
+
+```bash
+python3 <skill-path>/scripts/audit_site.py \
+  --url https://example.com/ \
+  --url https://example.com/product/ \
+  --output-dir <artifact-directory> \
+  --fail-on error
+```
+
+It writes machine-readable `report.json` and human-readable `report.md`, checks
+rendered response HTML plus origin-level robots, sitemap, and optional `llms.txt`,
+and exits nonzero at the configured severity. It intentionally does not crawl the
+whole site, execute client JavaScript, judge content quality, or prove indexing.
+For client-rendered React, audit the production deployment or a production build
+served locally; source JSX is not rendered evidence.
+
+For Astro, static React output, or plain HTML, audit generated files without a
+server when network access is unavailable:
+
+```bash
+python3 <skill-path>/scripts/audit_site.py \
+  --url https://example.com/ \
+  --html-file <output-directory>/index.html \
+  --site-root <output-directory> \
+  --output-dir <artifact-directory>
+```
+
+Repeat `--url` and `--html-file` in matching order to audit multiple generated
+routes. The auditor also flags duplicate titles, descriptions, and canonicals
+across the supplied route set.
 
 Run the project's existing build and lint checks. Where the environment permits,
 inspect representative rendered pages, response headers, `robots.txt`, sitemap

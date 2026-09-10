@@ -51,8 +51,8 @@ Run `./sync.sh mobile` to reconcile both official mobile sources. Local communit
 | `swift-architecture` | Apple-platform architecture selection, boundaries, and incremental migration |
 | `swift-codable` | Codable contracts, JSON encoding and decoding, and persistence boundaries |
 | `swift-testing-pro` | Modern Swift Testing patterns, async tests, and XCTest migration |
-| `website-seo-finalization` | Pre-launch SEO, AEO and GEO readiness, indexability, answer and citation clarity, metadata, structured data, and crawler controls |
-| `pagespeed-optimization` | Evidence-based PageSpeed, Lighthouse, CrUX, and Core Web Vitals measurement and optimization |
+| `website-seo-finalization` | Automated URL reports plus pre-launch SEO, AEO and GEO readiness, metadata, structured data, crawler controls, answers, and citations |
+| `pagespeed-optimization` | Reproducible Lighthouse medians, CI budgets, CrUX interpretation, and React, Next.js, Astro, or static HTML adapters |
 
 SwiftUI Expert, Swift Concurrency, Build iOS Apps, and Build macOS Apps remain installed as Codex plugins and are intentionally not duplicated here. The vendored Swift skills use these reviewed upstream snapshots:
 

@@ -1,6 +1,8 @@
 ---
 name: pagespeed-optimization
 description: Measure and improve website loading, responsiveness, and visual stability using PageSpeed Insights, Lighthouse, CrUX, and Core Web Vitals. Use for an explicit performance audit, launch optimization, or measured web-performance regression; do not activate for ordinary UI work without a performance objective.
+version: 1.1.0
+status: stable
 ---
 
 # PageSpeed Optimization
@@ -24,6 +26,37 @@ Before changing code:
 
 For a source-only task, record that field or deployed measurements remain pending.
 Do not imply that a build proves real-user performance.
+
+## Use the bundled automation
+
+Detect the project's production adapter first:
+
+```bash
+python3 <skill-path>/scripts/detect_web_adapter.py --root <project-root> --format markdown
+```
+
+Read [Framework adapters](references/framework-adapters.md) for React/Vite,
+Create React App, Next.js, Astro, and static HTML constraints. Verify the detected
+commands against repository instructions before running them.
+
+After starting the production build on a stable local or deployed URL, run:
+
+```bash
+python3 <skill-path>/scripts/run_lighthouse.py \
+  --url http://127.0.0.1:4173/ \
+  --profiles both \
+  --runs 5 \
+  --project-root <project-root> \
+  --budget <budget.json> \
+  --output-dir <artifact-directory>
+```
+
+The runner uses a project-local or explicitly supplied Lighthouse binary. It does
+not download or install Lighthouse. It preserves each raw run, calculates medians,
+writes JSON and Markdown reports, optionally compares a prior report with
+`--baseline`, and exits nonzero when a configured budget fails. Copy and adapt
+[`performance-budget.example.json`](assets/performance-budget.example.json) in the
+target project when CI enforcement is requested.
 
 ## Separate field and laboratory evidence
 
