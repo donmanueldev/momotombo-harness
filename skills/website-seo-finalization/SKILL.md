@@ -78,7 +78,7 @@ Never report these as universal SEO errors:
 For repeatable URL-level checks, run the bundled zero-dependency auditor:
 
 ```bash
-python3 <skill-path>/scripts/audit_site.py \
+<skill-path>/bin/audit-site \
   --url https://example.com/ \
   --url https://example.com/product/ \
   --output-dir <artifact-directory> \
@@ -96,7 +96,7 @@ For Astro, static React output, or plain HTML, audit generated files without a
 server when network access is unavailable:
 
 ```bash
-python3 <skill-path>/scripts/audit_site.py \
+<skill-path>/bin/audit-site \
   --url https://example.com/ \
   --html-file <output-directory>/index.html \
   --site-root <output-directory> \

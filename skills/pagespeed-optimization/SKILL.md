@@ -32,7 +32,7 @@ Do not imply that a build proves real-user performance.
 Detect the project's production adapter first:
 
 ```bash
-python3 <skill-path>/scripts/detect_web_adapter.py --root <project-root> --format markdown
+<skill-path>/bin/detect-web-adapter --root <project-root> --format markdown
 ```
 
 Read [Framework adapters](references/framework-adapters.md) for React/Vite,
@@ -42,7 +42,7 @@ commands against repository instructions before running them.
 After starting the production build on a stable local or deployed URL, run:
 
 ```bash
-python3 <skill-path>/scripts/run_lighthouse.py \
+<skill-path>/bin/run-lighthouse \
   --url http://127.0.0.1:4173/ \
   --profiles both \
   --runs 5 \

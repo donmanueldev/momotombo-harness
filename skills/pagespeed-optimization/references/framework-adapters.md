@@ -1,6 +1,6 @@
 # Framework Adapters
 
-Use `../scripts/detect_web_adapter.py --root <project>` to identify a starting
+Use `../bin/detect-web-adapter --root <project>` to identify a starting
 build and serve contract. Treat its output as detected evidence, then verify the
 project's own instructions, scripts, environment, routes, rewrites, and headers.
 
@@ -27,7 +27,7 @@ defines a versioned performance-baseline policy.
 ## React with Create React App
 
 - Build with the repository's build script and audit the generated `build` output.
-- Python's static server is a local fallback only. It does not reproduce SPA
+- PHP's built-in server (`php -S`) is a local fallback only. It does not reproduce SPA
   rewrites, compression, cache headers, or hosting-platform behavior.
 - Confirm that deep routes return the intended HTML rather than a local-only 404.
 
@@ -58,7 +58,7 @@ defines a versioned performance-baseline policy.
 ## CI integration
 
 Pin Lighthouse as a project devDependency and invoke
-`scripts/run_lighthouse.py --lighthouse-bin node_modules/.bin/lighthouse`.
+`bin/run-lighthouse --lighthouse-bin node_modules/.bin/lighthouse`.
 Use a project-owned budget copied from
 `../assets/performance-budget.example.json`. CI should retain JSON, Markdown, and
 raw runs as artifacts and fail only on explicit budget violations or audit errors.

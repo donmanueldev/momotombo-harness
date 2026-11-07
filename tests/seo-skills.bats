@@ -1,7 +1,12 @@
 #!/usr/bin/env bats
 
+setup_file() {
+    cargo build --release --quiet --manifest-path "$BATS_TEST_DIRNAME/../tools/Cargo.toml"
+}
+
 setup() {
     PROJECT_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+    TOOLS="$PROJECT_DIR/tools/target/release"
     TEST_TMP="$(mktemp -d)"
 }
 
@@ -52,7 +57,7 @@ SH
 JSON
     touch "$TEST_TMP/next/bun.lock"
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/detect_web_adapter.py" --root "$TEST_TMP/next"
+    run "$TOOLS/detect-web-adapter" --root "$TEST_TMP/next"
 
     [[ "$status" -eq 0 ]]
     [[ "$output" == *'"framework": "nextjs"'* ]]
@@ -70,15 +75,15 @@ JSON
 JSON
     touch "$TEST_TMP/static/index.html"
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/detect_web_adapter.py" --root "$TEST_TMP/astro"
+    run "$TOOLS/detect-web-adapter" --root "$TEST_TMP/astro"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *'"framework": "astro"'* ]]
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/detect_web_adapter.py" --root "$TEST_TMP/vite"
+    run "$TOOLS/detect-web-adapter" --root "$TEST_TMP/vite"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *'"framework": "react-vite"'* ]]
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/detect_web_adapter.py" --root "$TEST_TMP/static"
+    run "$TOOLS/detect-web-adapter" --root "$TEST_TMP/static"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *'"framework": "static-html"'* ]]
 }
@@ -108,12 +113,12 @@ ROBOTS
 <?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.test/</loc></url></urlset>
 XML
 
-    run python3 "$PROJECT_DIR/skills/website-seo-finalization/scripts/audit_site.py" --url "https://example.test/" --html-file "$TEST_TMP/site/index.html" --site-root "$TEST_TMP/site" --output-dir "$TEST_TMP/report" --fail-on error
+    run "$TOOLS/audit-site" --url "https://example.test/" --html-file "$TEST_TMP/site/index.html" --site-root "$TEST_TMP/site" --output-dir "$TEST_TMP/report" --fail-on error
 
     [[ "$status" -eq 0 ]]
     [[ -f "$TEST_TMP/report/report.json" ]]
     [[ -f "$TEST_TMP/report/report.md" ]]
-    run python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["summary"]["error"] == 0; assert r["pages"][0]["jsonLd"]["types"] == ["WebSite"]; assert r["siteFiles"][0]["sitemaps"][0]["validXml"]' "$TEST_TMP/report/report.json"
+    run jq -e '.summary.error == 0 and .pages[0].jsonLd.types == ["WebSite"] and .siteFiles[0].sitemaps[0].validXml' "$TEST_TMP/report/report.json"
     [[ "$status" -eq 0 ]]
 }
 
@@ -127,10 +132,10 @@ User-agent: *
 Disallow: /
 ROBOTS
 
-    run python3 "$PROJECT_DIR/skills/website-seo-finalization/scripts/audit_site.py" --url https://example.test/ --html-file "$TEST_TMP/broken/index.html" --site-root "$TEST_TMP/broken" --output-dir "$TEST_TMP/broken-report" --fail-on error
+    run "$TOOLS/audit-site" --url https://example.test/ --html-file "$TEST_TMP/broken/index.html" --site-root "$TEST_TMP/broken" --output-dir "$TEST_TMP/broken-report" --fail-on error
 
     [[ "$status" -eq 2 ]]
-    run python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); codes={i["code"] for p in r["pages"] for i in p["findings"]}; site={i["code"] for s in r["siteFiles"] for i in s["findings"]}; assert "metadata.title.missing" in codes; assert "robots.noindex" in codes; assert "robots-txt.blocks-all" in site; assert r["summary"]["error"] >= 3' "$TEST_TMP/broken-report/report.json"
+    run jq -e '([.pages[].findings[].code] | index("metadata.title.missing") and index("robots.noindex")) and ([.siteFiles[].findings[].code] | index("robots-txt.blocks-all")) and .summary.error >= 3' "$TEST_TMP/broken-report/report.json"
     [[ "$status" -eq 0 ]]
 }
 
@@ -142,10 +147,10 @@ ROBOTS
 HTML
     done
 
-    run python3 "$PROJECT_DIR/skills/website-seo-finalization/scripts/audit_site.py" --url https://example.test/one --html-file "$TEST_TMP/duplicates/one.html" --url https://example.test/two --html-file "$TEST_TMP/duplicates/two.html" --skip-site-files --output-dir "$TEST_TMP/duplicate-report" --fail-on error
+    run "$TOOLS/audit-site" --url https://example.test/one --html-file "$TEST_TMP/duplicates/one.html" --url https://example.test/two --html-file "$TEST_TMP/duplicates/two.html" --skip-site-files --output-dir "$TEST_TMP/duplicate-report" --fail-on error
 
     [[ "$status" -eq 0 ]]
-    run python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); codes={i["code"] for p in r["pages"] for i in p["findings"]}; assert {"metadata.title.duplicate","metadata.description.duplicate","canonical.duplicate"} <= codes' "$TEST_TMP/duplicate-report/report.json"
+    run jq -e '[.pages[].findings[].code] | (index("metadata.title.duplicate") and index("metadata.description.duplicate") and index("canonical.duplicate"))' "$TEST_TMP/duplicate-report/report.json"
     [[ "$status" -eq 0 ]]
 }
 
@@ -155,10 +160,10 @@ HTML
 {"default":{"performanceScore":{"min":0.9}},"mobile":{"largestContentfulPaintMs":{"max":2500}},"desktop":{"largestContentfulPaintMs":{"max":1500}}}
 JSON
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/run_lighthouse.py" --url https://example.test/ --profiles mobile --runs 3 --lighthouse-bin "$TEST_TMP/lighthouse" --budget "$TEST_TMP/budget.json" --output-dir "$TEST_TMP/lighthouse-report"
+    run "$TOOLS/run-lighthouse" --url https://example.test/ --profiles mobile --runs 3 --lighthouse-bin "$TEST_TMP/lighthouse" --budget "$TEST_TMP/budget.json" --output-dir "$TEST_TMP/lighthouse-report"
 
     [[ "$status" -eq 0 ]]
-    run python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["profiles"]["mobile"]["median"]["largestContentfulPaintMs"] == 2000; assert r["passed"] is True; assert len(r["profiles"]["mobile"]["runs"]) == 3' "$TEST_TMP/lighthouse-report/report.json"
+    run jq -e '.profiles.mobile.median.largestContentfulPaintMs == 2000 and .passed == true and (.profiles.mobile.runs | length) == 3' "$TEST_TMP/lighthouse-report/report.json"
     [[ "$status" -eq 0 ]]
 }
 
@@ -168,9 +173,22 @@ JSON
 {"largestContentfulPaintMs":{"max":1500}}
 JSON
 
-    run python3 "$PROJECT_DIR/skills/pagespeed-optimization/scripts/run_lighthouse.py" --url https://example.test/ --profiles desktop --runs 3 --lighthouse-bin "$TEST_TMP/lighthouse" --budget "$TEST_TMP/budget.json" --output-dir "$TEST_TMP/lighthouse-report"
+    run "$TOOLS/run-lighthouse" --url https://example.test/ --profiles desktop --runs 3 --lighthouse-bin "$TEST_TMP/lighthouse" --budget "$TEST_TMP/budget.json" --output-dir "$TEST_TMP/lighthouse-report"
 
     [[ "$status" -eq 2 ]]
-    run python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["passed"] is False; assert r["profiles"]["desktop"]["budgetResults"][0]["passed"] is False' "$TEST_TMP/lighthouse-report/report.json"
+    run jq -e '.passed == false and .profiles.desktop.budgetResults[0].passed == false' "$TEST_TMP/lighthouse-report/report.json"
     [[ "$status" -eq 0 ]]
+}
+
+@test "skills expose the Rust tools through bin symlinks" {
+    [[ -x "$PROJECT_DIR/skills/pagespeed-optimization/bin/detect-web-adapter" ]]
+    [[ -x "$PROJECT_DIR/skills/pagespeed-optimization/bin/run-lighthouse" ]]
+    [[ -x "$PROJECT_DIR/skills/website-seo-finalization/bin/audit-site" ]]
+    run "$PROJECT_DIR/skills/website-seo-finalization/bin/audit-site" --help
+    [[ "$status" -eq 0 ]]
+}
+
+@test "repository ships no Python sources" {
+    run bash -c "cd '$PROJECT_DIR' && git ls-files '*.py' && grep -rlE 'python3? ' --include='*.sh' --include='*.md' --include='*.bats' skills tests install.sh sync.sh | grep -v seo-skills.bats"
+    [[ -z "$output" ]]
 }
