@@ -149,6 +149,16 @@ EOF
     grep -q '^model: sonnet$' "$PROJECT_DIR/agents/reviewer.md"
     grep -q '^model: opus$' "$PROJECT_DIR/agents/planner.md"
     grep -q '^model: opus$' "$PROJECT_DIR/agents/implementer.md"
+    grep -q '^model: sonnet$' "$PROJECT_DIR/agents/ux-reviewer.md"
+    grep -q '^model: opus$' "$PROJECT_DIR/agents/security-reviewer.md"
+}
+
+@test "git skills fork into the git-ops agent on haiku" {
+    for skill in commit open-pr; do
+        grep -q '^context: fork$' "$PROJECT_DIR/skills/$skill/SKILL.md"
+        grep -q '^agent: git-ops$' "$PROJECT_DIR/skills/$skill/SKILL.md"
+        grep -q '^model: haiku$' "$PROJECT_DIR/skills/$skill/SKILL.md"
+    done
 }
 
 # =============================================================================

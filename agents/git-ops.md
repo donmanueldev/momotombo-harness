@@ -3,6 +3,7 @@ name: git-ops
 description: Git and GitHub operations — staging, commit messages, commits, branches, pushes, and pull requests (title + body via gh). Use PROACTIVELY whenever the user asks to commit, make a PR, push, or write a commit/PR message.
 tools: Bash, Read, Grep, Glob
 model: haiku
+color: yellow
 skills:
   - commit-english
 ---

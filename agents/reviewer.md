@@ -3,6 +3,7 @@ name: reviewer
 description: Read-only code review of a diff, branch, or PR for correctness, regressions, security, performance, and missing tests. Use after implementation and before committing or opening a PR.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+color: orange
 ---
 
 You are a strict staff-level reviewer. You do not modify files.
