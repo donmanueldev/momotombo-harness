@@ -211,6 +211,49 @@ build_tools() {
     fi
 }
 
+# Merge the versioned policy in home/settings.json into ~/.claude/settings.json.
+# Repo keys win; permission lists are unioned; machine-specific keys (theme, autoMode, ...) are kept.
+merge_settings() {
+    local repo_settings="$CONFIG_DIR/home/settings.json"
+    local dest="$CLAUDE_HOME/settings.json"
+    [ -f "$repo_settings" ] || return 0
+
+    if $DRY_RUN; then
+        dry_run_msg "Would merge home/settings.json into ~/.claude/settings.json"
+        return
+    fi
+    if ! command -v jq &>/dev/null; then
+        echo -e "${YELLOW}○${RESET} settings.json skipped: jq not found"
+        return
+    fi
+
+    local current="{}"
+    [ -f "$dest" ] && current=$(cat "$dest")
+    local merged
+    if ! merged=$(jq -n --argjson cur "$current" --slurpfile repo "$repo_settings" '
+        $repo[0] as $r
+        | ($cur * $r)
+        | reduce ("allow", "ask", "deny") as $k (.;
+            (($cur.permissions[$k] // []) + ($r.permissions[$k] // []) | unique) as $list
+            | if ($list | length) > 0 then .permissions[$k] = $list else . end)
+    ' 2>/dev/null); then
+        echo -e "${YELLOW}⚠${RESET} ~/.claude/settings.json is not valid JSON; left unchanged"
+        return
+    fi
+
+    if [ -f "$dest" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$dest")" ]; then
+        echo -e "${GREEN}✓${RESET} ~/.claude/settings.json (up to date)"
+        return
+    fi
+    if [ -f "$dest" ]; then
+        [ -z "$backup_path" ] && backup_path=$(create_backup)
+        backup_item "$dest" "$backup_path"
+        backed_up_items+=("${dest#$HOME/}")
+    fi
+    printf '%s\n' "$merged" > "$dest"
+    echo -e "${GREEN}✓${RESET} ~/.claude/settings.json (merged, backup saved)"
+}
+
 # Main installation
 main() {
     if $DRY_RUN; then
@@ -241,10 +284,25 @@ main() {
         link_item "$agent" "$CLAUDE_HOME/agents/$(basename "$agent")"
     done
 
-    # Global instructions
+    # Global instructions, rules, hooks, and status line
     if [ -f "$CONFIG_DIR/home/CLAUDE.md" ]; then
         link_item "$CONFIG_DIR/home/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
     fi
+    local rule
+    for rule in "$CONFIG_DIR/home/rules"/*.md; do
+        [ -f "$rule" ] || continue
+        link_item "$rule" "$CLAUDE_HOME/rules/$(basename "$rule")"
+    done
+    local hook
+    for hook in "$CONFIG_DIR/home/hooks"/*; do
+        [ -f "$hook" ] || continue
+        link_item "$hook" "$CLAUDE_HOME/hooks/$(basename "$hook")"
+    done
+    if [ -f "$CONFIG_DIR/home/statusline.sh" ]; then
+        link_item "$CONFIG_DIR/home/statusline.sh" "$CLAUDE_HOME/statusline.sh"
+    fi
+
+    merge_settings
 
     echo ""
 

@@ -203,3 +203,57 @@ teardown() {
     [[ -d "$FAKE_HOME/.claude/skills/local-skill" ]]
     [[ -f "$FAKE_HOME/.claude/skills/local-skill/SKILL.md" ]]
 }
+
+# =============================================================================
+# Global rules, hooks, status line, and settings
+# =============================================================================
+
+@test "install.sh links rules, hooks, and the status line" {
+    mkdir -p "$FAKE_REPO/home/rules" "$FAKE_REPO/home/hooks"
+    echo "# rule" > "$FAKE_REPO/home/rules/pr-titles.md"
+    printf '#!/bin/bash\nexit 0\n' > "$FAKE_REPO/home/hooks/guard-bash.sh"
+    printf '#!/bin/bash\necho status\n' > "$FAKE_REPO/home/statusline.sh"
+
+    run_install
+
+    assert_symlink "$FAKE_HOME/.claude/rules/pr-titles.md" "$FAKE_REPO/home/rules/pr-titles.md"
+    assert_symlink "$FAKE_HOME/.claude/hooks/guard-bash.sh" "$FAKE_REPO/home/hooks/guard-bash.sh"
+    assert_symlink "$FAKE_HOME/.claude/statusline.sh" "$FAKE_REPO/home/statusline.sh"
+}
+
+@test "install.sh merges settings, keeps local keys, and unions permissions" {
+    mkdir -p "$FAKE_REPO/home"
+    cat > "$FAKE_REPO/home/settings.json" <<'JSON'
+{"model": "opus", "permissions": {"deny": ["Read(**/.env)"]}, "statusLine": {"type": "command", "command": "x"}}
+JSON
+    cat > "$FAKE_HOME/.claude/settings.json" <<'JSON'
+{"model": "sonnet", "theme": "dark", "permissions": {"allow": ["Bash(ls *)"], "deny": ["Bash(rm *)"]}}
+JSON
+
+    run run_install
+    [[ "$status" -eq 0 ]]
+
+    run jq -e '.model == "opus" and .theme == "dark" and .statusLine.command == "x"
+        and .permissions.allow == ["Bash(ls *)"]
+        and (.permissions.deny | sort) == ["Bash(rm *)", "Read(**/.env)"]' "$FAKE_HOME/.claude/settings.json"
+    [[ "$status" -eq 0 ]]
+    grep -q '"sonnet"' "$FAKE_REPO/.backup/$(get_latest_backup)/.claude/settings.json"
+}
+
+@test "install.sh leaves settings untouched when already merged" {
+    mkdir -p "$FAKE_REPO/home"
+    echo '{"model": "opus"}' > "$FAKE_REPO/home/settings.json"
+    run_install
+    run run_install
+    [[ "$output" == *"settings.json (up to date)"* ]]
+}
+
+@test "install.sh refuses to overwrite invalid local settings" {
+    mkdir -p "$FAKE_REPO/home"
+    echo '{"model": "opus"}' > "$FAKE_REPO/home/settings.json"
+    echo '{not json' > "$FAKE_HOME/.claude/settings.json"
+
+    run run_install
+    [[ "$output" == *"not valid JSON; left unchanged"* ]]
+    grep -q '{not json' "$FAKE_HOME/.claude/settings.json"
+}

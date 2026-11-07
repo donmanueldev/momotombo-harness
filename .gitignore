@@ -3,5 +3,5 @@
 __pycache__/
 .ruff_cache/
 .remember/
-settings.json
+/settings.json
 tools/target/
