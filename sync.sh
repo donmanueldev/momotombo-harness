@@ -4,11 +4,11 @@ set -euo pipefail
 CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$CONFIG_DIR/.backup"
 DRY_RUN=false
-CODEX_HOME="$HOME/.codex"
-SKILL_HOME="$CODEX_HOME/skills"
-AGENT_HOME="$CODEX_HOME/agents"
+CLAUDE_HOME="$HOME/.claude"
+SKILL_HOME="$CLAUDE_HOME/skills"
+AGENT_HOME="$CLAUDE_HOME/agents"
 REPO_SKILL_DIR="$CONFIG_DIR/skills"
-REPO_AGENT_DIR="$CONFIG_DIR/.codex/agents"
+REPO_AGENT_DIR="$CONFIG_DIR/agents"
 
 shopt -s nullglob
 
@@ -148,11 +148,19 @@ validate_agent() {
     if [ ! -f "$agent_path" ]; then
         errors+=("Missing agent file")
     else
-        if ! grep -q '^name = ' "$agent_path"; then
-            errors+=("Missing 'name'")
+        local frontmatter=""
+        if [ "$(head -n 1 "$agent_path")" = "---" ]; then
+            frontmatter=$(awk 'NR == 1 { next } /^---$/ { exit } { print }' "$agent_path")
         fi
-        if ! grep -q '^description = ' "$agent_path"; then
-            errors+=("Missing 'description'")
+        if [ -z "$frontmatter" ]; then
+            errors+=("Missing frontmatter (--- markers)")
+        else
+            echo "$frontmatter" | grep -q '^name:' || errors+=("Missing 'name'")
+            echo "$frontmatter" | grep -q '^description:' || errors+=("Missing 'description'")
+            if echo "$frontmatter" | grep -q '^model:'; then
+                echo "$frontmatter" | grep -Eq '^model: *(haiku|sonnet|opus|inherit|claude-[a-z0-9.-]+) *$' \
+                    || errors+=("Invalid 'model' (use haiku, sonnet, opus, inherit, or a claude-* id)")
+            fi
         fi
     fi
 
@@ -162,46 +170,6 @@ validate_agent() {
     fi
 
     return 0
-}
-
-validate_project_config() {
-    local config_file="$CONFIG_DIR/.codex/config.toml"
-    [ -f "$config_file" ] || return 0
-
-    python3 - "$config_file" "$CONFIG_DIR/.codex" <<'PY'
-import pathlib
-import sys
-import tomllib
-
-config_path = pathlib.Path(sys.argv[1]).resolve()
-codex_dir = pathlib.Path(sys.argv[2]).resolve()
-with config_path.open("rb") as handle:
-    config = tomllib.load(handle)
-
-agents = config.get("agents")
-if not isinstance(agents, dict):
-    raise SystemExit("config.toml: [agents] must be a table")
-
-for name, metadata in agents.items():
-    if not isinstance(metadata, dict):
-        continue
-    config_file = metadata.get("config_file")
-    if not isinstance(config_file, str) or not config_file:
-        raise SystemExit("config.toml: agents.%s.config_file must be a non-empty string" % name)
-    agent_path = (codex_dir / config_file).resolve()
-    if codex_dir not in agent_path.parents or agent_path.parent != codex_dir / "agents":
-        raise SystemExit("config.toml: agents.%s.config_file must reference .codex/agents" % name)
-    if not agent_path.is_file():
-        raise SystemExit("config.toml: missing agent file %s" % agent_path.relative_to(codex_dir))
-    with agent_path.open("rb") as handle:
-        agent = tomllib.load(handle)
-    if agent.get("name") != name:
-        raise SystemExit("config.toml: %s name must be '%s'" % (agent_path.name, name))
-    if not isinstance(agent.get("description"), str) or not agent["description"].strip():
-        raise SystemExit("config.toml: %s must define a non-empty description" % agent_path.name)
-
-print("config.toml valid")
-PY
 }
 
 show_dir_status() {
@@ -308,11 +276,11 @@ show_file_status() {
 }
 
 show_status() {
-    echo -e "${BOLD}Codex Sync Status${RESET}"
+    echo -e "${BOLD}Claude Sync Status${RESET}"
     echo "=================="
     echo ""
 
-    echo -e "${BOLD}Skills (~/.codex):${RESET}"
+    echo -e "${BOLD}Skills (~/.claude/skills):${RESET}"
     if [ -d "$REPO_SKILL_DIR" ] || [ -d "$SKILL_HOME" ]; then
         show_dir_status "$REPO_SKILL_DIR" "$SKILL_HOME"
     else
@@ -320,9 +288,9 @@ show_status() {
     fi
     echo ""
 
-    echo -e "${BOLD}Subagents (~/.codex/agents):${RESET}"
+    echo -e "${BOLD}Subagents (~/.claude/agents):${RESET}"
     if [ -d "$REPO_AGENT_DIR" ] || [ -d "$AGENT_HOME" ]; then
-        show_file_status "$REPO_AGENT_DIR" "$AGENT_HOME" "toml"
+        show_file_status "$REPO_AGENT_DIR" "$AGENT_HOME" "md"
     else
         echo "  (none)"
     fi
@@ -335,10 +303,6 @@ show_status() {
     echo "  ./sync.sh remove <type> <name>  Remove an item from repo (keeps local)"
     echo "  ./sync.sh delete <type> <name>  Remove item from repo and local copy"
     echo "  ./sync.sh pull                  Pull latest and reinstall"
-    echo "  ./sync.sh matt                  Update Matt Pocock skills"
-    echo "  ./sync.sh android               Update official Android skills"
-    echo "  ./sync.sh kotlin                Update official Kotlin skills"
-    echo "  ./sync.sh mobile                Update official Android and Kotlin skills"
     echo "  ./sync.sh push                  Commit and push changes"
     echo "  ./sync.sh undo                  Restore from last backup"
     echo "  ./sync.sh validate              Validate all skills"
@@ -353,7 +317,7 @@ add_skill() {
     local dest="$REPO_SKILL_DIR/$name"
 
     if [ ! -e "$src" ]; then
-        echo "Error: Skill '$name' not found in ~/.codex/skills"
+        echo "Error: Skill '$name' not found in ~/.claude/skills"
         exit 1
     fi
 
@@ -402,12 +366,12 @@ add_skill() {
 add_agent() {
     local name="$1"
     local filename="$name"
-    [[ "$filename" == *.toml ]] || filename="$name.toml"
+    [[ "$filename" == *.md ]] || filename="$name.md"
     local src="$AGENT_HOME/$filename"
     local dest="$REPO_AGENT_DIR/$filename"
 
     if [ ! -f "$src" ]; then
-        echo "Error: Subagent '$name' not found in ~/.codex/agents"
+        echo "Error: Subagent '$name' not found in ~/.claude/agents"
         exit 1
     fi
 
@@ -487,7 +451,7 @@ remove_skill() {
 remove_agent() {
     local name="$1"
     local filename="$name"
-    [[ "$filename" == *.toml ]] || filename="$name.toml"
+    [[ "$filename" == *.md ]] || filename="$name.md"
     local repo_agent="$REPO_AGENT_DIR/$filename"
     local local_agent="$AGENT_HOME/$filename"
 
@@ -574,7 +538,7 @@ delete_skill() {
 delete_agent() {
     local name="$1"
     local filename="$name"
-    [[ "$filename" == *.toml ]] || filename="$name.toml"
+    [[ "$filename" == *.md ]] || filename="$name.md"
     local repo_agent="$REPO_AGENT_DIR/$filename"
     local local_agent="$AGENT_HOME/$filename"
     local found=false
@@ -631,38 +595,6 @@ pull_changes() {
     echo ""
     echo "Re-running install..."
     ./install.sh
-}
-
-sync_matt_skills() {
-    if $DRY_RUN; then
-        bash "$CONFIG_DIR/scripts/sync-matt-skills.sh" --dry-run
-        return
-    fi
-
-    bash "$CONFIG_DIR/scripts/sync-matt-skills.sh"
-}
-
-sync_android_skills() {
-    if $DRY_RUN; then
-        bash "$CONFIG_DIR/scripts/sync-android-skills.sh" --dry-run
-        return
-    fi
-
-    bash "$CONFIG_DIR/scripts/sync-android-skills.sh"
-}
-
-sync_kotlin_skills() {
-    if $DRY_RUN; then
-        bash "$CONFIG_DIR/scripts/sync-kotlin-skills.sh" --dry-run
-        return
-    fi
-
-    bash "$CONFIG_DIR/scripts/sync-kotlin-skills.sh"
-}
-
-sync_mobile_skills() {
-    sync_android_skills
-    sync_kotlin_skills
 }
 
 push_changes() {
@@ -794,23 +726,14 @@ undo_last() {
 
     if [[ "$operation" == "add-skill" || "$operation" == "add-agent" ]]; then
         local added_item
-        added_item=$(python3 - "$manifest" <<'PY'
-import json
-import re
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    manifest = json.load(handle)
-items = manifest.get("items")
-if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], str):
-    raise SystemExit("add backup manifest must contain exactly one item")
-item = items[0]
-pattern = r"[a-z0-9][a-z0-9-]*" if manifest.get("operation") == "add-skill" else r"[a-z0-9][a-z0-9-]*\.toml"
-if not re.fullmatch(pattern, item):
-    raise SystemExit("add backup manifest contains an invalid item")
-print(item)
-PY
-)
+        added_item=$(jq -er 'if (.items | type) == "array" and (.items | length) == 1 and (.items[0] | type) == "string"
+            then .items[0] else error("add backup manifest must contain exactly one item") end' "$manifest") || exit 1
+        local item_pattern='^[a-z0-9][a-z0-9-]*$'
+        [[ "$operation" == "add-agent" ]] && item_pattern='^[a-z0-9][a-z0-9-]*\.md$'
+        if [[ ! "$added_item" =~ $item_pattern ]]; then
+            echo "Error: add backup manifest contains an invalid item" >&2
+            exit 1
+        fi
         if [[ "$operation" == "add-skill" ]]; then
             add_repo_path="$REPO_SKILL_DIR/$added_item"
             add_local_path="$SKILL_HOME/$added_item"
@@ -869,7 +792,7 @@ PY
         for backup_root in "$backup_path"/*; do
             [ -e "$backup_root" ] || continue
             case "$(basename "$backup_root")" in
-                .codex)
+                .claude|.codex)
                     restore_tree "$backup_path" "$HOME" "$backup_root"
                     ;;
                 skills)
@@ -900,10 +823,6 @@ validate_all_skills() {
     local seen=" "
     local seen_agents=" "
 
-    if ! validate_project_config; then
-        return 1
-    fi
-
     if [ -d "$REPO_SKILL_DIR" ]; then
         local skill
         for skill in "$REPO_SKILL_DIR"/*/; do
@@ -926,6 +845,8 @@ validate_all_skills() {
             [ -d "$skill" ] || continue
             local skill_name
             skill_name="$(basename "$skill")"
+            # Claude-managed container for claude.ai synced skills, not a skill itself
+            [ "$skill_name" = "synced" ] && continue
             case "$seen" in
                 *" $skill_name "*) [ ! -L "$skill" ] && continue ;;
             esac
@@ -943,7 +864,7 @@ validate_all_skills() {
 
     if [ -d "$REPO_AGENT_DIR" ]; then
         local agent
-        for agent in "$REPO_AGENT_DIR"/*.toml; do
+        for agent in "$REPO_AGENT_DIR"/*.md; do
             [ -f "$agent" ] || continue
             local agent_name
             agent_name="$(basename "$agent")"
@@ -959,7 +880,7 @@ validate_all_skills() {
 
     if [ -d "$AGENT_HOME" ]; then
         local agent
-        for agent in "$AGENT_HOME"/*.toml; do
+        for agent in "$AGENT_HOME"/*.md; do
             [ -f "$agent" ] || continue
             local agent_name
             agent_name="$(basename "$agent")"
@@ -1040,18 +961,6 @@ case "${1:-}" in
         ;;
     pull)
         pull_changes
-        ;;
-    matt)
-        sync_matt_skills
-        ;;
-    android)
-        sync_android_skills
-        ;;
-    kotlin)
-        sync_kotlin_skills
-        ;;
-    mobile)
-        sync_mobile_skills
         ;;
     push)
         push_changes

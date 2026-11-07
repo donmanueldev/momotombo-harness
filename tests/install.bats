@@ -15,16 +15,16 @@ teardown() {
 # Basic Installation Tests
 # =============================================================================
 
-@test "install.sh creates ~/.codex directory" {
+@test "install.sh creates ~/.claude directory" {
     create_fake_skill "test-skill"
     run_install
-    assert_dir "$FAKE_HOME/.codex"
+    assert_dir "$FAKE_HOME/.claude"
 }
 
 @test "install.sh symlinks skills" {
     create_fake_skill "test-skill"
     run_install
-    assert_symlink "$FAKE_HOME/.codex/skills/test-skill" "$FAKE_REPO/skills/test-skill"
+    assert_symlink "$FAKE_HOME/.claude/skills/test-skill" "$FAKE_REPO/skills/test-skill"
 }
 
 @test "install.sh symlinks multiple skills" {
@@ -32,54 +32,31 @@ teardown() {
     create_fake_skill "skill-two"
     create_fake_skill "skill-three"
     run_install
-    assert_symlink "$FAKE_HOME/.codex/skills/skill-one" "$FAKE_REPO/skills/skill-one"
-    assert_symlink "$FAKE_HOME/.codex/skills/skill-two" "$FAKE_REPO/skills/skill-two"
-    assert_symlink "$FAKE_HOME/.codex/skills/skill-three" "$FAKE_REPO/skills/skill-three"
+    assert_symlink "$FAKE_HOME/.claude/skills/skill-one" "$FAKE_REPO/skills/skill-one"
+    assert_symlink "$FAKE_HOME/.claude/skills/skill-two" "$FAKE_REPO/skills/skill-two"
+    assert_symlink "$FAKE_HOME/.claude/skills/skill-three" "$FAKE_REPO/skills/skill-three"
 }
 
-@test "install.sh symlinks codex agents" {
-    create_fake_codex_agent "planner"
+@test "install.sh links global CLAUDE.md" {
+    mkdir -p "$FAKE_REPO/home"
+    echo "# global" > "$FAKE_REPO/home/CLAUDE.md"
     run_install
-    assert_symlink "$FAKE_HOME/.codex/agents/planner.toml" "$FAKE_REPO/.codex/agents/planner.toml"
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/home/CLAUDE.md"
 }
 
-@test "install.sh symlinks command-policy rules" {
-    mkdir -p "$FAKE_REPO/rules"
-    cat > "$FAKE_REPO/rules/agent-config.rules" <<'EOF'
-prefix_rule(pattern=["git", "status"], decision="allow")
-EOF
+@test "install.sh backs up an existing global CLAUDE.md with --force" {
+    mkdir -p "$FAKE_REPO/home" "$FAKE_HOME/.claude"
+    echo "# global" > "$FAKE_REPO/home/CLAUDE.md"
+    echo "# mine" > "$FAKE_HOME/.claude/CLAUDE.md"
+    run_install --force
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/home/CLAUDE.md"
+    grep -q "# mine" "$FAKE_REPO/.backup/$(get_latest_backup)/.claude/CLAUDE.md"
+}
 
+@test "install.sh symlinks agents" {
+    create_fake_agent "planner"
     run_install
-
-    assert_symlink "$FAKE_HOME/.codex/rules/agent-config.rules" "$FAKE_REPO/rules/agent-config.rules"
-}
-
-@test "install.sh links shared docs on a fresh noninteractive install" {
-    mkdir -p "$FAKE_REPO/docs"
-    echo "project docs" > "$FAKE_REPO/docs/project-memory.md"
-
-    run run_install
-
-    [[ "$status" -eq 0 ]]
-    assert_symlink "$FAKE_HOME/.codex/agent-config-docs" "$FAKE_REPO/docs"
-    [[ "$output" != *"Conflict:"* ]]
-}
-
-@test "install.sh synchronizes Matt skills only when explicitly requested" {
-    mkdir -p "$TEST_TMP/bin"
-    cat > "$TEST_TMP/bin/npx" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$NPX_LOG"
-EOF
-    chmod +x "$TEST_TMP/bin/npx"
-
-    run env PATH="$TEST_TMP/bin:$PATH" NPX_LOG="$TEST_TMP/npx.log" HOME="$FAKE_HOME" bash ./install.sh
-    [[ "$status" -eq 0 ]]
-    [[ ! -e "$TEST_TMP/npx.log" ]]
-
-    run env PATH="$TEST_TMP/bin:$PATH" NPX_LOG="$TEST_TMP/npx.log" HOME="$FAKE_HOME" bash ./install.sh --with-matt
-    [[ "$status" -eq 0 ]]
-    grep -q "skills@latest add mattpocock/skills --global --agent codex --skill \* --yes" "$TEST_TMP/npx.log"
+    assert_symlink "$FAKE_HOME/.claude/agents/planner.md" "$FAKE_REPO/agents/planner.md"
 }
 
 # =============================================================================
@@ -88,11 +65,11 @@ EOF
 
 @test "install.sh --dry-run doesn't create symlinks" {
     create_fake_skill "test-skill"
-    create_fake_codex_agent "planner"
+    create_fake_agent "planner"
     run_install --dry-run
-    [[ ! -L "$FAKE_HOME/.codex/skills/test-skill" ]]
-    [[ ! -L "$FAKE_HOME/.codex/agents/planner.toml" ]]
-    [[ ! -d "$FAKE_HOME/.codex/agents" ]]
+    [[ ! -L "$FAKE_HOME/.claude/skills/test-skill" ]]
+    [[ ! -L "$FAKE_HOME/.claude/agents/planner.md" ]]
+    [[ ! -d "$FAKE_HOME/.claude/agents" ]]
 }
 
 @test "install.sh --dry-run shows what would be done" {
@@ -114,8 +91,8 @@ EOF
 
 @test "install.sh detects conflict when local file exists" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    echo "local content" > "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    echo "local content" > "$FAKE_HOME/.claude/skills/test-skill"
 
     run run_install --dry-run
     [[ "$output" == *"Would backup and replace"* ]]
@@ -123,18 +100,18 @@ EOF
 
 @test "install.sh --force overwrites conflicts with backup" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    echo "local content" > "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    echo "local content" > "$FAKE_HOME/.claude/skills/test-skill"
 
     run_install --force
-    assert_symlink "$FAKE_HOME/.codex/skills/test-skill" "$FAKE_REPO/skills/test-skill"
+    assert_symlink "$FAKE_HOME/.claude/skills/test-skill" "$FAKE_REPO/skills/test-skill"
     assert_backup_exists
 }
 
 @test "install.sh doesn't treat existing correct symlinks as conflicts" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    ln -s "$FAKE_REPO/skills/test-skill" "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    ln -s "$FAKE_REPO/skills/test-skill" "$FAKE_HOME/.claude/skills/test-skill"
 
     run run_install --dry-run
     [[ "$output" != *"Would backup"* ]]
@@ -146,8 +123,8 @@ EOF
 
 @test "install.sh creates backup when overwriting" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    echo "local content" > "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    echo "local content" > "$FAKE_HOME/.claude/skills/test-skill"
 
     run_install --force
     assert_backup_exists
@@ -156,21 +133,21 @@ EOF
 
 @test "install.sh backup contains original file" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    echo "local content" > "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    echo "local content" > "$FAKE_HOME/.claude/skills/test-skill"
 
     run_install --force
 
     local latest
     latest="$(get_latest_backup)"
-    [[ -f "$FAKE_REPO/.backup/$latest/.codex/skills/test-skill" ]]
-    grep -q "local content" "$FAKE_REPO/.backup/$latest/.codex/skills/test-skill"
+    [[ -f "$FAKE_REPO/.backup/$latest/.claude/skills/test-skill" ]]
+    grep -q "local content" "$FAKE_REPO/.backup/$latest/.claude/skills/test-skill"
 }
 
 @test "install.sh backup manifest has correct format" {
     create_fake_skill "test-skill"
-    mkdir -p "$FAKE_HOME/.codex/skills"
-    echo "local content" > "$FAKE_HOME/.codex/skills/test-skill"
+    mkdir -p "$FAKE_HOME/.claude/skills"
+    echo "local content" > "$FAKE_HOME/.claude/skills/test-skill"
 
     run_install --force
 
@@ -207,22 +184,22 @@ EOF
 
 @test "install.sh is idempotent (running twice works)" {
     create_fake_skill "test-skill"
-    create_fake_codex_agent "planner"
+    create_fake_agent "planner"
 
     run_install
     run_install
 
-    assert_symlink "$FAKE_HOME/.codex/skills/test-skill" "$FAKE_REPO/skills/test-skill"
-    assert_symlink "$FAKE_HOME/.codex/agents/planner.toml" "$FAKE_REPO/.codex/agents/planner.toml"
+    assert_symlink "$FAKE_HOME/.claude/skills/test-skill" "$FAKE_REPO/skills/test-skill"
+    assert_symlink "$FAKE_HOME/.claude/agents/planner.md" "$FAKE_REPO/agents/planner.md"
 }
 
 @test "install.sh preserves local-only items" {
-    mkdir -p "$FAKE_HOME/.codex/skills/local-skill"
-    echo "local content" > "$FAKE_HOME/.codex/skills/local-skill/SKILL.md"
+    mkdir -p "$FAKE_HOME/.claude/skills/local-skill"
+    echo "local content" > "$FAKE_HOME/.claude/skills/local-skill/SKILL.md"
 
     run_install
 
     # Local skill should still exist
-    [[ -d "$FAKE_HOME/.codex/skills/local-skill" ]]
-    [[ -f "$FAKE_HOME/.codex/skills/local-skill/SKILL.md" ]]
+    [[ -d "$FAKE_HOME/.claude/skills/local-skill" ]]
+    [[ -f "$FAKE_HOME/.claude/skills/local-skill/SKILL.md" ]]
 }

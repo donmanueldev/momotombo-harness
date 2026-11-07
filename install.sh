@@ -5,9 +5,7 @@ CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$CONFIG_DIR/.backup"
 DRY_RUN=false
 FORCE=false
-SYNC_MATT_SKILLS=false
-SYNC_MOBILE_SKILLS=false
-CODEX_HOME="$HOME/.codex"
+CLAUDE_HOME="$HOME/.claude"
 
 # Colors
 GREEN='\033[0;32m'
@@ -27,22 +25,12 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
-        --with-matt)
-            SYNC_MATT_SKILLS=true
-            shift
-            ;;
-        --with-mobile)
-            SYNC_MOBILE_SKILLS=true
-            shift
-            ;;
         -h|--help)
             echo "Usage: ./install.sh [options]"
             echo ""
             echo "Options:"
             echo "  -n, --dry-run  Show what would be done without making changes"
             echo "  -f, --force    Overwrite conflicts without prompting"
-            echo "      --with-matt Synchronize Matt Pocock skills globally"
-            echo "      --with-mobile Synchronize official Android and Kotlin skills globally"
             echo "  -h, --help     Show this help message"
             exit 0
             ;;
@@ -171,163 +159,91 @@ dry_run_msg() {
     echo -e "${BLUE}[dry-run]${RESET} $1"
 }
 
+# Link one item into ~/.claude, handling conflicts and backups
+link_item() {
+    local src="$1"
+    local dest="$2"
+    local label="${dest/#$HOME/~}"
+
+    if $DRY_RUN; then
+        if has_conflict "$dest"; then
+            dry_run_msg "Would backup and replace $label"
+        else
+            dry_run_msg "Would link $label"
+        fi
+        return
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    if has_conflict "$dest"; then
+        [ -z "$backup_path" ] && backup_path=$(create_backup)
+        if handle_conflict "$src" "$dest" "$backup_path" "$label"; then
+            backed_up_items+=("${dest#$HOME/}")
+            rm -rf "$dest"
+            ln -sfn "$src" "$dest"
+            echo -e "${GREEN}✓${RESET} $label (replaced, backup saved)"
+        else
+            echo -e "${YELLOW}○${RESET} $label (kept local)"
+        fi
+    else
+        ln -sfn "$src" "$dest"
+        echo -e "${GREEN}✓${RESET} $label"
+    fi
+}
+
+# Build the Rust CLI tools that skills call through their bin/ symlinks
+build_tools() {
+    local manifest="$CONFIG_DIR/tools/Cargo.toml"
+    [ -f "$manifest" ] || return 0
+
+    if $DRY_RUN; then
+        dry_run_msg "Would build Rust tools (cargo build --release)"
+        return
+    fi
+    if ! command -v cargo &>/dev/null; then
+        echo -e "${YELLOW}○${RESET} Rust tools skipped: cargo not found (install from https://rustup.rs)"
+        return
+    fi
+    if cargo build --release --quiet --manifest-path "$manifest" --target-dir "$CONFIG_DIR/tools/target"; then
+        echo -e "${GREEN}✓${RESET} Rust tools built (tools/target/release)"
+    else
+        echo -e "${YELLOW}⚠${RESET} Rust tools failed to build; SEO and Lighthouse skills will not run"
+    fi
+}
+
 # Main installation
 main() {
-    local skill_targets=("$CODEX_HOME/skills")
-    local docs_target="$CODEX_HOME/agent-config-docs"
-    local rules_source="$CONFIG_DIR/rules/agent-config.rules"
-    local rules_dest="$CODEX_HOME/rules/agent-config.rules"
-
     if $DRY_RUN; then
         echo -e "${BOLD}Dry run - showing what would be done:${RESET}"
         echo ""
     else
         echo "Installing agent config from $CONFIG_DIR"
         echo ""
+        mkdir -p "$CLAUDE_HOME"
     fi
 
-    local backup_path=""
-    local backed_up_items=()
-    local has_changes=false
+    backup_path=""
+    backed_up_items=()
 
-    if ! $DRY_RUN; then
-        mkdir -p "$CODEX_HOME"
-    fi
+    build_tools
 
-    # Skills (directory symlinks per skill)
-    if [ -d "$CONFIG_DIR/skills" ] && [ -n "$(ls -A "$CONFIG_DIR/skills" 2>/dev/null)" ]; then
-        if ! $DRY_RUN; then
-            for target in "${skill_targets[@]}"; do
-                mkdir -p "$target"
-            done
-        fi
-        for skill in "$CONFIG_DIR/skills"/*/; do
-            [ -d "$skill" ] || continue
-            skill_name=$(basename "$skill")
-            for target in "${skill_targets[@]}"; do
-                local dest="$target/$skill_name"
+    # Skills (directory symlink per skill)
+    local skill
+    for skill in "$CONFIG_DIR/skills"/*/; do
+        [ -d "$skill" ] || continue
+        link_item "${skill%/}" "$CLAUDE_HOME/skills/$(basename "$skill")"
+    done
 
-                if $DRY_RUN; then
-                    if has_conflict "$dest"; then
-                        dry_run_msg "Would backup and replace $dest"
-                    else
-                        dry_run_msg "Would link $dest"
-                    fi
-                else
-                    if has_conflict "$dest"; then
-                        [ -z "$backup_path" ] && backup_path=$(create_backup)
-                        if handle_conflict "$skill" "$dest" "$backup_path" "$dest"; then
-                            backed_up_items+=("${dest#$HOME/}")
-                            rm -rf "$dest"
-                            ln -sfn "$skill" "$dest"
-                            echo -e "${GREEN}✓${RESET} $dest (replaced, backup saved)"
-                            has_changes=true
-                        else
-                            echo -e "${YELLOW}○${RESET} $dest (kept local)"
-                        fi
-                    else
-                        ln -sfn "$skill" "$dest"
-                        echo -e "${GREEN}✓${RESET} $dest"
-                        has_changes=true
-                    fi
-                fi
-            done
-        done
-    fi
+    # Subagents (file symlink per agent)
+    local agent
+    for agent in "$CONFIG_DIR/agents"/*.md; do
+        [ -f "$agent" ] || continue
+        link_item "$agent" "$CLAUDE_HOME/agents/$(basename "$agent")"
+    done
 
-    # Shared docs for portable reference after install
-    if [ -d "$CONFIG_DIR/docs" ] && [ -n "$(ls -A "$CONFIG_DIR/docs" 2>/dev/null)" ]; then
-        local docs_dest="$docs_target"
-        if $DRY_RUN; then
-            if has_conflict "$docs_dest"; then
-                dry_run_msg "Would backup and replace ~/.codex/agent-config-docs"
-            else
-                dry_run_msg "Would link ~/.codex/agent-config-docs"
-            fi
-        else
-            if has_conflict "$docs_dest"; then
-                [ -z "$backup_path" ] && backup_path=$(create_backup)
-                if handle_conflict "$CONFIG_DIR/docs" "$docs_dest" "$backup_path" "agent-config-docs"; then
-                    backed_up_items+=("agent-config-docs")
-                    rm -rf "$docs_dest"
-                    ln -sfn "$CONFIG_DIR/docs" "$docs_dest"
-                    echo -e "${GREEN}✓${RESET} ~/.codex/agent-config-docs (replaced, backup saved)"
-                    has_changes=true
-                else
-                    echo -e "${YELLOW}○${RESET} ~/.codex/agent-config-docs (kept local)"
-                fi
-            else
-                ln -sfn "$CONFIG_DIR/docs" "$docs_dest"
-                echo -e "${GREEN}✓${RESET} ~/.codex/agent-config-docs"
-                has_changes=true
-            fi
-        fi
-    fi
-
-    # Command-policy rules
-    if [ -f "$rules_source" ]; then
-        if $DRY_RUN; then
-            if has_conflict "$rules_dest"; then
-                dry_run_msg "Would backup and replace ~/.codex/rules/agent-config.rules"
-            else
-                dry_run_msg "Would link ~/.codex/rules/agent-config.rules"
-            fi
-        else
-            mkdir -p "$(dirname "$rules_dest")"
-            if has_conflict "$rules_dest"; then
-                [ -z "$backup_path" ] && backup_path=$(create_backup)
-                if handle_conflict "$rules_source" "$rules_dest" "$backup_path" "rules/agent-config.rules"; then
-                    backed_up_items+=("rules/agent-config.rules")
-                    rm -f "$rules_dest"
-                    ln -sfn "$rules_source" "$rules_dest"
-                    echo -e "${GREEN}✓${RESET} ~/.codex/rules/agent-config.rules (replaced, backup saved)"
-                    has_changes=true
-                else
-                    echo -e "${YELLOW}○${RESET} ~/.codex/rules/agent-config.rules (kept local)"
-                fi
-            else
-                ln -sfn "$rules_source" "$rules_dest"
-                echo -e "${GREEN}✓${RESET} ~/.codex/rules/agent-config.rules"
-                has_changes=true
-            fi
-        fi
-    fi
-
-    # Codex agents (file symlinks per agent)
-    if [ -d "$CONFIG_DIR/.codex/agents" ] && ls "$CONFIG_DIR/.codex/agents"/*.toml &>/dev/null; then
-        if ! $DRY_RUN; then
-            mkdir -p "$CODEX_HOME/agents"
-        fi
-        for agent in "$CONFIG_DIR/.codex/agents"/*.toml; do
-            [ -f "$agent" ] || continue
-            agent_name=$(basename "$agent")
-            local dest="$CODEX_HOME/agents/$agent_name"
-
-            if $DRY_RUN; then
-                if has_conflict "$dest"; then
-                    dry_run_msg "Would backup and replace codex agents/$agent_name"
-                else
-                    dry_run_msg "Would link codex agents/$agent_name"
-                fi
-            else
-                if has_conflict "$dest"; then
-                    [ -z "$backup_path" ] && backup_path=$(create_backup)
-                    if handle_conflict "$agent" "$dest" "$backup_path" ".codex/agents/$agent_name"; then
-                        backed_up_items+=(".codex/agents/$agent_name")
-                        rm -rf "$dest"
-                        ln -sf "$agent" "$dest"
-                        echo -e "${GREEN}✓${RESET} codex agents/$agent_name (replaced, backup saved)"
-                        has_changes=true
-                    else
-                        echo -e "${YELLOW}○${RESET} codex agents/$agent_name (kept local)"
-                    fi
-                else
-                    ln -sf "$agent" "$dest"
-                    echo -e "${GREEN}✓${RESET} codex agents/$agent_name"
-                    has_changes=true
-                fi
-            fi
-        done
+    # Global instructions
+    if [ -f "$CONFIG_DIR/home/CLAUDE.md" ]; then
+        link_item "$CONFIG_DIR/home/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
     fi
 
     echo ""
@@ -335,15 +251,6 @@ main() {
     if $DRY_RUN; then
         echo "Run without --dry-run to apply changes."
     else
-        if $SYNC_MATT_SKILLS; then
-            "$CONFIG_DIR/scripts/sync-matt-skills.sh"
-        fi
-
-        if $SYNC_MOBILE_SKILLS; then
-            "$CONFIG_DIR/scripts/sync-android-skills.sh"
-            "$CONFIG_DIR/scripts/sync-kotlin-skills.sh"
-        fi
-
         if [ -n "$backup_path" ] && [ ${#backed_up_items[@]} -gt 0 ]; then
             write_manifest "$backup_path" "install" "${backed_up_items[@]}"
             echo -e "${BLUE}Backup saved:${RESET} $backup_path"
@@ -353,8 +260,8 @@ main() {
 
         echo "Done! Agent config installed."
         echo ""
-        echo "Local-only items in ~/.codex/ are preserved."
-        echo "Use ./sync.sh to manage synced skills and subagents. Run ./sync.sh mobile to install or update official Android and Kotlin skills."
+        echo "Local-only items in ~/.claude/ are preserved."
+        echo "Use ./sync.sh to manage synced skills and subagents."
     fi
 }
 

@@ -13,18 +13,12 @@ setup_test_env() {
     export FAKE_HOME="$TEST_TMP/home"
     export FAKE_REPO="$TEST_TMP/repo"
 
-    mkdir -p "$FAKE_HOME/.codex"
+    mkdir -p "$FAKE_HOME/.claude"
     mkdir -p "$FAKE_REPO"
 
     # Copy scripts to fake repo
     cp "$PROJECT_DIR/install.sh" "$FAKE_REPO/"
     cp "$PROJECT_DIR/sync.sh" "$FAKE_REPO/"
-    mkdir -p "$FAKE_REPO/scripts"
-    cp "$PROJECT_DIR/scripts/sync-matt-skills.sh" "$FAKE_REPO/scripts/"
-    cp "$PROJECT_DIR/scripts/sync-android-skills.sh" "$FAKE_REPO/scripts/"
-    cp "$PROJECT_DIR/scripts/sync-kotlin-skills.sh" "$FAKE_REPO/scripts/"
-    cp "$PROJECT_DIR/scripts/orchestration_contract.py" "$FAKE_REPO/scripts/"
-    cp "$PROJECT_DIR/scripts/validate-orchestration-output.sh" "$FAKE_REPO/scripts/"
 
     # Make scripts use fake HOME
     # We'll override HOME when running scripts
@@ -86,18 +80,20 @@ create_skill_no_md() {
     echo "Some content" > "$location/$name/README.md"
 }
 
-# Create a fake Codex agent TOML file
-create_fake_codex_agent() {
+# Create a fake Claude subagent markdown file
+create_fake_agent() {
     local name="$1"
-    local location="${2:-$FAKE_REPO/.codex/agents}"
+    local location="${2:-$FAKE_REPO/agents}"
 
     mkdir -p "$location"
-    cat > "$location/$name.toml" << EOF
-name = "$name"
-description = "A test Codex agent called $name"
-    developer_instructions = """
+    cat > "$location/$name.md" << EOF
+---
+name: $name
+description: A test agent called $name
+model: haiku
+---
+
 Test agent instructions.
-"""
 EOF
 }
 

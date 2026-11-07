@@ -1,5 +1,7 @@
 .backup/
 .DS_Store
 __pycache__/
-.codex/orchestration.jsonl
-.codex/orchestration/
+.ruff_cache/
+.remember/
+settings.json
+tools/target/
