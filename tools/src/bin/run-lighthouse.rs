@@ -396,3 +396,50 @@ fn main() {
     println!("Wrote {}", markdown_path.display());
     std::process::exit(if passed { 0 } else { 2 });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn median_handles_odd_even_and_empty() {
+        assert_eq!(median(vec![3.0, 1.0, 2.0]), Some(2.0));
+        assert_eq!(median(vec![4.0, 1.0, 2.0, 3.0]), Some(2.5));
+        assert_eq!(median(vec![]), None);
+    }
+
+    #[test]
+    fn budgets_require_a_value_inside_bounds() {
+        let medians: Map<String, Value> = [("largestContentfulPaintMs".to_string(), json!(2000.0)), ("speedIndexMs".to_string(), Value::Null)].into_iter().collect();
+        let budgets: Map<String, Value> = [
+            ("largestContentfulPaintMs".to_string(), json!({"max": 2500})),
+            ("speedIndexMs".to_string(), json!({"max": 9999})),
+        ]
+        .into_iter()
+        .collect();
+        let results = evaluate_budgets(&medians, &budgets);
+        assert_eq!(results[0]["passed"], json!(true));
+        assert_eq!(results[1]["passed"], json!(false), "a missing metric never passes");
+    }
+
+    #[test]
+    fn profile_budgets_override_defaults() {
+        let budgets: Map<String, Value> = serde_json::from_value(json!({
+            "default": {"performanceScore": {"min": 0.9}, "largestContentfulPaintMs": {"max": 4000}},
+            "mobile": {"largestContentfulPaintMs": {"max": 2500}}
+        }))
+        .unwrap();
+        let merged = budget_for_profile(&budgets, "mobile");
+        assert_eq!(merged["largestContentfulPaintMs"], json!({"max": 2500}));
+        assert_eq!(merged["performanceScore"], json!({"min": 0.9}));
+    }
+
+    #[test]
+    fn values_format_by_unit() {
+        assert_eq!(format_value("performanceScore", Some(0.923)), "92");
+        assert_eq!(format_value("largestContentfulPaintMs", Some(2400.4)), "2400 ms");
+        assert_eq!(format_value("totalByteWeightBytes", Some(2048.0)), "2.0 KiB");
+        assert_eq!(format_value("cumulativeLayoutShift", Some(0.05)), "0.050");
+        assert_eq!(format_value("speedIndexMs", None), "n/a");
+    }
+}

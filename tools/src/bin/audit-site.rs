@@ -775,3 +775,52 @@ fn main() {
     let failed = all_findings.iter().any(|item| rank(item["severity"].as_str().unwrap_or("info")) >= threshold);
     std::process::exit(if failed { 2 } else { 0 });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn robots_detects_only_the_generic_full_block() {
+        assert!(generic_robots_blocks_all("User-agent: *\nDisallow: /\n"));
+        assert!(!generic_robots_blocks_all("User-agent: *\nDisallow: /admin\n"));
+        assert!(!generic_robots_blocks_all("User-agent: Googlebot\nDisallow: /\n"));
+        assert!(!generic_robots_blocks_all("User-agent: *\nAllow: /\n\nUser-agent: Bad\nDisallow: /\n"));
+    }
+
+    #[test]
+    fn url_helpers_match_origin_semantics() {
+        assert_eq!(join("https://example.test/a/b", "../c"), "https://example.test/c");
+        assert_eq!(netloc("http://localhost:4173/x"), "localhost:4173");
+        assert_eq!(origin_of("https://example.test/page?q=1"), "https://example.test");
+        assert!(is_http("https://example.test/") && !is_http("/relative") && !is_http("ftp://x"));
+    }
+
+    #[test]
+    fn parses_metadata_headings_and_json_ld() {
+        let doc = parse_document(
+            r#"<html lang="es"><head><title> Hola
+            mundo </title><link rel="Canonical" href="/x"><script type="application/LD+json">{"@type":"Org"}</script></head>
+            <body><h1>Uno <b>dos</b></h1><img src="a.png"></body></html>"#,
+        );
+        assert_eq!(doc.title, "Hola mundo");
+        assert_eq!(doc.html_lang, "es");
+        assert_eq!(doc.canonicals, vec!["/x"]);
+        assert_eq!(doc.headings, vec![(1, "Uno dos".to_string())]);
+        assert_eq!(doc.json_ld_raw, vec![r#"{"@type":"Org"}"#]);
+        assert!(!doc.images[0].contains_key("alt"));
+    }
+
+    #[test]
+    fn collects_nested_json_ld_types() {
+        let mut types = Vec::new();
+        json_ld_types(&json!([{"@type": ["A", "B"], "x": {"@type": "C"}}]), &mut types);
+        assert_eq!(types, vec!["A", "B", "C"]);
+    }
+
+    #[test]
+    fn empty_evidence_is_omitted() {
+        assert!(finding("c", "info", "m", json!([])).get("evidence").is_none());
+        assert_eq!(finding("c", "info", "m", json!(3))["evidence"], json!(3));
+    }
+}

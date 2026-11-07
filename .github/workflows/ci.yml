@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # macOS matches the machines this config is installed on (BSD userland, /usr/bin/jq).
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bats
+        run: brew install bats-core
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('tools/Cargo.lock') }}
+
+      - name: Lint Rust
+        run: cargo clippy --release --manifest-path tools/Cargo.toml --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --release --manifest-path tools/Cargo.toml
+
+      - name: Shell syntax
+        run: |
+          for script in install.sh sync.sh home/hooks/*.sh home/statusline.sh; do
+            bash -n "$script"
+          done
+
+      - name: Bats suite
+        run: bats tests/
+
+      - name: Validate skills and agents
+        run: ./sync.sh validate

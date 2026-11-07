@@ -187,3 +187,19 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn show_quotes_parts_with_spaces_and_falls_back() {
+        assert_eq!(show(&json!(["npm", "run", "a b"]), "manual"), r#"npm run "a b""#);
+        assert_eq!(show(&Value::Null, "none"), "none");
+    }
+
+    #[test]
+    fn static_server_uses_php() {
+        assert_eq!(static_server(8080, Path::new("/site")), json!(["php", "-S", "127.0.0.1:8080", "-t", "/site"]));
+    }
+}

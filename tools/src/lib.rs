@@ -69,3 +69,28 @@ pub fn write_or_die(path: &Path, contents: &str) {
         die(format!("Could not write {}: {error}", path.display()));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn inline_json_uses_readable_separators() {
+        assert_eq!(inline_json(&json!({"max": 2500, "min": 0.9})), r#"{"max": 2500, "min": 0.9}"#);
+        assert_eq!(inline_json(&json!(["a", 1])), r#"["a", 1]"#);
+    }
+
+    #[test]
+    fn normalize_lexically_collapses_dots() {
+        assert_eq!(normalize_lexically(Path::new("/site/./a/../sitemap.xml")), PathBuf::from("/site/sitemap.xml"));
+        assert_eq!(normalize_lexically(Path::new("/site/../../etc")), PathBuf::from("/etc"));
+    }
+
+    #[test]
+    fn now_iso_has_utc_offset_and_micros() {
+        let stamp = now_iso();
+        assert!(stamp.ends_with("+00:00"), "{stamp}");
+        assert_eq!(stamp.split('.').nth(1).map(|rest| rest.len()), Some("123456+00:00".len()));
+    }
+}
