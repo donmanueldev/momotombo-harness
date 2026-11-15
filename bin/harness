@@ -4,7 +4,12 @@
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
-BACKUP_DIR="$HARNESS_DIR/.backup"
+# Backups hold copies of your own config, so they live outside the checkout.
+BACKUP_DIR="${HARNESS_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/momotombo-harness/backups}"
+# Where versions before 2026-11 saved them; undo still restores from there.
+LEGACY_BACKUP_DIR="$HARNESS_DIR/.backup"
+# The oldest OpenSpec release the momotombo schema is tested with.
+MIN_OPENSPEC="2.0.0"
 CLAUDE_HOME="$HOME/.claude"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="$HOME/.agents"
@@ -277,15 +282,39 @@ cmd_status() {
 
 version_of() { "$@" 2>/dev/null | head -n 1 | grep -Eo '[0-9]+(\.[0-9]+)+' | head -n 1; }
 
+# True when dotted version $1 >= $2 (numeric per part, missing parts count as 0).
+version_at_least() {
+    local IFS=. i
+    local -a a b
+    read -r -a a <<<"$1"
+    read -r -a b <<<"$2"
+    for i in 0 1 2; do
+        [ "${a[$i]:-0}" -gt "${b[$i]:-0}" ] && return 0
+        [ "${a[$i]:-0}" -lt "${b[$i]:-0}" ] && return 1
+    done
+    return 0
+}
+
 cmd_doctor() {
     local status=0 tool
     echo "${BOLD}Tools${RESET}"
     for tool in git jq; do
         if command -v "$tool" >/dev/null; then ok "$tool $(version_of "$tool" --version)"; else fail "$tool missing (required)"; status=1; fi
     done
+    local version
     for tool in claude codex openspec gh node; do
-        if command -v "$tool" >/dev/null; then ok "$tool $(version_of "$tool" --version)"; else warn "$tool missing (optional)"; fi
+        if ! command -v "$tool" >/dev/null; then warn "$tool missing (optional)"; continue; fi
+        version=$(version_of "$tool" --version)
+        if [ "$tool" = openspec ] && [ -n "$version" ] && ! version_at_least "$version" "$MIN_OPENSPEC"; then
+            warn "openspec $version is older than $MIN_OPENSPEC, which the momotombo schema is tested with (npm i -g @fission-ai/openspec@latest)"
+        else
+            ok "$tool $version"
+        fi
     done
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ok "$(pretty "$HOME/.local/bin") is on PATH (harness command)" ;;
+        *) warn "$(pretty "$HOME/.local/bin") is not on PATH, so the 'harness' command isn't found; add it to your shell profile" ;;
+    esac
     echo ""
     echo "${BOLD}Links${RESET}"
     cmd_status || status=1
@@ -307,8 +336,11 @@ cmd_doctor() {
 }
 
 cmd_undo() {
-    local latest
-    latest=$(find "$BACKUP_DIR" -mindepth 2 -maxdepth 2 -name manifest.json ! -path '*.restored/*' 2>/dev/null | sort | tail -n 1)
+    local latest dir
+    for dir in "$BACKUP_DIR" "$LEGACY_BACKUP_DIR"; do
+        latest=$(find "$dir" -mindepth 2 -maxdepth 2 -name manifest.json ! -path '*.restored/*' 2>/dev/null | sort | tail -n 1)
+        [ -n "$latest" ] && break
+    done
     latest=${latest%/manifest.json}
     [ -n "$latest" ] || die "no backup to restore in $(pretty "$BACKUP_DIR")"
     echo "${BOLD}Restore $(basename "$latest")${RESET} ($(jq -r .operation "$latest/manifest.json"), $(jq -r .timestamp "$latest/manifest.json"))"
@@ -628,6 +660,9 @@ cmd_validate() {
         fm=$(frontmatter "$file")
         grep -q "^name: $name$" <<<"$fm" || { fail "skills/$name: frontmatter 'name' must be '$name'"; errors=$((errors + 1)); }
         grep -q '^description: .' <<<"$fm" || { fail "skills/$name: missing 'description'"; errors=$((errors + 1)); }
+        grep -q '^license: .' <<<"$fm" || { fail "skills/$name: missing 'license'"; errors=$((errors + 1)); }
+        awk '/^metadata:/{on=1; next} on && /^  version: "?[0-9]+\.[0-9]+\.[0-9]+"?$/{found=1} /^[^ ]/{on=0} END{exit !found}' <<<"$fm" ||
+            { fail "skills/$name: missing 'metadata.version' (semver)"; errors=$((errors + 1)); }
     done
     for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
         [ -f "$file" ] || continue
