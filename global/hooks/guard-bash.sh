@@ -31,12 +31,35 @@ sp='[[:space:]]'
 [[ "$flat" =~ (^|;|$sp)rm$sp+(-[a-zA-Z]*[rR][a-zA-Z]*$sp+)+(/|/\*|~|~/|~/\*|\$HOME|\$HOME/|\$HOME/\*|\*|\.|\./)($sp|;|$) ]] \
     && block "recursive rm on /, ~, \$HOME, . or *"
 
-# Commits on protected branches: check the branch of the directory the command runs in.
-if [[ "$flat" =~ (^|;|$sp)git$sp+(-[a-zA-Z]+$sp+)*commit($sp|;|$) ]] && [ -n "$cwd" ]; then
-    branch=$(git -C "$cwd" branch --show-current 2>/dev/null)
-    case "$branch" in
-        main|master|develop) block "committing directly on '$branch'; create a feature/bugfix branch first" ;;
-    esac
+# Commits on protected branches: check the branch of the repo each commit runs in,
+# following `cd <dir>` segments and `git -C <dir>`.
+resolve_dir() {
+    local base=$1 target=$2
+    target=${target%\"}; target=${target#\"}; target=${target%\'}; target=${target#\'}
+    target=${target/#\~/$HOME}
+    [[ "$target" = /* ]] || target="$base/$target"
+    (cd "$target" 2>/dev/null && pwd) || echo "$target"
+}
+
+if [ -n "$cwd" ]; then
+    dir=$cwd
+    IFS=';' read -ra segments <<<"$flat"
+    for segment in "${segments[@]}"; do
+        if [[ "$segment" =~ ^$sp*cd$sp+([^[:space:]]+) ]]; then
+            dir=$(resolve_dir "$dir" "${BASH_REMATCH[1]}")
+            continue
+        fi
+        if [[ "$segment" =~ (^|$sp)git(($sp+-[Cc]$sp+[^[:space:]]+|$sp+--?[a-zA-Z][a-zA-Z-]*(=[^[:space:]]*)?)*)$sp+commit($sp|$) ]]; then
+            repo=$dir
+            if [[ "${BASH_REMATCH[2]}" =~ -C$sp+([^[:space:]]+) ]]; then
+                repo=$(resolve_dir "$dir" "${BASH_REMATCH[1]}")
+            fi
+            branch=$(git -C "$repo" branch --show-current 2>/dev/null)
+            case "$branch" in
+                main|master|develop) block "committing directly on '$branch'; create a feature/bugfix branch first" ;;
+            esac
+        fi
+    done
 fi
 
 exit 0

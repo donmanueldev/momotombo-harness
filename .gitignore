@@ -1,7 +1,5 @@
 .backup/
 .DS_Store
-__pycache__/
-.ruff_cache/
 .remember/
 /settings.json
-tools/target/
+/tools/
