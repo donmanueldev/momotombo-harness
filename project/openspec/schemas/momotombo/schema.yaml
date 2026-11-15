@@ -1,0 +1,49 @@
+name: momotombo
+version: 1
+description: >-
+  Momotombo workflow: lean behaviour specs, then one plan.md of vertical-slice phases that is also the
+  task list. Implemented one phase per run, stopping for review. Adapted from Codely's codely-spec-plan
+  schema (https://github.com/CodelyTV/agent-harness).
+artifacts:
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Lean behaviour specs, one per capability
+    template: spec.md
+    instruction: |
+      Observable behaviour only: no class names, libraries, or implementation steps.
+
+      - Reuse the capability paths listed by `openspec list --specs`. Name new ones after a durable behaviour (`order-cancellation`, not `add-cancel-button`).
+      - One behaviour per requirement, stated with SHALL. Add scenarios only for distinct edge cases.
+      - Every scenario uses `- **WHEN** ...` and `- **THEN** ...` bullets (add `- **GIVEN** ...` when context matters). Use concrete values.
+      - MODIFIED copies the whole existing requirement, keeping every scenario.
+      - Cover the user-facing failure paths too: validation errors, unauthorized access, empty results.
+    requires: []
+
+  - id: plan
+    generates: plan.md
+    description: Goal, decisions, and vertical-slice phases with the contracts, UX states, tests, and tasks that implement the specs
+    template: plan.md
+    instruction: |
+      Plan how to implement the specs. Keep it short: it is reviewed together with the specs.
+
+      - Read the project's AGENTS.md and the docs/ files relevant to this change, and follow them.
+      - Decisions: choices and assumptions not stated in the request, one line each, naming the discarded alternative when it isn't obvious. End with what is out of scope.
+      - Phases: one phase per part of the change that is worth having on its own, even if the rest were never built: a user can complete a goal with it. Parts that are only valuable together form one phase. Each phase is a vertical slice through every layer it needs (route, validation and authorization, logic, persistence, and the Inertia page or Expo screen together). It builds and passes verification alone, and never leaves the system in a wrong business state.
+      - Contracts: public signatures only, in the language each one is written in, grouped by type: HTTP routes and payloads, Form Requests and Policies, Actions and services, Eloquent models and relations, database migrations, Inertia page props or Expo screens and navigation params, API clients, and UI copy. No constructor dependencies. Omit types without changes.
+      - UX states: for every screen the phase adds or changes, list loading, empty, error (and how the user recovers), and success.
+      - Tests: the test strategy of the phase, proving its behaviour with as few tests as possible. One feature or acceptance test per user goal through HTTP or the UI, plus unit tests for business rules with cases picked by equivalence partitioning and boundary values. Never prove the same behaviour twice at different levels. List each suite with the behaviours it covers, not every test case.
+      - Tasks: cite the existing code to copy patterns from in the task that needs it.
+      - Each phase ends with the verification task of the template.
+      - Only phase tasks are checkboxes: every `- [ ]` in this file counts as a task.
+    requires:
+      - specs
+
+apply:
+  requires: [plan]
+  tracks: plan.md
+  instruction: |
+    Implement only the first phase with unchecked tasks, checking off each task as you finish it. Do not start any other phase.
+    Run the phase's verification task and report exactly which commands ran and their results. If verification fails, fix it before going on.
+    When it passes, add or update `implemented_by` (same shape as `created_by`) and `last_implementation_at` in the frontmatter, and rewrite the Next step.
+    Then STOP. Do not commit. Tell the user to review the diff and suggest three Conventional Commit messages (English, different plausible types). They commit with `/commit` in Claude Code or the `git-ops` agent in Codex. Suggest running `reviewer`, plus `ux-reviewer` if UI changed and `security-reviewer` if auth, payments, personal data, or uploads changed.
+    The next phase starts only when the user runs apply again.

@@ -1,3 +1,0 @@
-# Orchestration event log
-# Format:
-# <timestamp UTC> | agent=<name> | goal=<goal> | status=<status> | decision=<decision> | result=<result> | next_step=<next_step>

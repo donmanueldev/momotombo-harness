@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # macOS matches the machines the harness is installed on (BSD userland, bash 3.2, /usr/bin/jq).
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bats
+        run: brew install bats-core
+
+      - name: Validate harness
+        run: bin/harness validate
+
+      - name: Bats suite
+        run: bats tests/

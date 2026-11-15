@@ -1,0 +1,700 @@
+#!/bin/bash
+# harness: install the Momotombo agent harness on this machine (global layer)
+# and set up product repositories (project layer). Run `harness help`.
+set -euo pipefail
+
+HARNESS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+BACKUP_DIR="$HARNESS_DIR/.backup"
+CLAUDE_HOME="$HOME/.claude"
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+AGENTS_HOME="$HOME/.agents"
+# Old checkout locations whose dangling links `install` may prune (space-separated).
+LEGACY_DIRS="${HARNESS_LEGACY_DIRS:-$HOME/agent-config}"
+
+DRY_RUN=false
+FORCE=false
+ASSUME_YES=false
+backup_path=""
+backed_up=()
+
+if [ -t 1 ]; then
+    GREEN=$'\033[0;32m' YELLOW=$'\033[0;33m' RED=$'\033[0;31m' BLUE=$'\033[0;34m' BOLD=$'\033[1m' RESET=$'\033[0m'
+else
+    GREEN="" YELLOW="" RED="" BLUE="" BOLD="" RESET=""
+fi
+
+ok()   { echo "${GREEN}✓${RESET} $*"; }
+skip() { echo "${YELLOW}○${RESET} $*"; }
+warn() { echo "${YELLOW}⚠${RESET} $*"; }
+fail() { echo "${RED}✗${RESET} $*"; }
+dry()  { echo "${BLUE}[dry-run]${RESET} $*"; }
+die()  { echo "${RED}error:${RESET} $*" >&2; exit 1; }
+pretty() { echo "${1/#$HOME/~}"; }
+
+# ----------------------------------------------------------------- backups
+
+create_backup() {
+    local path="$BACKUP_DIR/$(date +%Y%m%d_%H%M%S)"
+    while [ -e "$path" ]; do path="$path-1"; done
+    mkdir -p "$path"
+    echo "$path"
+}
+
+# Copy (or record the link target of) a path under $HOME into the current backup.
+backup_item() {
+    local src="$1"
+    [ -z "$backup_path" ] && backup_path=$(create_backup)
+    local rel="${src#"$HOME"/}"
+    local dest="$backup_path/$rel"
+    mkdir -p "$(dirname "$dest")"
+    if [ -L "$src" ]; then
+        readlink "$src" > "$dest.symlink"
+    elif [ -d "$src" ]; then
+        cp -R "$src" "$dest"
+    else
+        cp "$src" "$dest"
+    fi
+    backed_up+=("$rel")
+    # Rewritten after every item, so an aborted install still leaves a restorable backup.
+    jq -n --arg op install --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg host "$(hostname)" \
+        '{timestamp: $ts, operation: $op, items: $ARGS.positional, hostname: $host}' \
+        --args "${backed_up[@]}" > "$backup_path/manifest.json"
+}
+
+report_backup() {
+    [ -n "$backup_path" ] && [ ${#backed_up[@]} -gt 0 ] || return 0
+    echo ""
+    echo "${BLUE}Backup saved:${RESET} $(pretty "$backup_path")  (restore with: harness undo)"
+}
+
+# ----------------------------------------------------------------- linking
+
+is_ours() {
+    [ -L "$1" ] && [[ "$(readlink "$1")" == "$HARNESS_DIR"/* ]]
+}
+
+# A path conflicts when it holds something that isn't ours. Dangling links hold nothing.
+has_conflict() {
+    local path="$1"
+    if [ -L "$path" ]; then
+        [ -e "$path" ] || return 1
+        is_ours "$path" && return 1
+        return 0
+    fi
+    [ -e "$path" ]
+}
+
+resolve_conflict() {
+    local src="$1" dest="$2"
+    if $FORCE; then
+        backup_item "$dest"
+        return 0
+    fi
+    if [ ! -t 0 ]; then
+        skip "$(pretty "$dest") exists and differs (kept; re-run with --force to replace it, with a backup)"
+        return 1
+    fi
+    echo ""
+    warn "$(pretty "$dest") exists and differs from the harness"
+    while true; do
+        read -r -p "  [r]eplace (backup kept) / [k]eep local / [d]iff / [q]uit: " choice
+        case "$choice" in
+            r|R) backup_item "$dest"; return 0 ;;
+            k|K) skip "$(pretty "$dest") (kept local)"; return 1 ;;
+            d|D) diff -r "$dest" "$src" || true ;;
+            q|Q) die "aborted" ;;
+        esac
+    done
+}
+
+link_item() {
+    local src="$1" dest="$2"
+    if $DRY_RUN; then
+        if has_conflict "$dest"; then dry "would back up and replace $(pretty "$dest")"
+        elif ! is_ours "$dest" || [ "$(readlink "$dest")" != "$src" ]; then dry "would link $(pretty "$dest")"
+        fi
+        return 0
+    fi
+    # The path already resolves to the source through a linked parent folder. Replacing it would delete the source.
+    if [ ! -L "$dest" ] && [ -e "$dest" ] && [ "$(readlink -f "$dest")" = "$(readlink -f "$src")" ]; then
+        return 0
+    fi
+    if has_conflict "$dest"; then
+        resolve_conflict "$src" "$dest" || return 0
+        rm -rf "$dest"
+    fi
+    if is_ours "$dest" && [ "$(readlink "$dest")" = "$src" ]; then
+        return 0
+    fi
+    mkdir -p "$(dirname "$dest")"
+    ln -sfn "$src" "$dest"
+    ok "$(pretty "$dest")"
+}
+
+# Every managed link as "source<TAB>destination".
+mappings() {
+    local item name
+    for item in "$HARNESS_DIR"/skills/*/; do
+        [ -f "$item/SKILL.md" ] || continue
+        name=$(basename "$item")
+        printf '%s\t%s\n' "${item%/}" "$CLAUDE_HOME/skills/$name"
+        printf '%s\t%s\n' "${item%/}" "$AGENTS_HOME/skills/$name"
+    done
+    printf '%s\t%s\n' "$HARNESS_DIR/global/AGENTS.md" "$CLAUDE_HOME/CLAUDE.md"
+    printf '%s\t%s\n' "$HARNESS_DIR/global/AGENTS.md" "$CODEX_HOME/AGENTS.md"
+    for item in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CLAUDE_HOME/agents/$(basename "$item")"
+    done
+    for item in "$HARNESS_DIR"/global/codex/agents/*.toml; do
+        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/agents/$(basename "$item")"
+    done
+    for item in "$HARNESS_DIR"/global/claude/rules/*.md; do
+        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CLAUDE_HOME/rules/$(basename "$item")"
+    done
+    for item in "$HARNESS_DIR"/global/codex/rules/*.rules; do
+        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/rules/$(basename "$item")"
+    done
+    for item in "$HARNESS_DIR"/global/hooks/*; do
+        [ -f "$item" ] || continue
+        printf '%s\t%s\n' "$item" "$CLAUDE_HOME/hooks/$(basename "$item")"
+        printf '%s\t%s\n' "$item" "$CODEX_HOME/hooks/$(basename "$item")"
+    done
+    printf '%s\t%s\n' "$HARNESS_DIR/bin/harness" "$HOME/.local/bin/harness"
+    [ -f "$HARNESS_DIR/global/claude/statusline.sh" ] &&
+        printf '%s\t%s\n' "$HARNESS_DIR/global/claude/statusline.sh" "$CLAUDE_HOME/statusline.sh"
+    return 0
+}
+
+# Dangling links in managed folders that point into this harness or a legacy checkout.
+stale_links() {
+    local dir link target prefix managed
+    managed=$(mappings | cut -f2)
+    for dir in "$CLAUDE_HOME/skills" "$CLAUDE_HOME/agents" "$CLAUDE_HOME/rules" "$CLAUDE_HOME/hooks" \
+               "$AGENTS_HOME/skills" "$CODEX_HOME/skills" "$CODEX_HOME/agents" "$CODEX_HOME/rules" "$CODEX_HOME/hooks"; do
+        [ -d "$dir" ] || continue
+        for link in "$dir"/* "$dir"/.[!.]*; do
+            [ -L "$link" ] && [ ! -e "$link" ] || continue
+            grep -qxF "$link" <<<"$managed" && continue
+            target=$(readlink "$link")
+            for prefix in "$HARNESS_DIR" $LEGACY_DIRS; do
+                [[ "$target" == "$prefix"/* ]] && { echo "$link"; break; }
+            done
+        done
+    done
+    return 0
+}
+
+# ----------------------------------------------------------------- settings merges
+
+# Merge a versioned JSON file into a live one. Repo keys win, permission lists are unioned,
+# and hook entries are appended to each event's existing list (other tools' hooks are kept).
+merge_json() {
+    local repo_file="$1" dest="$2"
+    [ -f "$repo_file" ] || return 0
+    if $DRY_RUN; then dry "would merge $(basename "$repo_file") into $(pretty "$dest")"; return 0; fi
+    local current="{}"
+    if [ -L "$dest" ] && [ ! -e "$dest" ]; then
+        warn "$(pretty "$dest") is a broken symlink; left unchanged (point it at a real file, then re-run)"
+        return 0
+    fi
+    if [ -f "$dest" ]; then
+        current=$(cat "$dest")
+        if ! jq -e . >/dev/null 2>&1 <<<"$current"; then
+            warn "$(pretty "$dest") is not valid JSON; left unchanged"
+            return 0
+        fi
+    fi
+    local merged
+    merged=$(jq -n --argjson cur "$current" --slurpfile repo "$repo_file" '
+        $repo[0] as $r
+        | ($cur * ($r | del(.hooks)))
+        | reduce (($r.hooks // {}) | keys[]) as $event (.;
+            .hooks[$event] = (($cur.hooks[$event] // [])
+                + [ $r.hooks[$event][] | select(. as $entry | ($cur.hooks[$event] // []) | any(. == $entry) | not) ]))
+        | reduce ("allow", "ask", "deny") as $k (.;
+            (($cur.permissions[$k] // []) + ($r.permissions[$k] // []) | unique) as $list
+            | if ($list | length) > 0 then .permissions[$k] = $list else . end)')
+    if [ ! -L "$dest" ] && [ -f "$dest" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$dest")" ]; then
+        return 0
+    fi
+    # Never write through a symlink (e.g. into a dotfiles repo): back up the link, then
+    # replace it with a regular file, so `undo` brings back the link and its untouched target.
+    [ -e "$dest" ] && backup_item "$dest"
+    [ -L "$dest" ] && rm "$dest"
+    mkdir -p "$(dirname "$dest")"
+    printf '%s\n' "$merged" > "$dest"
+    ok "$(pretty "$dest") (merged)"
+}
+
+# ----------------------------------------------------------------- commands
+
+cmd_install() {
+    command -v jq >/dev/null || die "jq is required (brew install jq)"
+    local home
+    for home in "$CLAUDE_HOME" "$CODEX_HOME" "$AGENTS_HOME"; do
+        [[ "$home" == "$HOME"/* ]] || die "$home must be inside \$HOME so backups can be restored"
+    done
+    $DRY_RUN && echo "${BOLD}Dry run: nothing will change${RESET}"
+    echo "Installing the harness from $(pretty "$HARNESS_DIR")"
+    echo ""
+
+    local src dest link
+    while IFS=$'\t' read -r src dest; do
+        link_item "$src" "$dest"
+    done < <(mappings)
+
+    merge_json "$HARNESS_DIR/global/claude/settings.json" "$CLAUDE_HOME/settings.json"
+    merge_json "$HARNESS_DIR/global/codex/hooks.json" "$CODEX_HOME/hooks.json"
+
+    while read -r link; do
+        [ -n "$link" ] || continue
+        if $DRY_RUN; then dry "would remove broken link $(pretty "$link")"; else rm "$link"; ok "removed broken link $(pretty "$link")"; fi
+    done < <(stale_links)
+
+    $DRY_RUN || report_backup
+    echo ""
+    $DRY_RUN && echo "Run without --dry-run to apply." || echo "Done. Run 'harness doctor' to check the setup."
+}
+
+cmd_status() {
+    local src dest state linked=0 problems=0
+    while IFS=$'\t' read -r src dest; do
+        if is_ours "$dest" && [ "$(readlink "$dest")" = "$src" ]; then
+            linked=$((linked + 1)); continue
+        elif [ -L "$dest" ] && [ ! -e "$dest" ]; then state="broken link"
+        elif [ -e "$dest" ] || [ -L "$dest" ]; then state="local copy differs (harness install --force replaces it)"
+        else state="not installed"
+        fi
+        fail "$(pretty "$dest"): $state"; problems=$((problems + 1))
+    done < <(mappings)
+    while read -r link; do
+        [ -n "$link" ] && { fail "$(pretty "$link"): broken link from an old checkout"; problems=$((problems + 1)); }
+    done < <(stale_links)
+    [ "$problems" -eq 0 ] && ok "$linked links installed" || echo "$linked links installed, $problems need attention (run: harness install)"
+    [ "$problems" -eq 0 ]
+}
+
+version_of() { "$@" 2>/dev/null | head -n 1 | grep -Eo '[0-9]+(\.[0-9]+)+' | head -n 1; }
+
+cmd_doctor() {
+    local status=0 tool
+    echo "${BOLD}Tools${RESET}"
+    for tool in git jq; do
+        if command -v "$tool" >/dev/null; then ok "$tool $(version_of "$tool" --version)"; else fail "$tool missing (required)"; status=1; fi
+    done
+    for tool in claude codex openspec gh node; do
+        if command -v "$tool" >/dev/null; then ok "$tool $(version_of "$tool" --version)"; else warn "$tool missing (optional)"; fi
+    done
+    echo ""
+    echo "${BOLD}Links${RESET}"
+    cmd_status || status=1
+    echo ""
+    echo "${BOLD}Settings${RESET}"
+    if [ -f "$CLAUDE_HOME/settings.json" ] && jq -e '.hooks.PreToolUse[]?.hooks[]?.command | select(contains("guard-bash.sh"))' "$CLAUDE_HOME/settings.json" >/dev/null 2>&1; then
+        ok "Claude guard hook enabled"
+    else
+        fail "Claude guard hook not enabled (run: harness install)"; status=1
+    fi
+    if [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
+        if jq -e '.hooks.PreToolUse[]?.hooks[]?.command | select(contains("guard-bash.sh"))' "$CODEX_HOME/hooks.json" >/dev/null 2>&1; then
+            ok "Codex guard hook enabled (approve it once in Codex with /hooks)"
+        else
+            fail "Codex guard hook not enabled (run: harness install)"; status=1
+        fi
+    fi
+    return $status
+}
+
+cmd_undo() {
+    local latest
+    latest=$(find "$BACKUP_DIR" -mindepth 2 -maxdepth 2 -name manifest.json ! -path '*.restored/*' 2>/dev/null | sort | tail -n 1)
+    latest=${latest%/manifest.json}
+    [ -n "$latest" ] || die "no backup to restore in $(pretty "$BACKUP_DIR")"
+    echo "${BOLD}Restore $(basename "$latest")${RESET} ($(jq -r .operation "$latest/manifest.json"), $(jq -r .timestamp "$latest/manifest.json"))"
+    local items=() item
+    while IFS= read -r item; do items+=("$item"); done < <(jq -r '.items[]' "$latest/manifest.json")
+    for item in "${items[@]}"; do
+        [[ "$item" != /* && "/$item/" != */../* ]] || die "unsafe path in manifest: $item"
+        [ -e "$latest/$item" ] || [ -f "$latest/$item.symlink" ] || die "backup is missing $item; nothing was restored"
+        echo "  ~/$item"
+    done
+    if $DRY_RUN; then dry "would restore ${#items[@]} item(s)"; return 0; fi
+    if ! $ASSUME_YES; then
+        [ -t 0 ] || die "refusing to restore without confirmation (pass --yes)"
+        read -r -p "Restore these items? [y/N] " answer
+        [[ "$answer" =~ ^[Yy]$ ]] || die "aborted"
+    fi
+    local dest saved
+    for item in "${items[@]}"; do
+        dest="$HOME/$item"
+        saved="$latest/$item"
+        if [ -L "$dest" ] || [ -f "$dest" ]; then
+            rm -f "$dest"
+        elif [ -e "$dest" ]; then
+            warn "~/$item is a directory that the harness didn't create; skipped"; continue
+        fi
+        mkdir -p "$(dirname "$dest")"
+        if [ -f "$saved.symlink" ]; then
+            ln -s "$(cat "$saved.symlink")" "$dest"
+        else
+            cp -R "$saved" "$dest"
+        fi
+        ok "restored ~/$item"
+    done
+    mv "$latest" "$latest.restored"
+}
+
+# ----------------------------------------------------------------- project layer
+
+CODELY_SKILLS=(codely-doc-create codely-openspec-spec-create-from-code)
+STACKS=""
+NO_CODELY=false
+INIT_DIR=""
+
+stack_docs() {
+    echo "docs/documentation.md"
+    case " $1 " in *" laravel "*)
+        echo "docs/backend/thin-controllers-and-actions.md"
+        echo "docs/backend/form-requests-and-policies.md"
+        echo "docs/database/postgres-migrations.md"
+        echo "docs/frontend/inertia-forms-and-states.md"
+        echo "docs/testing/pest-feature-tests.md" ;;
+    esac
+    case " $1 " in *" expo "*)
+        echo "docs/mobile/expo-router-screens.md"
+        echo "docs/mobile/secure-storage-and-api.md" ;;
+    esac
+}
+
+detect_stacks() {
+    local dir="$1" found=""
+    [ -f "$dir/composer.json" ] && jq -e '(.require // {}) | has("laravel/framework")' "$dir/composer.json" >/dev/null 2>&1 && found="laravel"
+    [ -f "$dir/package.json" ] && jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("expo")' "$dir/package.json" >/dev/null 2>&1 && found="$found expo"
+    echo "${found# }"
+}
+
+docs_map() {
+    local dir="$1" file title
+    (cd "$dir" && find docs -name '*.md' 2>/dev/null | sort) | while read -r file; do
+        title=$({ grep -m1 '^# ' "$dir/$file" || true; } | sed -e 's/^# //' -e 's/^[^A-Za-z]* //')
+        echo "- [${title:-$(basename "$file" .md)}]($file)"
+    done
+}
+
+render_agents_md() {
+    local dir="$1" stacks="$2" name
+    name=$(basename "$dir")
+    echo "# $name"
+    echo ""
+    echo "## Commands"
+    echo ""
+    echo "Agents run these to verify their work. Keep them in sync with the real scripts."
+    echo ""
+    echo '```bash'
+    case " $stacks " in *" laravel "*)
+        echo "composer install && npm install   # dependencies"
+        echo "docker compose up -d              # local services (PostgreSQL)"
+        echo "composer run dev                  # app, queue, and Vite"
+        echo "php artisan test                  # Pest / PHPUnit"
+        echo "vendor/bin/pint                   # PHP format"
+        echo "npm run types && npm run lint     # TypeScript and ESLint (check package.json)" ;;
+    esac
+    case " $stacks " in *" expo "*)
+        echo "npm install                       # dependencies"
+        echo "npx expo start                    # dev server"
+        echo "npx tsc --noEmit                  # typecheck"
+        echo "npx expo lint                     # lint"
+        echo "npm test                          # unit tests (check package.json)" ;;
+    esac
+    [ -z "$stacks" ] && echo "# TODO: install, run, test, lint, and format commands"
+    echo '```'
+    if [ -f "$dir/package.json" ] && jq -e '(.scripts // {}) | length > 0' "$dir/package.json" >/dev/null 2>&1; then
+        echo ""
+        echo "package.json scripts: $(jq -r '.scripts | keys | map("`" + . + "`") | join(", ")' "$dir/package.json")."
+    fi
+    cat <<'EOF'
+
+## Architecture
+
+<!-- TODO: 3 to 6 bullets. What the app does, the main folders and what lives in each, and any rule an agent can't infer from the code. -->
+
+## Workflow
+
+- Features and behavior changes are spec-driven with OpenSpec and the `momotombo` schema: `openspec-explore` → `openspec-propose` (approve specs and contracts) → `openspec-apply-change` (one phase per run, then stop and review) → `openspec-archive-change`. In Claude Code they are `/openspec-…`, and in Codex `$openspec-…`. Current behavior lives in `openspec/specs/`.
+- Before changing behavior that has no spec yet, run `codely-openspec-spec-create-from-code <capability>`.
+- When you are corrected on a convention, run `codely-doc-create` so it becomes a doc in `docs/`. Leave out Codely's mascot sign-off and course links from docs and replies.
+- Commits and PRs follow the global harness rules: English Conventional Commits, made by `git-ops` (`/commit`, `/open-pr` in Claude Code).
+
+## Documentation
+
+Conventions with good and bad examples live in `docs/`. Read **only** the docs relevant to your task:
+
+EOF
+    docs_map "$dir"
+}
+
+cmd_init() {
+    local dir stacks file dest
+    dir="${INIT_DIR:-.}"
+    [ -d "$dir" ] || die "no such directory: $dir"
+    dir=$(cd "$dir" && pwd -P)
+    [ "$dir" != "$HARNESS_DIR" ] || die "run init inside a product repository, not the harness itself"
+    command -v jq >/dev/null || die "jq is required (brew install jq)"
+    git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || warn "$(pretty "$dir") is not a git repository"
+
+    stacks="${STACKS//,/ }"
+    [ -n "$stacks" ] || stacks=$(detect_stacks "$dir")
+    for file in $stacks; do
+        case "$file" in laravel|expo) ;; *) die "unknown stack '$file' (use laravel, expo)" ;; esac
+    done
+    $DRY_RUN && echo "${BOLD}Dry run: nothing will change${RESET}"
+    echo "Setting up $(pretty "$dir") (stack: ${stacks:-none detected; pass --stack laravel,expo})"
+    echo ""
+
+    # docs/: copy seeds that don't exist yet
+    while read -r file; do
+        dest="$dir/$file"
+        if [ -e "$dest" ]; then continue; fi
+        if $DRY_RUN; then dry "would add $file"; continue; fi
+        mkdir -p "$(dirname "$dest")"
+        cp "$HARNESS_DIR/project/$file" "$dest"
+        ok "$file"
+    done < <(stack_docs "$stacks")
+
+    # AGENTS.md and CLAUDE.md
+    if [ -e "$dir/AGENTS.md" ]; then
+        skip "AGENTS.md exists (kept). Make sure its docs map lists:"
+        $DRY_RUN || docs_map "$dir" | sed 's/^/    /'
+    elif $DRY_RUN; then
+        dry "would create AGENTS.md"
+    else
+        render_agents_md "$dir" "$stacks" > "$dir/AGENTS.md"
+        ok "AGENTS.md (fill in the Architecture section)"
+    fi
+    if [ -L "$dir/CLAUDE.md" ] && [ "$(readlink "$dir/CLAUDE.md")" = "AGENTS.md" ]; then
+        :
+    elif [ -e "$dir/CLAUDE.md" ]; then
+        warn "CLAUDE.md exists as its own file. Merge it into AGENTS.md, then replace it with: ln -s AGENTS.md CLAUDE.md"
+    elif $DRY_RUN; then
+        dry "would link CLAUDE.md -> AGENTS.md"
+    else
+        ln -s AGENTS.md "$dir/CLAUDE.md"
+        ok "CLAUDE.md -> AGENTS.md"
+    fi
+
+    # OpenSpec with the momotombo schema
+    if ! command -v openspec >/dev/null; then
+        warn "openspec not installed; skipped (brew install openspec, then re-run harness init)"
+    else
+        if [ ! -d "$dir/openspec" ]; then
+            if $DRY_RUN; then dry "would run: openspec init --tools claude,codex"
+            else
+                local log
+                if ! log=$(cd "$dir" && OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_TELEMETRY=0 CI=true \
+                        openspec init --tools claude,codex --no-animation . 2>&1); then
+                    echo "$log" >&2
+                    die "openspec init failed"
+                fi
+                ok "openspec init (skills for Claude Code and Codex)"
+            fi
+        fi
+        if [ ! -e "$dir/openspec/schemas/momotombo" ]; then
+            if $DRY_RUN; then dry "would install the momotombo schema in openspec/schemas/momotombo"
+            else
+                mkdir -p "$dir/openspec/schemas"
+                cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
+                ok "openspec/schemas/momotombo"
+            fi
+        elif ! diff -rq "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo" >/dev/null 2>&1; then
+            warn "openspec/schemas/momotombo differs from the harness; left unchanged (delete it and re-run to take the harness version)"
+        fi
+        dest="$dir/openspec/config.yaml"
+        if [ ! -f "$dest" ] || { grep -q '^schema: spec-driven$' "$dest" && ! grep -qE '^(context|rules|operations):' "$dest"; }; then
+            if $DRY_RUN; then dry "would write openspec/config.yaml (schema: momotombo)"
+            else cp "$HARNESS_DIR/project/openspec/config.yaml" "$dest"; ok "openspec/config.yaml (schema: momotombo)"; fi
+        elif ! grep -q '^schema: momotombo$' "$dest"; then
+            warn "openspec/config.yaml is customized; set 'schema: momotombo' in it to use the harness workflow"
+        fi
+    fi
+
+    # Codely skills, installed by reference with a pinned skills CLI (sources recorded in skills-lock.json)
+    local missing=false skill
+    for skill in "${CODELY_SKILLS[@]}"; do [ -f "$dir/.agents/skills/$skill/SKILL.md" ] || missing=true; done
+    if $NO_CODELY || ! $missing; then
+        :
+    elif ! command -v npx >/dev/null; then
+        warn "npx not found; Codely skills skipped (install Node, then re-run harness init)"
+    elif $DRY_RUN; then
+        dry "would run: npx skills add CodelyTV/agent-harness (${CODELY_SKILLS[*]})"
+    else
+        local args=() name
+        for name in "${CODELY_SKILLS[@]}"; do args+=(--skill "$name"); done
+        if (cd "$dir" && npx -y skills@1.8.1 add CodelyTV/agent-harness "${args[@]}" -a claude-code -a codex -y </dev/null >/dev/null 2>&1); then
+            ok "Codely skills: ${CODELY_SKILLS[*]}"
+        else
+            warn "Codely skills failed to install (network?); re-run harness init later"
+        fi
+    fi
+
+    echo ""
+    if $DRY_RUN; then
+        echo "Run without --dry-run to apply."
+    else
+        echo "Next:"
+        echo "  1. Fill in the Architecture section of AGENTS.md and check its Commands."
+        echo "  2. Review the seeded docs/ and delete what doesn't apply."
+        echo "  3. Commit the harness files, then start a feature with openspec-explore."
+    fi
+}
+
+frontmatter() { awk 'NR == 1 && $0 != "---" { exit } NR == 1 { next } /^---$/ { exit } { print }' "$1"; }
+body() { awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm { print }' "$1" | sed '/./,$!d'; }
+toml_string() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
+
+# Render the Codex agent for a Claude agent. Claude's model tier maps to Codex effort;
+# only the haiku tier pins a model (the cheap one). Others inherit the session's model.
+codex_agent() {
+    local file="$1" fm name description model
+    fm=$(frontmatter "$file")
+    name=$(sed -n 's/^name: //p' <<<"$fm")
+    description=$(sed -n 's/^description: //p' <<<"$fm")
+    model=$(sed -n 's/^model: //p' <<<"$fm")
+    echo "# Generated from global/claude/agents/$name.md by 'harness codex-agents'. Edit that file, then regenerate."
+    echo "name = $(toml_string "$name")"
+    echo "description = $(toml_string "$description")"
+    case "$model" in
+        haiku) echo 'model = "gpt-6-luna"'; echo 'model_reasoning_effort = "low"' ;;
+        sonnet) echo 'model_reasoning_effort = "medium"' ;;
+        *) echo 'model_reasoning_effort = "high"' ;;
+    esac
+    echo "developer_instructions = '''"
+    body "$file"
+    echo "'''"
+}
+
+cmd_codex_agents() {
+    local file out
+    mkdir -p "$HARNESS_DIR/global/codex/agents"
+    for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        out="$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml"
+        codex_agent "$file" > "$out"
+        ok "${out#"$HARNESS_DIR"/}"
+    done
+}
+
+cmd_validate() {
+    local errors=0 file dir name fm
+    for dir in "$HARNESS_DIR"/skills/*/; do
+        name=$(basename "$dir")
+        file="$dir/SKILL.md"
+        if [ ! -f "$file" ]; then fail "skills/$name: missing SKILL.md"; errors=$((errors + 1)); continue; fi
+        fm=$(frontmatter "$file")
+        grep -q "^name: $name$" <<<"$fm" || { fail "skills/$name: frontmatter 'name' must be '$name'"; errors=$((errors + 1)); }
+        grep -q '^description: .' <<<"$fm" || { fail "skills/$name: missing 'description'"; errors=$((errors + 1)); }
+    done
+    for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        [ -f "$file" ] || continue
+        name=$(basename "$file" .md)
+        fm=$(frontmatter "$file")
+        grep -q "^name: $name$" <<<"$fm" || { fail "claude agent $name: 'name' must match the file name"; errors=$((errors + 1)); }
+        grep -q '^description: .' <<<"$fm" || { fail "claude agent $name: missing 'description'"; errors=$((errors + 1)); }
+        grep -Eq '^model: (haiku|sonnet|opus|fable|inherit|claude-[a-z0-9.-]+)$' <<<"$fm" ||
+            { fail "claude agent $name: 'model' must be haiku, sonnet, opus, fable, inherit, or a claude-* id"; errors=$((errors + 1)); }
+        for skill in $(awk '/^skills:/{on=1; next} on && /^  - /{print $2; next} {on=0}' <<<"$fm"); do
+            [ -f "$HARNESS_DIR/skills/$skill/SKILL.md" ] ||
+                { fail "claude agent $name: preloads missing skill '$skill'"; errors=$((errors + 1)); }
+        done
+    done
+    for file in "$HARNESS_DIR"/global/codex/agents/*.toml; do
+        [ -f "$file" ] || continue
+        name=$(basename "$file" .toml)
+        grep -q "^name = \"$name\"$" "$file" || { fail "codex agent $name: 'name' must match the file name"; errors=$((errors + 1)); }
+        grep -q '^description = "' "$file" || { fail "codex agent $name: missing 'description'"; errors=$((errors + 1)); }
+        grep -q '^developer_instructions = ' "$file" || { fail "codex agent $name: missing 'developer_instructions'"; errors=$((errors + 1)); }
+        if [ -f "$HARNESS_DIR/global/claude/agents/$name.md" ]; then
+            [ "$(codex_agent "$HARNESS_DIR/global/claude/agents/$name.md")" = "$(cat "$file")" ] ||
+                { fail "codex agent $name: out of sync with its Claude agent (run: harness codex-agents)"; errors=$((errors + 1)); }
+        else
+            fail "codex agent $name: no matching global/claude/agents/$name.md"; errors=$((errors + 1))
+        fi
+    done
+    for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        [ -f "$file" ] || continue
+        [ -f "$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml" ] ||
+            { fail "claude agent $(basename "$file" .md): missing Codex twin (run: harness codex-agents)"; errors=$((errors + 1)); }
+    done
+    for file in $(stack_docs "laravel expo"); do
+        [ -f "$HARNESS_DIR/project/$file" ] || { fail "project/$file: missing seed doc"; errors=$((errors + 1)); }
+    done
+    for file in schema.yaml templates/spec.md templates/plan.md; do
+        [ -f "$HARNESS_DIR/project/openspec/schemas/momotombo/$file" ] || { fail "momotombo schema: missing $file"; errors=$((errors + 1)); }
+    done
+    for file in "$HARNESS_DIR"/global/claude/settings.json "$HARNESS_DIR"/global/codex/hooks.json; do
+        [ -f "$file" ] || continue
+        jq -e . "$file" >/dev/null 2>&1 || { fail "${file#"$HARNESS_DIR"/}: invalid JSON"; errors=$((errors + 1)); }
+    done
+    for file in "$HARNESS_DIR"/bin/harness "$HARNESS_DIR"/global/hooks/* "$HARNESS_DIR"/global/claude/statusline.sh; do
+        [ -f "$file" ] || continue
+        bash -n "$file" 2>/dev/null || { fail "${file#"$HARNESS_DIR"/}: shell syntax error"; errors=$((errors + 1)); }
+        [ -x "$file" ] || { fail "${file#"$HARNESS_DIR"/}: not executable"; errors=$((errors + 1)); }
+    done
+    if [ "$errors" -eq 0 ]; then ok "harness valid"; else echo "$errors problem(s)"; return 1; fi
+}
+
+cmd_help() {
+    cat <<EOF
+${BOLD}harness${RESET}: the Momotombo agent harness for Claude Code and Codex
+
+Global layer (this machine):
+  harness install [--dry-run] [--force]   Link agents, skills, instructions, hooks; merge settings
+  harness status                          Show what is installed, missing, or broken
+  harness doctor                          Check tools, links, and hooks
+  harness undo [--dry-run] [--yes]        Restore the files replaced by the last install
+
+Project layer (a product repository):
+  harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
+                                          Add AGENTS.md, docs/ conventions, OpenSpec with the
+                                          momotombo schema, and the Codely skills. Never overwrites.
+
+Maintenance:
+  harness validate                        Check skills, agents, settings, and scripts (used by CI)
+  harness codex-agents                    Regenerate global/codex/agents/*.toml from the Claude agents
+
+Options:
+  -n, --dry-run   Show what would change without changing anything
+  -f, --force     Replace conflicting files (a backup is saved first)
+  -y, --yes       Don't ask for confirmation
+EOF
+}
+
+main() {
+    local command="${1:-help}"
+    [ $# -gt 0 ] && shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -n|--dry-run) DRY_RUN=true ;;
+            -f|--force) FORCE=true ;;
+            -y|--yes) ASSUME_YES=true ;;
+            -h|--help) command=help ;;
+            --stack) [ $# -ge 2 ] || die "--stack needs a value (laravel, expo)"; STACKS="$2"; shift ;;
+            --stack=*) STACKS="${1#--stack=}" ;;
+            --no-codely) NO_CODELY=true ;;
+            -*) die "unknown option: $1 (see: harness help)" ;;
+            *) [ "$command" = init ] && [ -z "$INIT_DIR" ] || die "unexpected argument: $1 (see: harness help)"; INIT_DIR="$1" ;;
+        esac
+        shift
+    done
+    case "$command" in
+        install) cmd_install ;;
+        init) cmd_init ;;
+        status) cmd_status ;;
+        doctor) cmd_doctor ;;
+        undo) cmd_undo ;;
+        validate) cmd_validate ;;
+        codex-agents) cmd_codex_agents ;;
+        help|-h|--help) cmd_help ;;
+        *) die "unknown command: $command (see: harness help)" ;;
+    esac
+}
+
+main "$@"
