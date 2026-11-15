@@ -29,6 +29,7 @@ body_free=$(awk -v q="'" '
 # Normalize into ';'-separated segments: drop quotes, split on shell operators, output
 # redirections, and subshell/substitution brackets, turn input redirections into spaces,
 # and reduce /abs/path/git and /abs/path/rm to git and rm.
+# shellcheck disable=SC2016 # the sed expressions are meant to stay literal
 flat=$(tr '\n' ' ' <<<"$body_free" | sed -E \
     -e 's/\$\{HOME\}/$HOME/g' \
     -e "s/[\"']//g" \
@@ -173,8 +174,7 @@ is_secret_env() {
         *[\*\?\[]*)
             prefix=${base%%[\*\?\[]*}
             [ ${#prefix} -ge 2 ] || return 1
-            case ".env" in "$prefix"*) return 0 ;; esac
-            case "$prefix" in .env*) return 0 ;; esac
+            [[ ".env" == "$prefix"* || "$prefix" == .env* ]] && return 0
             ;;
     esac
     return 1
