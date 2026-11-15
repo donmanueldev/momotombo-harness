@@ -77,6 +77,37 @@ guard() {
     done
 }
 
+@test "guard blocks reading dotenv files that hold secrets" {
+    for command in \
+        'cat .env' \
+        'cat app/.env.staging' \
+        'less .env.production' \
+        'head -n 5 .env.local' \
+        'grep DB_PASSWORD .env' \
+        'source .env' \
+        '. ./.env.testing' \
+        'bash -c "cat .env"' \
+        'cd api && cat .env | pbcopy'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+        [[ "$output" == *"would expose secrets"* ]] || return 1
+    done
+}
+
+@test "guard allows dotenv templates and commands that don't print secrets" {
+    for command in \
+        'cat .env.example' \
+        'cat .env.sample' \
+        'cp .env.example .env' \
+        'ls -la .env' \
+        'grep -r DB_HOST config/' \
+        'cat environment.ts' \
+        'php artisan key:generate'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+}
+
 @test "guard blocks a commit after switching to a protected branch, and bare pushes from main" {
     git -C "$TEST_TMP" init -q -b feature/x
     for command in 'git checkout main && git commit -m x' 'git switch develop; git commit -m x'; do

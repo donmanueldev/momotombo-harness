@@ -148,6 +148,25 @@ check_git() {
     return 0
 }
 
+# A dotenv file holding real secrets: .env or .env.<anything>, except committed templates.
+is_secret_env() {
+    local base=${1##*/}
+    case "$base" in
+        .env.example | .env.sample | .env.template | .env.dist) return 1 ;;
+        .env | .env.*) return 0 ;;
+    esac
+    return 1
+}
+
+# Commands that print or load a file's contents.
+check_read() {
+    local t
+    for t in "$@"; do
+        is_secret_env "$t" && block "reading $t would expose secrets; ask the user for the values you need"
+    done
+    return 0
+}
+
 dir=$cwd
 IFS=';' read -ra segments <<<"$flat"
 for segment in "${segments[@]}"; do
@@ -165,6 +184,8 @@ for segment in "${segments[@]}"; do
                 [ $message -eq 1 ] && break # the rest of the segment is a commit message
                 ;;
             rm) check_rm "${toks[@]:$((i + 1))}" ;;
+            cat | less | more | head | tail | bat | nl | strings | xxd | od | base64 | grep | egrep | rg | sed | awk | source | .)
+                check_read "${toks[@]:$((i + 1))}" ;;
         esac
     done
 done
