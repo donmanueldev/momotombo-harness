@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "opus",
   "attribution": {
     "commit": "",
     "pr": "",
@@ -12,6 +11,10 @@
       "Read(**/.env.local)",
       "Read(**/.env.*.local)",
       "Read(**/.env.production)",
+      "Read(**/.env.staging)",
+      "Read(**/.env.development)",
+      "Read(**/.env.testing)",
+      "Read(**/.env.test)",
       "Read(~/.ssh/**)",
       "Read(~/.aws/credentials)",
       "Bash(git push --force *)",
@@ -38,7 +41,6 @@
   },
   "enabledPlugins": {
     "expo@claude-plugins-official": true,
-    "remember@claude-plugins-official": true,
     "skills@swmansion": true
   },
   "extraKnownMarketplaces": {
