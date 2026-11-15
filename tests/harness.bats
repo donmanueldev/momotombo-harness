@@ -180,6 +180,23 @@ harness() {
     [[ "$output" != *"README.md: routing table says git-ops"* ]] || return 1
 }
 
+@test "validate reads only the routing table and catches unknown, duplicate, or missing entries" {
+    printf '| Command | What | Notes |\n|---|---|---|\n| `git-ops` | not a routing row | x |\n\n| Agent | Claude | Codex |\n|---|---|---|\n| `git-ops` | haiku | gpt-6-luna, low |\n' > "$REPO/README.md"
+    run harness validate
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+
+    printf '| Agent | Claude | Codex |\n|---|---|---|\n| `git-ops` | haiku | gpt-6-luna, low |\n| `git-ops` | haiku | gpt-6-luna, low |\n| `reveiwer` | sonnet | session model, medium |\n' > "$REPO/README.md"
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"README.md: routing table lists 'reveiwer', which has no global/claude/agents/reveiwer.md"* ]] || return 1
+    [[ "$output" == *"README.md: routing table lists 'git-ops' more than once"* ]] || return 1
+
+    rm "$REPO/global/AGENTS.md"
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"global/AGENTS.md: missing"* ]] || return 1
+}
+
 @test "the real repository passes validate" {
     run "$PROJECT_DIR/bin/harness" validate
     [[ "$status" -eq 0 ]] || return 1

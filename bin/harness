@@ -570,10 +570,14 @@ codex_label() {
     echo "$model, $effort"
 }
 
-# Rows of a markdown routing table: "<agent>\t<claude column>\t<codex column>", taken from
-# any row with a cell that is exactly a backticked name followed by two more cells.
+# Rows of the markdown routing table: "<agent>\t<claude column>\t<codex column>". Only rows
+# of a table whose header has both a Claude and a Codex column count; in them, the agent is
+# the cell that is exactly a backticked name, followed by the Claude and Codex cells.
 routing_rows() {
-    awk -F'|' '{
+    awk -F'|' '
+    !/^[ \t]*\|/ { in_table = 0; next }
+    !in_table { if ($0 ~ /\|[ \t]*Claude[ \t]*\|/ && $0 ~ /\|[ \t]*Codex[ \t]*\|/) in_table = 1; next }
+    {
         for (i = 2; i <= NF - 3; i++) {
             f = $i; gsub(/^[ \t]+|[ \t]+$/, "", f)
             if (f ~ /^`[a-z][a-z0-9-]*`$/) {
@@ -659,10 +663,22 @@ cmd_validate() {
     done
     # The routing tables (global/AGENTS.md always, README.md when present) must list every
     # agent with the model in its frontmatter and the Codex tier generated from it.
-    local doc rows row model
+    local doc rows row model listed
     for doc in global/AGENTS.md README.md; do
-        [ -f "$HARNESS_DIR/$doc" ] || { [ "$doc" = README.md ] && continue; }
-        rows=$(routing_rows "$HARNESS_DIR/$doc" 2>/dev/null)
+        if [ ! -f "$HARNESS_DIR/$doc" ]; then
+            [ "$doc" = README.md ] && continue
+            fail "$doc: missing"; errors=$((errors + 1)); continue
+        fi
+        rows=$(routing_rows "$HARNESS_DIR/$doc")
+        while read -r listed; do
+            [ -n "$listed" ] || continue
+            [ -f "$HARNESS_DIR/global/claude/agents/$listed.md" ] ||
+                { fail "$doc: routing table lists '$listed', which has no global/claude/agents/$listed.md"; errors=$((errors + 1)); }
+        done < <(cut -f1 <<<"$rows" | sort -u)
+        while read -r listed; do
+            [ -n "$listed" ] || continue
+            fail "$doc: routing table lists '$listed' more than once"; errors=$((errors + 1))
+        done < <(cut -f1 <<<"$rows" | sort | uniq -d)
         for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
             [ -f "$file" ] || continue
             name=$(basename "$file" .md)
