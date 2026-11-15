@@ -12,7 +12,7 @@ The Momotombo agent harness for Claude Code and Codex. It has two layers:
 - `global/codex/`: Codex custom agents (`agents/*.toml`), the `.rules` command policy, and the hooks merged into `~/.codex/hooks.json`.
 - `global/hooks/guard-bash.sh`: the PreToolUse guard shared by Claude and Codex.
 - `skills/<name>/` → `~/.claude/skills/` and `~/.agents/skills/` (Codex): skills shared by both tools.
-- `bin/harness`: the CLI (`install`, `init`, `status`, `doctor`, `undo`, `validate`).
+- `bin/harness`: the CLI (`install`, `init`, `status`, `doctor`, `undo`, `validate`, `codex-agents`).
 - `tests/`: Bats suites. CI runs `bin/harness validate` and `bats tests/` on macOS.
 
 ## Commands
@@ -28,8 +28,8 @@ bats tests/
 
 - Run `bin/harness validate` and `bats tests/` before committing.
 - Bats runs on macOS bash 3.2, where a failing `[[ ]]` mid-test does NOT fail the test. End every `[[ ]]` assertion with `|| return 1`.
-- Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. Keep the routing table in `global/AGENTS.md` in sync with them.
+- Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. The `.md` is the source: edit it, then run `bin/harness codex-agents` to regenerate the `.toml` (`validate` fails on drift). Keep the routing table in `global/AGENTS.md` in sync with them.
 - Changes to `global/hooks/guard-bash.sh` need a blocked case and an allowed case in `tests/hooks.bats`.
 - No Python and no compiled tools. Scripts are bash plus `jq`.
 - Don't add skills that already ship through plugins, OpenSpec, Laravel Boost, or the Codely skills.
-- Everything in the repo is in English.
+- Everything in the repo is in English, except the Spanish PR-body template in `git-ops` and `skills/open-pr` (PR descriptions are in Spanish).
