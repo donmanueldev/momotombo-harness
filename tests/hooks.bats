@@ -34,6 +34,79 @@ guard() {
     done
 }
 
+@test "guard sees through wrappers, quoting, subshells, absolute paths, and split flags" {
+    for command in \
+        'bash -c "git push -f"' \
+        "sh -c 'rm -rf /'" \
+        '(git push -f)' \
+        'echo $(git reset --hard)' \
+        'echo `git reset --hard`' \
+        '/usr/bin/git push -f' \
+        '/bin/rm -rf /' \
+        'git push -fu origin x' \
+        'git push -uf origin x' \
+        'git push origin +feature' \
+        'git push origin HEAD:main' \
+        'git clean --force' \
+        'git commit -n -m x' \
+        'git commit -nm x' \
+        'git -c core.hooksPath=/dev/null commit -m x' \
+        'rm -r -f .' \
+        'rm -f -r /' \
+        'rm --recursive /' \
+        'rm -rf -- /' \
+        'rm -rf "$HOME"' \
+        'rm -rf "/"' \
+        'rm -rf ${HOME}'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+}
+
+@test "guard doesn't read commit messages or longer branch names as commands" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    for command in \
+        'git commit -m "docs: explain why rm -rf / is blocked"' \
+        'git commit -m "note git push --force is blocked"' \
+        'git push origin feature/main' \
+        'git push -u origin my-main' \
+        'git checkout -- main.ts' \
+        'rm -r -f build'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+}
+
+@test "guard blocks a commit after switching to a protected branch, and bare pushes from main" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    for command in 'git checkout main && git commit -m x' 'git switch develop; git commit -m x'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    run guard 'git checkout -b feature/y && git commit -m x'
+    [[ "$status" -eq 0 ]] || return 1
+
+    git -C "$TEST_TMP" switch -q -c main
+    for command in 'git push' 'git push origin' 'git push origin HEAD'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+}
+
+@test "guard follows cd \$HOME into a repository" {
+    mkdir -p "$TEST_TMP/home/app"
+    git -C "$TEST_TMP/home/app" init -q -b main
+    HOME="$TEST_TMP/home" run guard 'cd $HOME/app && git commit -m x' /
+    [[ "$status" -eq 2 ]] || return 1
+    HOME="$TEST_TMP/home" run guard 'cd "$HOME/app" && git commit -m x' /
+    [[ "$status" -eq 2 ]] || return 1
+}
+
+@test "guard fails closed on malformed input" {
+    run bash -c "echo 'not json' | '$GUARD'"
+    [[ "$status" -eq 2 ]] || return 1
+}
+
 @test "guard allows everyday commands" {
     for command in \
         'git push -u origin bugfix/x' \

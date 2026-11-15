@@ -77,7 +77,7 @@ laravel_app() {
     grep -q 'openspec init --tools claude,codex' "$STUB_LOG" || return 1
     [[ -f "$APP/openspec/schemas/momotombo/schema.yaml" ]] || return 1
     grep -q '^schema: momotombo$' "$APP/openspec/config.yaml" || return 1
-    grep -q 'skills@latest add CodelyTV/agent-harness --skill codely-doc-create --skill codely-openspec-spec-create-from-code -a claude-code -a codex -y' "$STUB_LOG" || return 1
+    grep -q 'skills@1.8.1 add CodelyTV/agent-harness --skill codely-doc-create --skill codely-openspec-spec-create-from-code -a claude-code -a codex -y' "$STUB_LOG" || return 1
 }
 
 @test "init never overwrites existing files and a re-run changes nothing" {
@@ -97,7 +97,7 @@ laravel_app() {
 
     run init
     [[ "$output" != *"✓ "* ]] || return 1
-    [[ "$(grep -c 'skills@latest' "$STUB_LOG")" -eq 1 ]] || return 1
+    [[ "$(grep -c 'skills@' "$STUB_LOG")" -eq 1 ]] || return 1
 }
 
 @test "init refuses to merge a standalone CLAUDE.md" {
@@ -137,4 +137,14 @@ laravel_app() {
     cp "$PROJECT_DIR/project/openspec/schemas/momotombo/templates/plan.md" openspec/changes/sample/plan.md
     run "$real" validate sample --strict
     [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+}
+
+@test "init keeps a customized momotombo schema" {
+    laravel_app
+    mkdir -p "$APP/openspec/schemas/momotombo"
+    echo "custom" > "$APP/openspec/schemas/momotombo/schema.yaml"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    grep -qx "custom" "$APP/openspec/schemas/momotombo/schema.yaml" || return 1
+    [[ "$output" == *"differs from the harness; left unchanged"* ]] || return 1
 }

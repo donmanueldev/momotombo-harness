@@ -1,99 +1,136 @@
-# agent-config
+# momotombo-harness
 
-Personal Claude Code setup: subagents, skills, global instructions, a safety hook, a status line, and settings. Everything is versioned here and installed into `~/.claude` on every machine.
+The agent harness Momotombo uses to build products with **Claude Code** and **Codex**. It turns "ask the AI and hope" into a controlled loop:
 
-## Model routing
+- You approve specs before any code is written.
+- Agents implement one small phase at a time and stop for review.
+- Every correction you make becomes a convention the agents follow next time.
 
-`home/CLAUDE.md` tells Claude which subagent handles each task, so each kind of work runs on the right model:
+## Why
 
-| Subagent | Model | Handles |
-|----------|-------|---------|
-| `git-ops` | haiku | commits, branches, pushes, pull requests |
-| `analyst` | sonnet | read-only exploration, root-cause analysis, audits, research |
-| `reviewer` | sonnet | read-only correctness review of a diff or PR |
-| `ux-reviewer` | sonnet | UX states, accessibility, responsiveness, copy, design-system consistency |
-| `security-reviewer` | opus | authz, injection, secrets, payments, uploads, dependencies |
-| `planner` | opus | product framing, UX states, and sliced implementation plans |
-| `implementer` | opus | production-quality code and tests |
+Most AI slop has five causes. The harness answers each one:
 
-Feature flow: `planner` → you approve → `implementer` → `reviewer` + `ux-reviewer` + `security-reviewer` (in parallel, as they apply) → fixes → `git-ops`.
+| Cause | Answer |
+|-------|--------|
+| The agent guesses your conventions | `docs/` per project with good and bad examples. `AGENTS.md` maps them so agents read only what the task needs |
+| Tasks are too big to review | OpenSpec specs plus a plan of vertical-slice phases with contracts **you approve first** |
+| The same mistake comes back | `codely-doc-create` turns a correction into a versioned doc |
+| "Done" without proof | Every phase ends with verification, and agents report exactly what ran |
+| Generic, unsafe code | A product quality bar, stack conventions, and UX and security reviewer agents |
 
-To change a model, edit the `model:` line in `agents/<name>.md` (`haiku`, `sonnet`, `opus`, `inherit`, or a full `claude-*` id).
-
-## Commands
-
-| Command | What it does |
-|---------|--------------|
-| `/commit [note]` | Commits the current changes as Conventional Commits, in `git-ops` on haiku. Doesn't push. |
-| `/open-pr [note]` | Commits anything pending, pushes, and opens or updates the PR (English title, Spanish body), in `git-ops` on haiku. |
-
-## Safety
-
-- `home/hooks/guard-bash.sh` is a PreToolUse hook. It also runs inside subagents. It blocks:
-  - force-pushes, `--no-verify`, `reset --hard`, and `clean -f`
-  - pushes to `main`/`master`, and commits on `main`/`master`/`develop`
-  - `rm -r` on `/`, `~`, `$HOME`, `.`, or `*`
-- `home/settings.json` denies reading `.env` files, `~/.ssh`, and AWS credentials.
-
-## Settings
-
-`home/settings.json` holds the portable policy: model, attribution, permissions, hooks, status line, and plugins. `install.sh` **merges** it into `~/.claude/settings.json`:
-
-- Repo keys win.
-- `permissions.allow/ask/deny` lists are unioned.
-- Machine-specific keys (theme, `autoMode`, notifications) are kept.
-- A backup is saved first, so `./sync.sh undo` restores it.
-
-The repo owns `hooks.PreToolUse`. Add machine-only hooks under other events.
-
-## Layout
+## Two layers
 
 ```
-agents/              → ~/.claude/agents/*.md
-skills/<name>/       → ~/.claude/skills/<name>
-home/CLAUDE.md       → ~/.claude/CLAUDE.md
-home/rules/*.md      → ~/.claude/rules/
-home/hooks/*         → ~/.claude/hooks/
-home/statusline.sh   → ~/.claude/statusline.sh   (model · dir · branch* · ctx % · $cost)
-home/settings.json   merged into ~/.claude/settings.json
-tools/               Rust CLIs used by skills (audit-site, run-lighthouse, detect-web-adapter)
-install.sh           build tools, link everything, merge settings (backs up whatever it replaces)
-sync.sh              status / add / remove / delete / validate / undo
-tests/               Bats suite (+ cargo test in tools/)
-.github/workflows/   CI: clippy, cargo test, bats, validate
+GLOBAL (your machine)                      PROJECT (each product repo)
+harness install                            harness init
+───────────────────────────────            ─────────────────────────────────────
+~/.claude + ~/.codex + ~/.agents           AGENTS.md (= CLAUDE.md): commands + docs map
+  · global instructions (one file)         docs/: conventions that grow with every correction
+  · 7 subagents, routed by model           openspec/: specs + the momotombo schema
+  · /commit, /open-pr                      Codely skills, pinned in skills-lock.json
+  · guard hook + Codex rules
+  · status line, settings
 ```
 
 ## Setup
 
-Requires `jq` (ships with macOS) and [Rust](https://rustup.rs).
+Requirements: macOS, `git`, `jq`, Node 22+ (for `npx`), [OpenSpec](https://openspec.dev) (`brew install openspec`), and Claude Code and/or Codex.
 
 ```bash
-git clone git@github.com:donmanueldev/agent-config.git ~/agent-config
-cd ~/agent-config
-./install.sh --dry-run   # preview
-./install.sh             # apply (prompts on conflicts; --force backs up and replaces)
+git clone git@github.com:donmanueldev/momotombo-harness.git ~/momotombo-harness
+~/momotombo-harness/bin/harness install --dry-run   # preview
+~/momotombo-harness/bin/harness install             # apply; then `harness` is on your PATH
+harness doctor
 ```
 
-## Day to day
+`install` never deletes your data:
+- A file that differs from the harness is kept, unless you pass `--force`. With `--force` it is backed up first.
+- Settings are **merged**: your keys and other tools' hooks stay.
+- `harness undo` restores the last backup.
+
+In Codex, approve the guard hook once with `/hooks`.
+
+## Start a product
 
 ```bash
-./sync.sh                         # what is synced, local-only, or conflicting
-./sync.sh add skill <name>        # move a local ~/.claude skill into the repo
-./sync.sh add agent <name>        # same for a subagent
-./sync.sh remove skill <name>     # stop tracking, keep the local copy
-./sync.sh delete skill <name>     # remove from repo and ~/.claude
-./sync.sh validate                # check frontmatter of skills and agents
-./sync.sh pull                    # git pull + reinstall
-./sync.sh undo                    # restore the last backup
-bats tests/ && cargo test --manifest-path tools/Cargo.toml
+cd ~/momotombo/my-product
+harness init                     # detects Laravel or Expo, or pass --stack laravel,expo
 ```
 
-## Skills in this repo
+Then fill in the Architecture section of `AGENTS.md`, trim the seeded `docs/`, and commit.
 
-- Git: `commit`, `open-pr`, `commit-english` (preloaded by `git-ops`), `pr-comments`
-- Swift: `swift-api-design-guidelines`, `swift-architecture`, `swift-codable`, `swift-testing-pro`
-- Web and utilities: `agent-browser`, `deslop`, `favicon`, `fix-sentry-issues`, `knip`, `rams`, `pagespeed-optimization`, `website-seo-finalization`, `web-design-guidelines` (preloaded by `ux-reviewer`)
+## Daily workflow
 
-The SEO and PageSpeed skills call Rust binaries through `skills/<name>/bin/` symlinks into `tools/target/release/`. The repo has no Python.
+Talk to the agent in Spanish. It writes code, specs, and docs in English.
 
-Skills that ship through plugins or `~/.agents/skills` are not duplicated here.
+| Step | Claude Code | Codex | You |
+|------|-------------|-------|-----|
+| 1. Think it through | `/openspec-explore` | `$openspec-explore` | Discuss options, no code yet |
+| 2. Propose | `/openspec-propose add-x` | `$openspec-propose add-x` | **Approve the specs and contracts** |
+| 3. Build one phase | `/openspec-apply-change` | `$openspec-apply-change` | Review the diff (it stops, never commits) |
+| 4. Commit | `/commit` | ask for `git-ops` | Pick one of the 3 suggested messages |
+| 5. Repeat 3–4 per phase, then open the PR | `/open-pr` | ask for `git-ops` | |
+| 6. Archive | `/openspec-archive-change` | `$openspec-archive-change` | Specs now describe the system |
+
+- **When you correct the agent**, run `/codely-doc-create`. The correction becomes a doc and won't repeat.
+- **Before changing old code that has no spec**, run `/codely-openspec-spec-create-from-code <capability>`.
+- **Small fixes** skip OpenSpec: ask directly, verify, then `/commit`.
+
+## Subagents
+
+One table drives both tools (`global/AGENTS.md`):
+
+| Agent | Claude | Codex | Handles |
+|-------|--------|-------|---------|
+| `git-ops` | haiku | gpt-6-luna, low | commits, branches, pushes, PRs |
+| `analyst` | sonnet | session model, medium | read-only exploration and root-cause analysis |
+| `reviewer` | sonnet | session model, medium | correctness review |
+| `ux-reviewer` | sonnet | session model, medium | UI states, accessibility, responsiveness, copy |
+| `security-reviewer` | opus | session model, high | authz, injection, secrets, payments, uploads |
+| `planner` | opus | session model, high | plans outside OpenSpec |
+| `implementer` | opus | session model, high | production-quality code and tests |
+
+Claude picks agents from their descriptions. Codex spawns them when the instructions say so.
+
+## Safety
+
+- **Guard hook** (`global/hooks/guard-bash.sh`): runs in Claude and Codex, including inside subagents. It blocks:
+  - force-push, `--no-verify`, `reset --hard`, and `clean -f`
+  - pushes to `main`/`master`, and commits on `main`/`master`/`develop`, even after `cd` or with `git -C`
+  - `rm -r` on `/`, `~`, `.`, or `*`
+- **Codex `.rules`** forbid the same git operations, as a second line of defense.
+- **Claude deny rules** block reading `.env` files, `~/.ssh`, and AWS credentials.
+
+If a legitimate command is blocked, run it yourself (prefix it with `!` in Claude Code).
+
+## Commands
+
+```
+harness install [--dry-run] [--force]   link and merge the global layer
+harness status                          what is installed, missing, or broken
+harness doctor                          tools, links, and hooks
+harness undo [--dry-run] [--yes]        restore what the last install replaced
+harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
+harness validate                        what CI checks
+harness codex-agents                    regenerate Codex agents from the Claude ones
+```
+
+## Repository layout
+
+```
+global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
+global/claude/           Claude agents, rules, status line, settings (merged)
+global/codex/            Codex agents (generated), .rules, hooks (merged)
+global/hooks/            guard-bash.sh, shared by both tools
+skills/                  → ~/.claude/skills and ~/.agents/skills
+project/                 what `harness init` copies: docs/ seeds, the OpenSpec schema and config
+bin/harness              the CLI (bash + jq)
+tests/                   Bats suites; CI runs them on macOS
+```
+
+## Credits
+
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) provides the spec-driven workflow.
+- [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project:
+  - The `momotombo` schema is adapted from their `codely-spec-plan`.
+  - `harness init` installs their `codely-doc-create` and `codely-openspec-spec-create-from-code` skills by reference.

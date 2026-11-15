@@ -45,6 +45,7 @@ harness() {
     [[ "$(readlink "$HOME/.codex/rules/momotombo.rules")" == "$REPO/global/codex/rules/momotombo.rules" ]] || return 1
     [[ "$(readlink "$HOME/.claude/hooks/guard-bash.sh")" == "$REPO/global/hooks/guard-bash.sh" ]] || return 1
     [[ "$(readlink "$HOME/.codex/hooks/guard-bash.sh")" == "$REPO/global/hooks/guard-bash.sh" ]] || return 1
+    [[ "$(readlink "$HOME/.local/bin/harness")" == "$REPO/bin/harness" ]] || return 1
 }
 
 @test "install is idempotent and quiet the second time" {
@@ -151,6 +152,17 @@ harness() {
     [[ "$output" == *"claude agent bad: 'model'"* ]] || return 1
 }
 
+@test "validate catches an agent that preloads a skill the harness doesn't ship" {
+    printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\nskills:\n  - demo\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
+    run harness validate
+    [[ "$output" != *"preloads missing skill"* ]] || return 1
+
+    printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\nskills:\n  - gone\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"claude agent git-ops: preloads missing skill 'gone'"* ]] || return 1
+}
+
 @test "the real repository passes validate" {
     run "$PROJECT_DIR/bin/harness" validate
     [[ "$status" -eq 0 ]] || return 1
@@ -167,4 +179,65 @@ harness() {
         and .hooks.PreToolUse[0].hooks[0].command == "orca-hook"
         and .hooks.PreToolUse[1].matcher == "^Bash$"' "$HOME/.codex/hooks.json"
     [[ "$status" -eq 0 ]] || return 1
+}
+
+@test "a symlinked settings file is replaced, never written through, and undo brings the link back" {
+    mkdir -p "$HOME/.claude" "$HOME/dots"
+    echo '{"theme": "dark"}' > "$HOME/dots/settings.json"
+    ln -s "$HOME/dots/settings.json" "$HOME/.claude/settings.json"
+
+    harness install
+    [[ ! -L "$HOME/.claude/settings.json" ]] || return 1
+    run jq -e '.theme == "dark" and .model == "opus"' "$HOME/.claude/settings.json"
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$(cat "$HOME/dots/settings.json")" == '{"theme": "dark"}' ]] || return 1
+
+    harness undo --yes
+    [[ "$(readlink "$HOME/.claude/settings.json")" == "$HOME/dots/settings.json" ]] || return 1
+}
+
+@test "a broken settings symlink is left alone" {
+    mkdir -p "$HOME/.claude"
+    ln -s "$HOME/gone/settings.json" "$HOME/.claude/settings.json"
+    run harness install
+    [[ "$output" == *"broken symlink; left unchanged"* ]] || return 1
+    [[ ! -e "$HOME/gone" ]] || return 1
+}
+
+@test "an install that fails midway still leaves a restorable backup" {
+    mkdir -p "$HOME/.claude" "$HOME/.codex"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    chmod 555 "$HOME/.codex"   # linking ~/.codex/AGENTS.md fails right after CLAUDE.md was backed up
+    run harness install --force
+    chmod 755 "$HOME/.codex"
+    [[ "$status" -ne 0 ]] || return 1
+
+    run harness undo --yes
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
+}
+
+@test "undo skips a newer backup folder that has no manifest" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    mkdir -p "$REPO/.backup/99999999_999999"
+
+    run harness undo --yes
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
+}
+
+@test "install refuses a CODEX_HOME outside HOME" {
+    CODEX_HOME="$TEST_TMP/elsewhere" run harness install
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"must be inside \$HOME"* ]] || return 1
+}
+
+@test "install doesn't delete sources reached through a linked parent folder" {
+    mkdir -p "$HOME/.claude"
+    ln -s "$REPO/global/claude/agents" "$HOME/.claude/agents"
+    run harness install --force
+    [[ "$status" -eq 0 ]] || return 1
+    [[ -f "$REPO/global/claude/agents/git-ops.md" && ! -L "$REPO/global/claude/agents/git-ops.md" ]] || return 1
 }

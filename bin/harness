@@ -55,13 +55,14 @@ backup_item() {
         cp "$src" "$dest"
     fi
     backed_up+=("$rel")
-}
-
-write_manifest() {
-    [ -n "$backup_path" ] && [ ${#backed_up[@]} -gt 0 ] || return 0
-    jq -n --arg op "$1" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg host "$(hostname)" \
+    # Rewritten after every item, so an aborted install still leaves a restorable backup.
+    jq -n --arg op install --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg host "$(hostname)" \
         '{timestamp: $ts, operation: $op, items: $ARGS.positional, hostname: $host}' \
         --args "${backed_up[@]}" > "$backup_path/manifest.json"
+}
+
+report_backup() {
+    [ -n "$backup_path" ] && [ ${#backed_up[@]} -gt 0 ] || return 0
     echo ""
     echo "${BLUE}Backup saved:${RESET} $(pretty "$backup_path")  (restore with: harness undo)"
 }
@@ -114,6 +115,10 @@ link_item() {
         fi
         return 0
     fi
+    # The path already resolves to the source through a linked parent folder. Replacing it would delete the source.
+    if [ ! -L "$dest" ] && [ -e "$dest" ] && [ "$(readlink -f "$dest")" = "$(readlink -f "$src")" ]; then
+        return 0
+    fi
     if has_conflict "$dest"; then
         resolve_conflict "$src" "$dest" || return 0
         rm -rf "$dest"
@@ -154,6 +159,7 @@ mappings() {
         printf '%s\t%s\n' "$item" "$CLAUDE_HOME/hooks/$(basename "$item")"
         printf '%s\t%s\n' "$item" "$CODEX_HOME/hooks/$(basename "$item")"
     done
+    printf '%s\t%s\n' "$HARNESS_DIR/bin/harness" "$HOME/.local/bin/harness"
     [ -f "$HARNESS_DIR/global/claude/statusline.sh" ] &&
         printf '%s\t%s\n' "$HARNESS_DIR/global/claude/statusline.sh" "$CLAUDE_HOME/statusline.sh"
     return 0
@@ -187,6 +193,10 @@ merge_json() {
     [ -f "$repo_file" ] || return 0
     if $DRY_RUN; then dry "would merge $(basename "$repo_file") into $(pretty "$dest")"; return 0; fi
     local current="{}"
+    if [ -L "$dest" ] && [ ! -e "$dest" ]; then
+        warn "$(pretty "$dest") is a broken symlink; left unchanged (point it at a real file, then re-run)"
+        return 0
+    fi
     if [ -f "$dest" ]; then
         current=$(cat "$dest")
         if ! jq -e . >/dev/null 2>&1 <<<"$current"; then
@@ -204,10 +214,13 @@ merge_json() {
         | reduce ("allow", "ask", "deny") as $k (.;
             (($cur.permissions[$k] // []) + ($r.permissions[$k] // []) | unique) as $list
             | if ($list | length) > 0 then .permissions[$k] = $list else . end)')
-    if [ -f "$dest" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$dest")" ]; then
+    if [ ! -L "$dest" ] && [ -f "$dest" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$dest")" ]; then
         return 0
     fi
-    [ -f "$dest" ] && backup_item "$dest"
+    # Never write through a symlink (e.g. into a dotfiles repo): back up the link, then
+    # replace it with a regular file, so `undo` brings back the link and its untouched target.
+    [ -e "$dest" ] && backup_item "$dest"
+    [ -L "$dest" ] && rm "$dest"
     mkdir -p "$(dirname "$dest")"
     printf '%s\n' "$merged" > "$dest"
     ok "$(pretty "$dest") (merged)"
@@ -217,6 +230,10 @@ merge_json() {
 
 cmd_install() {
     command -v jq >/dev/null || die "jq is required (brew install jq)"
+    local home
+    for home in "$CLAUDE_HOME" "$CODEX_HOME" "$AGENTS_HOME"; do
+        [[ "$home" == "$HOME"/* ]] || die "$home must be inside \$HOME so backups can be restored"
+    done
     $DRY_RUN && echo "${BOLD}Dry run: nothing will change${RESET}"
     echo "Installing the harness from $(pretty "$HARNESS_DIR")"
     echo ""
@@ -234,7 +251,7 @@ cmd_install() {
         if $DRY_RUN; then dry "would remove broken link $(pretty "$link")"; else rm "$link"; ok "removed broken link $(pretty "$link")"; fi
     done < <(stale_links)
 
-    $DRY_RUN || write_manifest install
+    $DRY_RUN || report_backup
     echo ""
     $DRY_RUN && echo "Run without --dry-run to apply." || echo "Done. Run 'harness doctor' to check the setup."
 }
@@ -290,13 +307,15 @@ cmd_doctor() {
 
 cmd_undo() {
     local latest
-    latest=$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '*.restored' 2>/dev/null | sort | tail -n 1)
-    [ -n "$latest" ] && [ -f "$latest/manifest.json" ] || die "no backup to restore in $(pretty "$BACKUP_DIR")"
+    latest=$(find "$BACKUP_DIR" -mindepth 2 -maxdepth 2 -name manifest.json ! -path '*.restored/*' 2>/dev/null | sort | tail -n 1)
+    latest=${latest%/manifest.json}
+    [ -n "$latest" ] || die "no backup to restore in $(pretty "$BACKUP_DIR")"
     echo "${BOLD}Restore $(basename "$latest")${RESET} ($(jq -r .operation "$latest/manifest.json"), $(jq -r .timestamp "$latest/manifest.json"))"
     local items=() item
     while IFS= read -r item; do items+=("$item"); done < <(jq -r '.items[]' "$latest/manifest.json")
     for item in "${items[@]}"; do
-        [[ "$item" != /* && "$item" != *..* ]] || die "unsafe path in manifest: $item"
+        [[ "$item" != /* && "/$item/" != */../* ]] || die "unsafe path in manifest: $item"
+        [ -e "$latest/$item" ] || [ -f "$latest/$item.symlink" ] || die "backup is missing $item; nothing was restored"
         echo "  ~/$item"
     done
     if $DRY_RUN; then dry "would restore ${#items[@]} item(s)"; return 0; fi
@@ -479,15 +498,15 @@ cmd_init() {
                 ok "openspec init (skills for Claude Code and Codex)"
             fi
         fi
-        if diff -rq "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo" >/dev/null 2>&1; then
-            :
-        elif $DRY_RUN; then
-            dry "would install the momotombo schema in openspec/schemas/momotombo"
-        else
-            mkdir -p "$dir/openspec/schemas"
-            rm -rf "$dir/openspec/schemas/momotombo"
-            cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
-            ok "openspec/schemas/momotombo"
+        if [ ! -e "$dir/openspec/schemas/momotombo" ]; then
+            if $DRY_RUN; then dry "would install the momotombo schema in openspec/schemas/momotombo"
+            else
+                mkdir -p "$dir/openspec/schemas"
+                cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
+                ok "openspec/schemas/momotombo"
+            fi
+        elif ! diff -rq "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo" >/dev/null 2>&1; then
+            warn "openspec/schemas/momotombo differs from the harness; left unchanged (delete it and re-run to take the harness version)"
         fi
         dest="$dir/openspec/config.yaml"
         if [ ! -f "$dest" ] || { grep -q '^schema: spec-driven$' "$dest" && ! grep -qE '^(context|rules|operations):' "$dest"; }; then
@@ -498,7 +517,7 @@ cmd_init() {
         fi
     fi
 
-    # Codely skills, installed by reference (pinned in skills-lock.json)
+    # Codely skills, installed by reference with a pinned skills CLI (sources recorded in skills-lock.json)
     local missing=false skill
     for skill in "${CODELY_SKILLS[@]}"; do [ -f "$dir/.agents/skills/$skill/SKILL.md" ] || missing=true; done
     if $NO_CODELY || ! $missing; then
@@ -510,7 +529,7 @@ cmd_init() {
     else
         local args=() name
         for name in "${CODELY_SKILLS[@]}"; do args+=(--skill "$name"); done
-        if (cd "$dir" && npx -y skills@latest add CodelyTV/agent-harness "${args[@]}" -a claude-code -a codex -y </dev/null >/dev/null 2>&1); then
+        if (cd "$dir" && npx -y skills@1.8.1 add CodelyTV/agent-harness "${args[@]}" -a claude-code -a codex -y </dev/null >/dev/null 2>&1); then
             ok "Codely skills: ${CODELY_SKILLS[*]}"
         else
             warn "Codely skills failed to install (network?); re-run harness init later"
@@ -581,6 +600,10 @@ cmd_validate() {
         grep -q '^description: .' <<<"$fm" || { fail "claude agent $name: missing 'description'"; errors=$((errors + 1)); }
         grep -Eq '^model: (haiku|sonnet|opus|fable|inherit|claude-[a-z0-9.-]+)$' <<<"$fm" ||
             { fail "claude agent $name: 'model' must be haiku, sonnet, opus, fable, inherit, or a claude-* id"; errors=$((errors + 1)); }
+        for skill in $(awk '/^skills:/{on=1; next} on && /^  - /{print $2; next} {on=0}' <<<"$fm"); do
+            [ -f "$HARNESS_DIR/skills/$skill/SKILL.md" ] ||
+                { fail "claude agent $name: preloads missing skill '$skill'"; errors=$((errors + 1)); }
+        done
     done
     for file in "$HARNESS_DIR"/global/codex/agents/*.toml; do
         [ -f "$file" ] || continue
