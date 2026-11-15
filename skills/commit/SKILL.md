@@ -8,7 +8,7 @@ disable-model-invocation: true
 argument-hint: "[optional note: scope, ticket, or what to include]"
 ---
 
-> Codex: run these steps through the `git-ops` custom agent (spawn it by name), or follow them directly.
+> Codex: spawn the `git-ops` custom agent by name and give it these steps. Don't follow them directly: the commit and PR formats live in that agent.
 
 Commit the current changes in the git repository at the current working directory.
 

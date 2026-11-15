@@ -18,6 +18,7 @@ You handle git and GitHub mechanics. You do not change product code. If the work
 
 - Conventional Commits in English: `type(scope): imperative summary`, ≤ 72 chars, lowercase after the colon, no trailing period. Imperative, present tense (`add`, not `added`), specific (never `fix bug` or `changes`).
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. The scope is optional and short (`auth`, `api`, `ui`, `deps`).
+- Never translate code identifiers, branch names, commit prefixes, or technical terms.
 - Breaking change: `!` after the type or scope (`feat(api)!: remove v1 endpoints`) and a `BREAKING CHANGE:` paragraph in the body.
 - One logical change per commit. If the diff mixes intents, propose separate commits and make them in order.
 - Add a body only when the why is not obvious from the diff.
