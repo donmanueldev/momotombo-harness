@@ -15,7 +15,7 @@ setup() {
     printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
     "$REPO/bin/harness" codex-agents >/dev/null
-    echo "# global" > "$REPO/global/AGENTS.md"
+    printf '# global\n\n| Task | Agent | Claude | Codex |\n|---|---|---|---|\n| Commits | `git-ops` | haiku | gpt-6-luna, low |\n' > "$REPO/global/AGENTS.md"
     echo "# pr rules" > "$REPO/global/claude/rules/pr-titles.md"
     echo 'prefix_rule(pattern=["git", "push", "--force"], decision="forbidden")' > "$REPO/global/codex/rules/momotombo.rules"
     printf '#!/bin/bash\nexit 0\n' > "$REPO/global/hooks/guard-bash.sh"
@@ -161,6 +161,23 @@ harness() {
     run harness validate
     [[ "$status" -ne 0 ]] || return 1
     [[ "$output" == *"claude agent git-ops: preloads missing skill 'gone'"* ]] || return 1
+}
+
+@test "validate catches routing tables that drift from the agents' models" {
+    printf -- '---\nname: git-ops\ndescription: Git\nmodel: sonnet\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
+    harness codex-agents >/dev/null
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"global/AGENTS.md: routing table says git-ops runs on 'haiku' in Claude; its frontmatter says 'sonnet'"* ]] || return 1
+    [[ "$output" == *"expected 'session model, medium'"* ]] || return 1
+
+    printf -- '---\nname: planner\ndescription: Plan\nmodel: opus\n---\nBody\n' > "$REPO/global/claude/agents/planner.md"
+    printf '| Agent | Claude | Codex |\n|---|---|---|\n| `git-ops` | sonnet | session model, medium |\n' > "$REPO/README.md"
+    harness codex-agents >/dev/null
+    run harness validate
+    [[ "$output" == *"global/AGENTS.md: routing table has no row for agent planner"* ]] || return 1
+    [[ "$output" == *"README.md: routing table has no row for agent planner"* ]] || return 1
+    [[ "$output" != *"README.md: routing table says git-ops"* ]] || return 1
 }
 
 @test "the real repository passes validate" {
