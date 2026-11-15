@@ -5,6 +5,10 @@ context: fork
 agent: git-ops
 model: haiku
 disable-model-invocation: true
+license: MIT
+metadata:
+  author: momotombo
+  version: "1.0.0"
 argument-hint: "[optional note: scope, ticket, or what to include]"
 ---
 

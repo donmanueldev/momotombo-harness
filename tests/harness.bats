@@ -5,6 +5,7 @@ setup() {
     PROJECT_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     TEST_TMP="$(cd "$(mktemp -d)" && pwd -P)"
     export HOME="$TEST_TMP/home"
+    unset XDG_STATE_HOME HARNESS_BACKUP_DIR # keep backups inside the fake HOME
     export CODEX_HOME="$HOME/.codex"
     export HARNESS_LEGACY_DIRS="$TEST_TMP/old-checkout"
     REPO="$TEST_TMP/harness"
@@ -12,7 +13,7 @@ setup() {
              "$REPO/global/claude/rules" "$REPO/global/codex/rules" "$REPO/global/hooks"
     cp "$PROJECT_DIR/bin/harness" "$REPO/bin/harness"
     cp -R "$PROJECT_DIR/project" "$REPO/project"
-    printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  version: "1.0.0"\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
     "$REPO/bin/harness" codex-agents >/dev/null
     printf '# global\n\n| Task | Agent | Claude | Codex |\n|---|---|---|---|\n| Commits | `git-ops` | haiku | gpt-6-luna, low |\n' > "$REPO/global/AGENTS.md"
@@ -74,7 +75,7 @@ harness() {
 
     run harness install --force
     [[ "$(readlink "$HOME/.codex/AGENTS.md")" == "$REPO/global/AGENTS.md" ]] || return 1
-    backup=$(ls -d "$REPO"/.backup/*)
+    backup=$(ls -d "$HOME/.local/state/momotombo-harness/backups"/*)
     grep -q "my own instructions" "$backup/.codex/AGENTS.md"
 }
 
@@ -130,7 +131,7 @@ harness() {
     grep -q "mine" "$HOME/.claude/CLAUDE.md"
     run jq -e '.theme == "light" and (has("model") | not)' "$HOME/.claude/settings.json"
     [[ "$status" -eq 0 ]] || return 1
-    ls -d "$REPO"/.backup/*.restored
+    ls -d "$HOME/.local/state/momotombo-harness/backups"/*.restored
 }
 
 @test "undo refuses without confirmation when not interactive" {
@@ -255,7 +256,7 @@ harness() {
     mkdir -p "$HOME/.claude"
     echo "mine" > "$HOME/.claude/CLAUDE.md"
     harness install --force
-    mkdir -p "$REPO/.backup/99999999_999999"
+    mkdir -p "$HOME/.local/state/momotombo-harness/backups/99999999_999999"
 
     run harness undo --yes
     [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
@@ -274,4 +275,92 @@ harness() {
     run harness install --force
     [[ "$status" -eq 0 ]] || return 1
     [[ -f "$REPO/global/claude/agents/git-ops.md" && ! -L "$REPO/global/claude/agents/git-ops.md" ]] || return 1
+}
+
+@test "install keeps backups outside the checkout, and undo still restores an old in-checkout backup" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    [[ ! -e "$REPO/.backup" ]] || return 1
+    [[ -f "$(ls -d "$HOME/.local/state/momotombo-harness/backups"/*)/manifest.json" ]] || return 1
+
+    mkdir -p "$REPO/.backup"
+    mv "$HOME/.local/state/momotombo-harness/backups"/* "$REPO/.backup/"
+    run harness undo --yes
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
+}
+
+@test "doctor warns about an old openspec and a PATH without ~/.local/bin" {
+    mkdir -p "$TEST_TMP/bin"
+    printf '#!/bin/bash\necho 1.9.3\n' > "$TEST_TMP/bin/openspec"
+    chmod +x "$TEST_TMP/bin/openspec"
+    PATH="$TEST_TMP/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
+    [[ "$output" == *"openspec 1.9.3 is older than 2.0.0"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"~/.local/bin is not on PATH"* ]] || return 1
+
+    printf '#!/bin/bash\necho 2.1.0\n' > "$TEST_TMP/bin/openspec"
+    PATH="$TEST_TMP/bin:$HOME/.local/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
+    [[ "$output" == *"openspec 2.1.0"* ]] || return 1
+    [[ "$output" != *"older than"* ]] || return 1
+    [[ "$output" == *"~/.local/bin is on PATH"* ]] || return 1
+}
+
+@test "validate requires a license and a semver metadata.version on every skill" {
+    printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"skills/demo: missing 'license'"* ]] || return 1
+    [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
+
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  author: x\n  version: "1.2.0"\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$output" != *"skills/demo"* ]] || { echo "$output"; return 1; }
+}
+
+@test "undo restores a legacy in-checkout backup when the new backup folder was never created" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    mkdir -p "$REPO/.backup"
+    mv "$HOME/.local/state/momotombo-harness/backups"/* "$REPO/.backup/"
+    rm -rf "$HOME/.local/state"
+
+    run harness undo --yes
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
+}
+
+@test "undo explains when there is no backup anywhere" {
+    run harness undo --yes
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"no backup to restore"* ]] || return 1
+}
+
+@test "backups are readable only by their owner" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    [[ "$(stat -f %Lp "$HOME/.local/state/momotombo-harness/backups")" == 700 ]] || return 1
+    [[ "$(stat -f %Lp "$(ls -d "$HOME/.local/state/momotombo-harness/backups"/*)")" == 700 ]] || return 1
+}
+
+@test "doctor finishes even when a tool prints no version" {
+    mkdir -p "$TEST_TMP/bin"
+    printf '#!/bin/bash\necho dev-build\n' > "$TEST_TMP/bin/codex"
+    printf '#!/bin/bash\nexit 3\n' > "$TEST_TMP/bin/gh"
+    chmod +x "$TEST_TMP/bin/codex" "$TEST_TMP/bin/gh"
+    PATH="$TEST_TMP/bin:$PATH" run harness doctor
+    [[ "$output" == *"Links"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"Settings"* ]] || return 1
+}
+
+@test "validate rejects a skill version under another key or with a mismatched quote" {
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nother:\n  version: "1.0.0"\nmetadata:\n  author: x\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
+
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  version: "1.0.0\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
 }

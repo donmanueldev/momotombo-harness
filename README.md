@@ -46,7 +46,7 @@ harness doctor
 `install` never deletes your data:
 - A file that differs from the harness is kept, unless you pass `--force`. With `--force` it is backed up first.
 - Settings are **merged**: your keys and other tools' hooks stay.
-- `harness undo` restores the last backup.
+- `harness undo` restores the last backup. Backups live in `~/.local/state/momotombo-harness/backups` (override with `HARNESS_BACKUP_DIR`), outside the checkout, because they hold copies of your own config.
 
 In Codex, approve the guard hook once with `/hooks`.
 
