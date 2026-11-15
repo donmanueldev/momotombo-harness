@@ -9,7 +9,8 @@ CLAUDE_HOME="$HOME/.claude"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="$HOME/.agents"
 # Old checkout locations whose dangling links `install` may prune (space-separated).
-LEGACY_DIRS="${HARNESS_LEGACY_DIRS:-$HOME/agent-config}"
+# Old checkout paths whose dangling links install may prune (space-separated). Empty by default.
+LEGACY_DIRS="${HARNESS_LEGACY_DIRS:-}"
 
 DRY_RUN=false
 FORCE=false
