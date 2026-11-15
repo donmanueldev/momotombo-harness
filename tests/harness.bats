@@ -11,6 +11,7 @@ setup() {
     mkdir -p "$HOME" "$REPO/bin" "$REPO/skills/demo" "$REPO/global/claude/agents" "$REPO/global/codex/agents" \
              "$REPO/global/claude/rules" "$REPO/global/codex/rules" "$REPO/global/hooks"
     cp "$PROJECT_DIR/bin/harness" "$REPO/bin/harness"
+    cp -R "$PROJECT_DIR/project" "$REPO/project"
     printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
     "$REPO/bin/harness" codex-agents >/dev/null

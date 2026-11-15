@@ -1,0 +1,22 @@
+schema: momotombo
+
+# Constraints the agent can't infer from the code. Keep discoverable facts out.
+context: |
+  Write every artifact in English, even when the conversation is in Spanish.
+  Follow the project's AGENTS.md and the docs/ conventions it lists.
+  Every user-facing screen handles loading, empty, error (with recovery), and success states.
+  Authorize on the server (Policies) and validate at the boundary (Form Requests or schemas).
+
+rules:
+  plan:
+    - Keep each phase small enough to review in one sitting.
+    - Name the docs/ files that apply to each phase.
+
+operations:
+  apply:
+    guidance:
+      - Implement one phase per run, then stop without committing.
+      - Report verification exactly as observed; mark anything not run as not verified.
+  archive:
+    guidance:
+      - Archive only after every phase is merged.

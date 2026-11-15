@@ -31,7 +31,7 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 
 For a project that already has behavior without specs, run `codely-openspec-spec-create-from-code <capability>` before changing it.
 
-**When the user corrects you** on a convention ("we don't do it that way"), offer to run `codely-doc-create` so the correction becomes a `docs/` page and doesn't happen again.
+**When the user corrects you** on a convention ("we don't do it that way"), offer to run `codely-doc-create` so the correction becomes a `docs/` page and doesn't happen again. Leave out Codely's mascot sign-off and course links from docs and replies.
 
 ## Subagents
 

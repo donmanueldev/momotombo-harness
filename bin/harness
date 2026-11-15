@@ -325,6 +325,209 @@ cmd_undo() {
     mv "$latest" "$latest.restored"
 }
 
+# ----------------------------------------------------------------- project layer
+
+CODELY_SKILLS=(codely-doc-create codely-openspec-spec-create-from-code)
+STACKS=""
+NO_CODELY=false
+INIT_DIR=""
+
+stack_docs() {
+    echo "docs/documentation.md"
+    case " $1 " in *" laravel "*)
+        echo "docs/backend/thin-controllers-and-actions.md"
+        echo "docs/backend/form-requests-and-policies.md"
+        echo "docs/database/postgres-migrations.md"
+        echo "docs/frontend/inertia-forms-and-states.md"
+        echo "docs/testing/pest-feature-tests.md" ;;
+    esac
+    case " $1 " in *" expo "*)
+        echo "docs/mobile/expo-router-screens.md"
+        echo "docs/mobile/secure-storage-and-api.md" ;;
+    esac
+}
+
+detect_stacks() {
+    local dir="$1" found=""
+    [ -f "$dir/composer.json" ] && jq -e '(.require // {}) | has("laravel/framework")' "$dir/composer.json" >/dev/null 2>&1 && found="laravel"
+    [ -f "$dir/package.json" ] && jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("expo")' "$dir/package.json" >/dev/null 2>&1 && found="$found expo"
+    echo "${found# }"
+}
+
+docs_map() {
+    local dir="$1" file title
+    (cd "$dir" && find docs -name '*.md' 2>/dev/null | sort) | while read -r file; do
+        title=$({ grep -m1 '^# ' "$dir/$file" || true; } | sed -e 's/^# //' -e 's/^[^A-Za-z]* //')
+        echo "- [${title:-$(basename "$file" .md)}]($file)"
+    done
+}
+
+render_agents_md() {
+    local dir="$1" stacks="$2" name
+    name=$(basename "$dir")
+    echo "# $name"
+    echo ""
+    echo "## Commands"
+    echo ""
+    echo "Agents run these to verify their work. Keep them in sync with the real scripts."
+    echo ""
+    echo '```bash'
+    case " $stacks " in *" laravel "*)
+        echo "composer install && npm install   # dependencies"
+        echo "docker compose up -d              # local services (PostgreSQL)"
+        echo "composer run dev                  # app, queue, and Vite"
+        echo "php artisan test                  # Pest / PHPUnit"
+        echo "vendor/bin/pint                   # PHP format"
+        echo "npm run types && npm run lint     # TypeScript and ESLint (check package.json)" ;;
+    esac
+    case " $stacks " in *" expo "*)
+        echo "npm install                       # dependencies"
+        echo "npx expo start                    # dev server"
+        echo "npx tsc --noEmit                  # typecheck"
+        echo "npx expo lint                     # lint"
+        echo "npm test                          # unit tests (check package.json)" ;;
+    esac
+    [ -z "$stacks" ] && echo "# TODO: install, run, test, lint, and format commands"
+    echo '```'
+    if [ -f "$dir/package.json" ] && jq -e '(.scripts // {}) | length > 0' "$dir/package.json" >/dev/null 2>&1; then
+        echo ""
+        echo "package.json scripts: $(jq -r '.scripts | keys | map("`" + . + "`") | join(", ")' "$dir/package.json")."
+    fi
+    cat <<'EOF'
+
+## Architecture
+
+<!-- TODO: 3 to 6 bullets. What the app does, the main folders and what lives in each, and any rule an agent can't infer from the code. -->
+
+## Workflow
+
+- Features and behavior changes are spec-driven with OpenSpec and the `momotombo` schema: `openspec-explore` → `openspec-propose` (approve specs and contracts) → `openspec-apply-change` (one phase per run, then stop and review) → `openspec-archive-change`. In Claude Code they are `/openspec-…`, and in Codex `$openspec-…`. Current behavior lives in `openspec/specs/`.
+- Before changing behavior that has no spec yet, run `codely-openspec-spec-create-from-code <capability>`.
+- When you are corrected on a convention, run `codely-doc-create` so it becomes a doc in `docs/`. Leave out Codely's mascot sign-off and course links from docs and replies.
+- Commits and PRs follow the global harness rules: English Conventional Commits, made by `git-ops` (`/commit`, `/open-pr` in Claude Code).
+
+## Documentation
+
+Conventions with good and bad examples live in `docs/`. Read **only** the docs relevant to your task:
+
+EOF
+    docs_map "$dir"
+}
+
+cmd_init() {
+    local dir stacks file dest
+    dir="${INIT_DIR:-.}"
+    [ -d "$dir" ] || die "no such directory: $dir"
+    dir=$(cd "$dir" && pwd -P)
+    [ "$dir" != "$HARNESS_DIR" ] || die "run init inside a product repository, not the harness itself"
+    command -v jq >/dev/null || die "jq is required (brew install jq)"
+    git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || warn "$(pretty "$dir") is not a git repository"
+
+    stacks="${STACKS//,/ }"
+    [ -n "$stacks" ] || stacks=$(detect_stacks "$dir")
+    for file in $stacks; do
+        case "$file" in laravel|expo) ;; *) die "unknown stack '$file' (use laravel, expo)" ;; esac
+    done
+    $DRY_RUN && echo "${BOLD}Dry run: nothing will change${RESET}"
+    echo "Setting up $(pretty "$dir") (stack: ${stacks:-none detected; pass --stack laravel,expo})"
+    echo ""
+
+    # docs/: copy seeds that don't exist yet
+    while read -r file; do
+        dest="$dir/$file"
+        if [ -e "$dest" ]; then continue; fi
+        if $DRY_RUN; then dry "would add $file"; continue; fi
+        mkdir -p "$(dirname "$dest")"
+        cp "$HARNESS_DIR/project/$file" "$dest"
+        ok "$file"
+    done < <(stack_docs "$stacks")
+
+    # AGENTS.md and CLAUDE.md
+    if [ -e "$dir/AGENTS.md" ]; then
+        skip "AGENTS.md exists (kept). Make sure its docs map lists:"
+        $DRY_RUN || docs_map "$dir" | sed 's/^/    /'
+    elif $DRY_RUN; then
+        dry "would create AGENTS.md"
+    else
+        render_agents_md "$dir" "$stacks" > "$dir/AGENTS.md"
+        ok "AGENTS.md (fill in the Architecture section)"
+    fi
+    if [ -L "$dir/CLAUDE.md" ] && [ "$(readlink "$dir/CLAUDE.md")" = "AGENTS.md" ]; then
+        :
+    elif [ -e "$dir/CLAUDE.md" ]; then
+        warn "CLAUDE.md exists as its own file. Merge it into AGENTS.md, then replace it with: ln -s AGENTS.md CLAUDE.md"
+    elif $DRY_RUN; then
+        dry "would link CLAUDE.md -> AGENTS.md"
+    else
+        ln -s AGENTS.md "$dir/CLAUDE.md"
+        ok "CLAUDE.md -> AGENTS.md"
+    fi
+
+    # OpenSpec with the momotombo schema
+    if ! command -v openspec >/dev/null; then
+        warn "openspec not installed; skipped (brew install openspec, then re-run harness init)"
+    else
+        if [ ! -d "$dir/openspec" ]; then
+            if $DRY_RUN; then dry "would run: openspec init --tools claude,codex"
+            else
+                local log
+                if ! log=$(cd "$dir" && OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_TELEMETRY=0 CI=true \
+                        openspec init --tools claude,codex --no-animation . 2>&1); then
+                    echo "$log" >&2
+                    die "openspec init failed"
+                fi
+                ok "openspec init (skills for Claude Code and Codex)"
+            fi
+        fi
+        if diff -rq "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo" >/dev/null 2>&1; then
+            :
+        elif $DRY_RUN; then
+            dry "would install the momotombo schema in openspec/schemas/momotombo"
+        else
+            mkdir -p "$dir/openspec/schemas"
+            rm -rf "$dir/openspec/schemas/momotombo"
+            cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
+            ok "openspec/schemas/momotombo"
+        fi
+        dest="$dir/openspec/config.yaml"
+        if [ ! -f "$dest" ] || { grep -q '^schema: spec-driven$' "$dest" && ! grep -qE '^(context|rules|operations):' "$dest"; }; then
+            if $DRY_RUN; then dry "would write openspec/config.yaml (schema: momotombo)"
+            else cp "$HARNESS_DIR/project/openspec/config.yaml" "$dest"; ok "openspec/config.yaml (schema: momotombo)"; fi
+        elif ! grep -q '^schema: momotombo$' "$dest"; then
+            warn "openspec/config.yaml is customized; set 'schema: momotombo' in it to use the harness workflow"
+        fi
+    fi
+
+    # Codely skills, installed by reference (pinned in skills-lock.json)
+    local missing=false skill
+    for skill in "${CODELY_SKILLS[@]}"; do [ -f "$dir/.agents/skills/$skill/SKILL.md" ] || missing=true; done
+    if $NO_CODELY || ! $missing; then
+        :
+    elif ! command -v npx >/dev/null; then
+        warn "npx not found; Codely skills skipped (install Node, then re-run harness init)"
+    elif $DRY_RUN; then
+        dry "would run: npx skills add CodelyTV/agent-harness (${CODELY_SKILLS[*]})"
+    else
+        local args=() name
+        for name in "${CODELY_SKILLS[@]}"; do args+=(--skill "$name"); done
+        if (cd "$dir" && npx -y skills@latest add CodelyTV/agent-harness "${args[@]}" -a claude-code -a codex -y </dev/null >/dev/null 2>&1); then
+            ok "Codely skills: ${CODELY_SKILLS[*]}"
+        else
+            warn "Codely skills failed to install (network?); re-run harness init later"
+        fi
+    fi
+
+    echo ""
+    if $DRY_RUN; then
+        echo "Run without --dry-run to apply."
+    else
+        echo "Next:"
+        echo "  1. Fill in the Architecture section of AGENTS.md and check its Commands."
+        echo "  2. Review the seeded docs/ and delete what doesn't apply."
+        echo "  3. Commit the harness files, then start a feature with openspec-explore."
+    fi
+}
+
 frontmatter() { awk 'NR == 1 && $0 != "---" { exit } NR == 1 { next } /^---$/ { exit } { print }' "$1"; }
 body() { awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm { print }' "$1" | sed '/./,$!d'; }
 toml_string() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
@@ -397,6 +600,12 @@ cmd_validate() {
         [ -f "$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml" ] ||
             { fail "claude agent $(basename "$file" .md): missing Codex twin (run: harness codex-agents)"; errors=$((errors + 1)); }
     done
+    for file in $(stack_docs "laravel expo"); do
+        [ -f "$HARNESS_DIR/project/$file" ] || { fail "project/$file: missing seed doc"; errors=$((errors + 1)); }
+    done
+    for file in schema.yaml templates/spec.md templates/plan.md; do
+        [ -f "$HARNESS_DIR/project/openspec/schemas/momotombo/$file" ] || { fail "momotombo schema: missing $file"; errors=$((errors + 1)); }
+    done
     for file in "$HARNESS_DIR"/global/claude/settings.json "$HARNESS_DIR"/global/codex/hooks.json; do
         [ -f "$file" ] || continue
         jq -e . "$file" >/dev/null 2>&1 || { fail "${file#"$HARNESS_DIR"/}: invalid JSON"; errors=$((errors + 1)); }
@@ -419,6 +628,11 @@ Global layer (this machine):
   harness doctor                          Check tools, links, and hooks
   harness undo [--dry-run] [--yes]        Restore the files replaced by the last install
 
+Project layer (a product repository):
+  harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
+                                          Add AGENTS.md, docs/ conventions, OpenSpec with the
+                                          momotombo schema, and the Codely skills. Never overwrites.
+
 Maintenance:
   harness validate                        Check skills, agents, settings, and scripts (used by CI)
   harness codex-agents                    Regenerate global/codex/agents/*.toml from the Claude agents
@@ -439,12 +653,17 @@ main() {
             -f|--force) FORCE=true ;;
             -y|--yes) ASSUME_YES=true ;;
             -h|--help) command=help ;;
-            *) die "unknown option: $1 (see: harness help)" ;;
+            --stack) [ $# -ge 2 ] || die "--stack needs a value (laravel, expo)"; STACKS="$2"; shift ;;
+            --stack=*) STACKS="${1#--stack=}" ;;
+            --no-codely) NO_CODELY=true ;;
+            -*) die "unknown option: $1 (see: harness help)" ;;
+            *) [ "$command" = init ] && [ -z "$INIT_DIR" ] || die "unexpected argument: $1 (see: harness help)"; INIT_DIR="$1" ;;
         esac
         shift
     done
     case "$command" in
         install) cmd_install ;;
+        init) cmd_init ;;
         status) cmd_status ;;
         doctor) cmd_doctor ;;
         undo) cmd_undo ;;
