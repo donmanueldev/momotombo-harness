@@ -8,6 +8,8 @@ disable-model-invocation: true
 argument-hint: "[optional note: scope, ticket, or what to include]"
 ---
 
+> Codex: run these steps through the `git-ops` custom agent (spawn it by name), or follow them directly.
+
 Commit the current changes in the git repository at the current working directory.
 
 User note (may be empty): $ARGUMENTS

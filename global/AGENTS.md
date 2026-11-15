@@ -1,32 +1,63 @@
-# Global instructions
+# Momotombo harness: global instructions
 
-## Model routing (subagents)
+These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`). A project's own `AGENTS.md` and `docs/` refine them and win on conflicts.
 
-Delegate by task type so each kind of work runs on the right model. Pass the subagent everything it needs in the prompt, because it does not see this conversation.
+## Language
 
-| Task | Subagent | Model |
-|------|----------|-------|
-| Commit, commit message, push, branch, pull request | `git-ops` | haiku |
-| Explore code, trace a flow, root-cause a bug, audit, research | `analyst` | sonnet |
-| Review a diff, branch, or PR for correctness | `reviewer` | sonnet |
-| Review screens, flows, and components for UX quality | `ux-reviewer` | sonnet |
-| Review auth, payments, PII, uploads, integrations | `security-reviewer` | opus |
-| Plan a feature, refactor, or multi-file change | `planner` | opus |
-| Write or modify code and tests | `implementer` | opus |
+- Talk to the user in their language (usually Spanish).
+- Write everything that is versioned in **English**: code, specs, plans, `docs/`, `AGENTS.md`, commit messages, and PR titles.
+- PR descriptions are in Spanish.
 
-- Every commit or PR request goes to `git-ops`. The user can also run `/commit` and `/open-pr` directly.
-- Small, local edits (a typo, a one-line fix) can be done directly. Use `implementer` when the change spans several files or needs its own verification loop.
-- Run independent reviews in parallel. Don't let two agents edit the same files at once.
+## Start of every task
 
-## Product workflow
+1. Read the project's `AGENTS.md`. Open only the `docs/` files its map lists as relevant to the task.
+2. If the project has `openspec/`, run `openspec list --specs` to learn which capabilities already have specs, and read the specs the task touches.
+3. If a requirement is ambiguous, ask one focused question before writing code.
 
-For a non-trivial feature:
+## Workflow
 
-1. `planner` frames the user outcome, the UX states, and thin vertical slices. **The user approves the plan.**
-2. `implementer` builds it slice by slice, with tests.
-3. `reviewer`, plus `ux-reviewer` if there is UI and `security-reviewer` if it touches sensitive surfaces, all run in parallel.
-4. `implementer` fixes the blocking findings.
-5. `git-ops` commits and opens the PR.
+| Task size | How |
+|-----------|-----|
+| Typo, one-line fix, config tweak | Do it directly, then verify. |
+| Bug fix | Reproduce it, find the root cause (`analyst`), fix it with a regression test (`implementer`). |
+| Feature or behavior change | Spec-driven with OpenSpec (below). |
+
+**Spec-driven flow** (Claude: `/openspec-…` · Codex: `$openspec-…`):
+
+1. `openspec-explore`: think it through with the user; no code yet.
+2. `openspec-propose <change>`: write lean specs plus a phased `plan.md`. **Stop and let the user approve the specs and the contracts** before implementing.
+3. `openspec-apply-change`: implement **only the first phase with unchecked tasks**, run its verification, check off its tasks, then **stop**. Don't commit. Tell the user to review, then commit with `/commit` (Claude) or the `git-ops` agent (Codex). The next phase starts only when the user runs apply again.
+4. `openspec-archive-change`: once every phase is merged, fold the specs into `openspec/specs/`.
+
+For a project that already has behavior without specs, run `codely-openspec-spec-create-from-code <capability>` before changing it.
+
+**When the user corrects you** on a convention ("we don't do it that way"), offer to run `codely-doc-create` so the correction becomes a `docs/` page and doesn't happen again.
+
+## Subagents
+
+Delegate by task type so each kind of work runs on the right model. A subagent doesn't see the conversation, so give it everything it needs in the prompt. **Codex: spawn these agents by name when the table says so. Codex doesn't pick them automatically.**
+
+| Task | Agent | Claude | Codex |
+|------|-------|--------|-------|
+| Commit, branch, push, pull request | `git-ops` | haiku | gpt-6-luna, low |
+| Explore code, trace a flow, root-cause, research | `analyst` | sonnet | session model, medium |
+| Review a diff or PR for correctness | `reviewer` | sonnet | session model, medium |
+| Review UI: states, accessibility, responsive, copy | `ux-reviewer` | sonnet | session model, medium |
+| Review auth, payments, PII, uploads, integrations | `security-reviewer` | opus | session model, high |
+| Plan work outside OpenSpec | `planner` | opus | session model, high |
+| Write or modify code and tests | `implementer` | opus | session model, high |
+
+- Every commit or PR goes through `git-ops`. In Claude the user can also run `/commit` and `/open-pr`.
+- Run independent reviews in parallel. Two agents never edit the same files at once.
+- After implementing a phase: `reviewer`, plus `ux-reviewer` if UI changed, plus `security-reviewer` if a sensitive surface changed.
+
+## Stack
+
+Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile.
+
+- Laravel projects with Laravel Boost: read Boost's guidelines and `.ai/rules/` first, and use its skills (Inertia, Pest, and others).
+- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates.
+- Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
 
 ## Product quality bar
 
@@ -37,26 +68,16 @@ Ship work that feels professional, not just "working":
 - Accessible (labels, focus, keyboard, contrast) and responsive from phone to desktop.
 - Consistent with the project's design system. No one-off styles.
 - Fast: no N+1 queries, sized images, no layout shift, heavy work off the main thread.
-- Secure by default: server-side validation and authorization, idempotent mutations, no secrets or PII in logs.
+- Secure by default: server-side validation and authorization (Form Requests, Policies), idempotent mutations, no secrets or PII in logs.
 - Observable: errors and key events are visible in production.
-- Tested: business rules with unit tests, critical flows with feature or integration tests.
+- Tested: business rules with unit tests, critical flows with feature or integration tests. A test must fail without the change.
 
-## Engineering posture
+## Verification
 
-- Senior engineer with a practical bias: correctness, maintainability, then speed.
-- Usual stack: Laravel/PHP, Inertia.js, PostgreSQL, Docker, React, TypeScript, Tailwind CSS, shadcn/ui, Swift/SwiftUI, React Native (Expo).
-- Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
-- If a requirement is ambiguous, ask one focused question before coding.
-- Keep changes minimal and reversible. Prefer explicit code to clever abstractions.
-- In Laravel projects with Laravel Boost, read its generated guidelines and `.ai/rules/` first.
+Never say something works without evidence. Before reporting a task or phase as done, run the project's checks (tests, typecheck, lint, format) and report exactly what ran and what passed. Mark anything you couldn't run as not verified.
 
 ## Safety
 
-- A PreToolUse hook (`~/.claude/hooks/guard-bash.sh`) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/develop, and recursive deletes of `/`, `~`, or `.`. Don't try to work around it; ask the user.
-- Ask before migrations, seeders, database resets, volume deletion, dependency upgrades, releases, deployments, external messages, or anything touching staging or production.
-- Never claim something is verified without having seen the evidence.
-
-## Language
-
-- Reply in the user's language (usually Spanish).
-- Commits and PR titles are in English. PR descriptions are in Spanish.
+- A guard hook (`guard-bash.sh`, in both Claude and Codex) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, and recursive deletes of `/`, `~`, or `.`. Codex `.rules` back it up. Don't work around them; ask the user.
+- Ask before migrations on shared data, seeders, database resets, volume deletion, dependency upgrades, releases, deployments, external messages, or anything touching staging or production.
+- Never read or print `.env` files, keys, or tokens.

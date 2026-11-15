@@ -8,6 +8,8 @@ disable-model-invocation: true
 argument-hint: "[optional: target branch, ticket, or context for the description]"
 ---
 
+> Codex: run these steps through the `git-ops` custom agent (spawn it by name), or follow them directly.
+
 Open a pull request for the work in the git repository at the current working directory.
 
 User note (may be empty): $ARGUMENTS

@@ -13,7 +13,7 @@ setup() {
     cp "$PROJECT_DIR/bin/harness" "$REPO/bin/harness"
     printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     printf -- '---\nname: git-ops\ndescription: Git\nmodel: haiku\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
-    printf 'name = "git-ops"\ndescription = "Git"\ndeveloper_instructions = """x"""\n' > "$REPO/global/codex/agents/git-ops.toml"
+    "$REPO/bin/harness" codex-agents >/dev/null
     echo "# global" > "$REPO/global/AGENTS.md"
     echo "# pr rules" > "$REPO/global/claude/rules/pr-titles.md"
     echo 'prefix_rule(pattern=["git", "push", "--force"], decision="forbidden")' > "$REPO/global/codex/rules/momotombo.rules"
@@ -152,5 +152,18 @@ harness() {
 
 @test "the real repository passes validate" {
     run "$PROJECT_DIR/bin/harness" validate
+    [[ "$status" -eq 0 ]] || return 1
+}
+
+@test "hook merge appends to existing events and never drops other tools' hooks" {
+    mkdir -p "$HOME/.codex"
+    echo '{"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "orca-hook"}]}]}}' > "$HOME/.codex/hooks.json"
+
+    harness install
+    harness install
+
+    run jq -e '(.hooks.PreToolUse | length) == 2
+        and .hooks.PreToolUse[0].hooks[0].command == "orca-hook"
+        and .hooks.PreToolUse[1].matcher == "^Bash$"' "$HOME/.codex/hooks.json"
     [[ "$status" -eq 0 ]] || return 1
 }

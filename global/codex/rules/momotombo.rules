@@ -1,0 +1,40 @@
+# Momotombo harness command policy for Codex. The PreToolUse guard hook covers more
+# variants; these prefix rules are the second line of defense. Strictest match wins.
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease"]],
+    decision = "forbidden",
+    justification = "Force-push rewrites shared history. Open a PR or ask the user.",
+    match = [["git", "push", "--force"], ["git", "push", "-f", "origin", "x"]],
+    not_match = [["git", "push", "-u", "origin", "feature/x"]],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Discards uncommitted work. Ask the user to run it.",
+    match = [["git", "reset", "--hard", "HEAD~1"]],
+    not_match = [["git", "reset", "--soft", "HEAD~1"]],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", ["-f", "-fd", "-fdx", "-xdf", "-df"]],
+    decision = "forbidden",
+    justification = "Deletes untracked files permanently.",
+    match = [["git", "clean", "-fd"]],
+    not_match = [["git", "clean", "-n"]],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", ["main", "master"]],
+    decision = "forbidden",
+    justification = "Never push directly to main. Open a pull request.",
+    match = [["git", "push", "origin", "main"]],
+    not_match = [["git", "push", "origin", "main-fixes"]],
+)
+
+prefix_rule(
+    pattern = ["git", "commit", "--no-verify"],
+    decision = "forbidden",
+    justification = "Don't skip the repository's hooks.",
+)

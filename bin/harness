@@ -161,12 +161,14 @@ mappings() {
 
 # Dangling links in managed folders that point into this harness or a legacy checkout.
 stale_links() {
-    local dir link target prefix
+    local dir link target prefix managed
+    managed=$(mappings | cut -f2)
     for dir in "$CLAUDE_HOME/skills" "$CLAUDE_HOME/agents" "$CLAUDE_HOME/rules" "$CLAUDE_HOME/hooks" \
                "$AGENTS_HOME/skills" "$CODEX_HOME/skills" "$CODEX_HOME/agents" "$CODEX_HOME/rules" "$CODEX_HOME/hooks"; do
         [ -d "$dir" ] || continue
         for link in "$dir"/* "$dir"/.[!.]*; do
             [ -L "$link" ] && [ ! -e "$link" ] || continue
+            grep -qxF "$link" <<<"$managed" && continue
             target=$(readlink "$link")
             for prefix in "$HARNESS_DIR" $LEGACY_DIRS; do
                 [[ "$target" == "$prefix"/* ]] && { echo "$link"; break; }
@@ -178,7 +180,8 @@ stale_links() {
 
 # ----------------------------------------------------------------- settings merges
 
-# Merge a versioned JSON file into a live one. Repo keys win; permission lists are unioned.
+# Merge a versioned JSON file into a live one. Repo keys win, permission lists are unioned,
+# and hook entries are appended to each event's existing list (other tools' hooks are kept).
 merge_json() {
     local repo_file="$1" dest="$2"
     [ -f "$repo_file" ] || return 0
@@ -194,7 +197,10 @@ merge_json() {
     local merged
     merged=$(jq -n --argjson cur "$current" --slurpfile repo "$repo_file" '
         $repo[0] as $r
-        | ($cur * $r)
+        | ($cur * ($r | del(.hooks)))
+        | reduce (($r.hooks // {}) | keys[]) as $event (.;
+            .hooks[$event] = (($cur.hooks[$event] // [])
+                + [ $r.hooks[$event][] | select(. as $entry | ($cur.hooks[$event] // []) | any(. == $entry) | not) ]))
         | reduce ("allow", "ask", "deny") as $k (.;
             (($cur.permissions[$k] // []) + ($r.permissions[$k] // []) | unique) as $list
             | if ($list | length) > 0 then .permissions[$k] = $list else . end)')
@@ -320,6 +326,39 @@ cmd_undo() {
 }
 
 frontmatter() { awk 'NR == 1 && $0 != "---" { exit } NR == 1 { next } /^---$/ { exit } { print }' "$1"; }
+body() { awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm { print }' "$1" | sed '/./,$!d'; }
+toml_string() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
+
+# Render the Codex agent for a Claude agent. Claude's model tier maps to Codex effort;
+# only the haiku tier pins a model (the cheap one). Others inherit the session's model.
+codex_agent() {
+    local file="$1" fm name description model
+    fm=$(frontmatter "$file")
+    name=$(sed -n 's/^name: //p' <<<"$fm")
+    description=$(sed -n 's/^description: //p' <<<"$fm")
+    model=$(sed -n 's/^model: //p' <<<"$fm")
+    echo "# Generated from global/claude/agents/$name.md by 'harness codex-agents'. Edit that file, then regenerate."
+    echo "name = $(toml_string "$name")"
+    echo "description = $(toml_string "$description")"
+    case "$model" in
+        haiku) echo 'model = "gpt-6-luna"'; echo 'model_reasoning_effort = "low"' ;;
+        sonnet) echo 'model_reasoning_effort = "medium"' ;;
+        *) echo 'model_reasoning_effort = "high"' ;;
+    esac
+    echo "developer_instructions = '''"
+    body "$file"
+    echo "'''"
+}
+
+cmd_codex_agents() {
+    local file out
+    mkdir -p "$HARNESS_DIR/global/codex/agents"
+    for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        out="$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml"
+        codex_agent "$file" > "$out"
+        ok "${out#"$HARNESS_DIR"/}"
+    done
+}
 
 cmd_validate() {
     local errors=0 file dir name fm
@@ -346,6 +385,17 @@ cmd_validate() {
         grep -q "^name = \"$name\"$" "$file" || { fail "codex agent $name: 'name' must match the file name"; errors=$((errors + 1)); }
         grep -q '^description = "' "$file" || { fail "codex agent $name: missing 'description'"; errors=$((errors + 1)); }
         grep -q '^developer_instructions = ' "$file" || { fail "codex agent $name: missing 'developer_instructions'"; errors=$((errors + 1)); }
+        if [ -f "$HARNESS_DIR/global/claude/agents/$name.md" ]; then
+            [ "$(codex_agent "$HARNESS_DIR/global/claude/agents/$name.md")" = "$(cat "$file")" ] ||
+                { fail "codex agent $name: out of sync with its Claude agent (run: harness codex-agents)"; errors=$((errors + 1)); }
+        else
+            fail "codex agent $name: no matching global/claude/agents/$name.md"; errors=$((errors + 1))
+        fi
+    done
+    for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+        [ -f "$file" ] || continue
+        [ -f "$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml" ] ||
+            { fail "claude agent $(basename "$file" .md): missing Codex twin (run: harness codex-agents)"; errors=$((errors + 1)); }
     done
     for file in "$HARNESS_DIR"/global/claude/settings.json "$HARNESS_DIR"/global/codex/hooks.json; do
         [ -f "$file" ] || continue
@@ -371,6 +421,7 @@ Global layer (this machine):
 
 Maintenance:
   harness validate                        Check skills, agents, settings, and scripts (used by CI)
+  harness codex-agents                    Regenerate global/codex/agents/*.toml from the Claude agents
 
 Options:
   -n, --dry-run   Show what would change without changing anything
@@ -398,6 +449,7 @@ main() {
         doctor) cmd_doctor ;;
         undo) cmd_undo ;;
         validate) cmd_validate ;;
+        codex-agents) cmd_codex_agents ;;
         help|-h|--help) cmd_help ;;
         *) die "unknown command: $command (see: harness help)" ;;
     esac
