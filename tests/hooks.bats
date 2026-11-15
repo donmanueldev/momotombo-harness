@@ -87,7 +87,22 @@ guard() {
         'source .env' \
         '. ./.env.testing' \
         'bash -c "cat .env"' \
-        'cd api && cat .env | pbcopy'; do
+        'cd api && cat .env | pbcopy' \
+        'cat <.env' \
+        'cat<.env' \
+        'cat .env>/tmp/x' \
+        'tee < .env' \
+        'cat .env*' \
+        'cat .e*' \
+        'cat .ENV' \
+        'cat .en\v' \
+        '/bin/cat .env' \
+        'sudo cat .env' \
+        'sort .env' \
+        'dd if=.env' \
+        'diff <(cat .env) .env.example' \
+        'sed -i s/a/b/ .env' \
+        'grep -e KEY .env'; do
         run guard "$command"
         [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
         [[ "$output" == *"would expose secrets"* ]] || return 1
@@ -102,10 +117,33 @@ guard() {
         'ls -la .env' \
         'grep -r DB_HOST config/' \
         'cat environment.ts' \
-        'php artisan key:generate'; do
+        'php artisan key:generate' \
+        'gh pr create --title x --body "never cat .env"' \
+        'echo "run cat .env to see it"' \
+        'grep .env .gitignore' \
+        'find . -name .env' \
+        'cat <<EOF > .env
+APP_KEY=
+EOF' \
+        'cat <<<"$value" > out.txt'; do
         run guard "$command"
         [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
     done
+}
+
+@test "guard ignores heredoc bodies, such as commit messages that mention dotenv files" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    run guard "git commit -m \"\$(cat <<'EOF'
+fix: stop reading .env files
+cat .env is now blocked; so is rm -rf /
+EOF
+)\""
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    run guard "cat <<-EOF
+	cat .env
+	EOF
+cat .env"
+    [[ "$status" -eq 2 ]] || { echo "a command after the heredoc must still be checked"; return 1; }
 }
 
 @test "guard blocks a commit after switching to a protected branch, and bare pushes from main" {

@@ -16,12 +16,24 @@ cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
 [ -n "$command" ] || exit 0
 [ -n "$cwd" ] || cwd=$PWD
 
-# Normalize into ';'-separated segments: drop quotes, split on shell operators and
-# subshell/substitution brackets, and reduce /abs/path/git and /abs/path/rm to git and rm.
-flat=$(tr '\n' ' ' <<<"$command" | sed -E \
+# Drop heredoc bodies (commit messages, PR bodies, file contents): they are data, not commands.
+body_free=$(awk -v q="'" '
+    skip { t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t); if (t == word) skip = 0; next }
+    { print }
+    match($0, "(^|[^<])<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*") {
+        word = substr($0, RSTART, RLENGTH)
+        sub("^[^<]?<<-?[ \t]*[\"" q "]?", "", word)
+        skip = 1
+    }' <<<"$command")
+
+# Normalize into ';'-separated segments: drop quotes, split on shell operators, output
+# redirections, and subshell/substitution brackets, turn input redirections into spaces,
+# and reduce /abs/path/git and /abs/path/rm to git and rm.
+flat=$(tr '\n' ' ' <<<"$body_free" | sed -E \
     -e 's/\$\{HOME\}/$HOME/g' \
     -e "s/[\"']//g" \
-    -e 's/(\&\&|\|\||\||;|\$\(|[()`{}])/;/g' \
+    -e 's/(\&\&|\|\||\||;|\$\(|[()`{}]|>)/;/g' \
+    -e 's/</ /g' \
     -e 's#(^|[[:space:];])/[^[:space:];]*/(git|rm)([[:space:]]|;|$)#\1\2\3#g')
 
 resolve_dir() {
@@ -149,22 +161,48 @@ check_git() {
 }
 
 # A dotenv file holding real secrets: .env or .env.<anything>, except committed templates.
+# Sees through backslashes, case (macOS filesystems are case-insensitive), opt=value forms
+# (dd if=.env, --file=.env), and globs that could expand to one (.env*, .e*).
 is_secret_env() {
-    local base=${1##*/}
+    local t=${1//\\/} base prefix
+    t=${t##*=}
+    base=$(tr '[:upper:]' '[:lower:]' <<<"${t##*/}")
     case "$base" in
         .env.example | .env.sample | .env.template | .env.dist) return 1 ;;
         .env | .env.*) return 0 ;;
+        *[\*\?\[]*)
+            prefix=${base%%[\*\?\[]*}
+            [ ${#prefix} -ge 2 ] || return 1
+            case ".env" in "$prefix"*) return 0 ;; esac
+            case "$prefix" in .env*) return 0 ;; esac
+            ;;
     esac
     return 1
 }
 
-# Commands that print or load a file's contents.
+# A command that prints or loads a file's contents. With skip_pattern=1 (grep, sed, awk…)
+# the first positional argument is a pattern or program, not a file.
 check_read() {
-    local t
+    local skip_pattern=$1 t
+    shift
     for t in "$@"; do
+        if [ "$skip_pattern" -eq 1 ] && [[ "$t" != -* ]]; then
+            skip_pattern=0
+            continue
+        fi
         is_secret_env "$t" && block "reading $t would expose secrets; ask the user for the values you need"
     done
     return 0
+}
+
+# Readers only count in command position: first word, or right after a wrapper such as
+# sudo, env, xargs, or `bash -c`. Elsewhere the word is prose (echo, --body, messages).
+at_command_position() {
+    [ "$1" -eq 0 ] && return 0
+    case "${toks[$(($1 - 1))]}" in
+        sudo | env | command | exec | time | nice | nohup | xargs | -c) return 0 ;;
+    esac
+    return 1
 }
 
 dir=$cwd
@@ -184,8 +222,14 @@ for segment in "${segments[@]}"; do
                 [ $message -eq 1 ] && break # the rest of the segment is a commit message
                 ;;
             rm) check_rm "${toks[@]:$((i + 1))}" ;;
-            cat | less | more | head | tail | bat | nl | strings | xxd | od | base64 | grep | egrep | rg | sed | awk | source | .)
-                check_read "${toks[@]:$((i + 1))}" ;;
+        esac
+        at_command_position "$i" || continue
+        case "${toks[$i]##*/}" in
+            cat | less | more | head | tail | tac | bat | nl | strings | xxd | hexdump | od | base64 | \
+            sort | uniq | cut | paste | tee | dd | jq | yq | diff | cmp | column | fold | rev | source | .)
+                check_read 0 "${toks[@]:$((i + 1))}" ;;
+            grep | egrep | fgrep | rg | sed | awk)
+                check_read 1 "${toks[@]:$((i + 1))}" ;;
         esac
     done
 done

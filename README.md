@@ -98,7 +98,7 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
   - force-push, `--no-verify`, `reset --hard`, and `clean -f`
   - pushes to `main`/`master`, and commits on `main`/`master`/`develop`, even after `cd` or with `git -C`
   - `rm -r` on `/`, `~`, `.`, or `*`
-  - printing or sourcing `.env` / `.env.*` files (`cat`, `grep`, `source`, …); templates like `.env.example` stay readable
+  - printing or sourcing `.env` / `.env.*` files (`cat`, `grep`, `source`, …); templates like `.env.example` stay readable. This check is best effort (an interpreter such as `node -e` can still read the file); the Read deny rules below are the real control
 - **Codex `.rules`** forbid the same git operations, as a second line of defense.
 - **Claude deny rules** block the Read tool on `.env` files (`.env`, `.env.local`, `.env.production`, `.env.staging`, …), `~/.ssh`, and AWS credentials.
 
