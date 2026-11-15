@@ -68,7 +68,7 @@ Talk to the agent in Spanish. It writes code, specs, and docs in English.
 | 1. Think it through | `/openspec-explore` | `$openspec-explore` | Discuss options, no code yet |
 | 2. Propose | `/openspec-propose add-x` | `$openspec-propose add-x` | **Approve the specs and contracts** |
 | 3. Build one phase | `/openspec-apply-change` | `$openspec-apply-change` | Review the diff (it stops, never commits) |
-| 4. Commit | `/commit` | ask for `git-ops` | Pick one of the 3 suggested messages |
+| 4. Commit | `/commit` | ask for `git-ops` | Check the commits it made (apply also suggests messages if you prefer to write your own) |
 | 5. Repeat 3–4 per phase, then open the PR | `/open-pr` | ask for `git-ops` | |
 | 6. Archive | `/openspec-archive-change` | `$openspec-archive-change` | Specs now describe the system |
 
@@ -120,7 +120,7 @@ harness codex-agents                    regenerate Codex agents from the Claude 
 
 ```
 global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
-global/claude/           Claude agents, rules, status line, settings (merged)
+global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
 global/hooks/            guard-bash.sh, shared by both tools
 skills/                  → ~/.claude/skills and ~/.agents/skills

@@ -8,7 +8,7 @@ The Momotombo agent harness for Claude Code and Codex. It has two layers:
 ## Layout
 
 - `global/AGENTS.md` → `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`: one set of global instructions for both tools.
-- `global/claude/`: Claude subagents (`agents/*.md`), the rules, the status line, and the settings merged into `~/.claude/settings.json`.
+- `global/claude/`: Claude subagents (`agents/*.md`), optional rules (`rules/*.md`, none today), the status line, and the settings merged into `~/.claude/settings.json`.
 - `global/codex/`: Codex custom agents (`agents/*.toml`), the `.rules` command policy, and the hooks merged into `~/.codex/hooks.json`.
 - `global/hooks/guard-bash.sh`: the PreToolUse guard shared by Claude and Codex.
 - `skills/<name>/` → `~/.claude/skills/` and `~/.agents/skills/` (Codex): skills shared by both tools.
@@ -28,7 +28,8 @@ bats tests/
 
 - Run `bin/harness validate` and `bats tests/` before committing.
 - Bats runs on macOS bash 3.2, where a failing `[[ ]]` mid-test does NOT fail the test. End every `[[ ]]` assertion with `|| return 1`.
-- Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. The `.md` is the source: edit it, then run `bin/harness codex-agents` to regenerate the `.toml` (`validate` fails on drift). Keep the routing table in `global/AGENTS.md` in sync with them.
+- Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. The `.md` is the source: edit it, then run `bin/harness codex-agents` to regenerate the `.toml` (`validate` fails on drift). The routing tables in `global/AGENTS.md` and `README.md` must match each agent's `model:` (`validate` checks them).
+- Commit and PR formats live only in `global/claude/agents/git-ops.md`. The `commit` and `open-pr` skills point to it; don't copy the rules elsewhere.
 - Changes to `global/hooks/guard-bash.sh` need a blocked case and an allowed case in `tests/hooks.bats`.
 - No Python and no compiled tools. Scripts are bash plus `jq`.
 - Don't add skills that already ship through plugins, OpenSpec, Laravel Boost, or the Codely skills.

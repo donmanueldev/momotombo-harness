@@ -31,6 +31,8 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 
 For a project that already has behavior without specs, run `codely-openspec-spec-create-from-code <capability>` before changing it.
 
+The two `codely-*` skills are installed per project by `harness init`. If they're missing in a repo, say so and suggest `harness init` instead of improvising them.
+
 **When the user corrects you** on a convention ("we don't do it that way"), offer to run `codely-doc-create` so the correction becomes a `docs/` page and doesn't happen again. Leave out Codely's mascot sign-off and course links from docs and replies.
 
 ## Subagents
@@ -78,6 +80,6 @@ Never say something works without evidence. Before reporting a task or phase as 
 
 ## Safety
 
-- A guard hook (`guard-bash.sh`, in both Claude and Codex) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, and recursive deletes of `/`, `~`, or `.`. Codex `.rules` back it up. Don't work around them; ask the user.
+- A guard hook (`guard-bash.sh`, in both Claude and Codex) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Codex `.rules` back it up. Don't work around them; ask the user.
 - Ask before migrations on shared data, seeders, database resets, volume deletion, dependency upgrades, releases, deployments, external messages, or anything touching staging or production.
 - Never read or print `.env` files, keys, or tokens.
