@@ -30,7 +30,7 @@ guard() {
         'rm -rf .'; do
         run guard "$command"
         [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
-        [[ "$output" == *"Blocked by agent-config guard"* ]] || return 1
+        [[ "$output" == *"Blocked by the harness guard"* ]] || return 1
     done
 }
 

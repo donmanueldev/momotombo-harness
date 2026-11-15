@@ -5,7 +5,7 @@
 set -u
 
 block() {
-    echo "Blocked by agent-config guard: $1. If it is really intended, ask the user to run it themselves." >&2
+    echo "Blocked by the harness guard: $1. If it is really intended, ask the user to run it themselves." >&2
     exit 2
 }
 
