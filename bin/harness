@@ -8,7 +8,6 @@ BACKUP_DIR="$HARNESS_DIR/.backup"
 CLAUDE_HOME="$HOME/.claude"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="$HOME/.agents"
-# Old checkout locations whose dangling links `install` may prune (space-separated).
 # Old checkout paths whose dangling links install may prune (space-separated). Empty by default.
 LEGACY_DIRS="${HARNESS_LEGACY_DIRS:-}"
 
