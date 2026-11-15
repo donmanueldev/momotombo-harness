@@ -5,6 +5,7 @@ setup() {
     PROJECT_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     TEST_TMP="$(cd "$(mktemp -d)" && pwd -P)"
     export HOME="$TEST_TMP/home"
+    unset XDG_STATE_HOME HARNESS_BACKUP_DIR # keep backups inside the fake HOME
     export CODEX_HOME="$HOME/.codex"
     export HARNESS_LEGACY_DIRS="$TEST_TMP/old-checkout"
     REPO="$TEST_TMP/harness"
@@ -315,4 +316,51 @@ harness() {
     printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  author: x\n  version: "1.2.0"\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     run harness validate
     [[ "$output" != *"skills/demo"* ]] || { echo "$output"; return 1; }
+}
+
+@test "undo restores a legacy in-checkout backup when the new backup folder was never created" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    mkdir -p "$REPO/.backup"
+    mv "$HOME/.local/state/momotombo-harness/backups"/* "$REPO/.backup/"
+    rm -rf "$HOME/.local/state"
+
+    run harness undo --yes
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
+}
+
+@test "undo explains when there is no backup anywhere" {
+    run harness undo --yes
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"no backup to restore"* ]] || return 1
+}
+
+@test "backups are readable only by their owner" {
+    mkdir -p "$HOME/.claude"
+    echo "mine" > "$HOME/.claude/CLAUDE.md"
+    harness install --force
+    [[ "$(stat -f %Lp "$HOME/.local/state/momotombo-harness/backups")" == 700 ]] || return 1
+    [[ "$(stat -f %Lp "$(ls -d "$HOME/.local/state/momotombo-harness/backups"/*)")" == 700 ]] || return 1
+}
+
+@test "doctor finishes even when a tool prints no version" {
+    mkdir -p "$TEST_TMP/bin"
+    printf '#!/bin/bash\necho dev-build\n' > "$TEST_TMP/bin/codex"
+    printf '#!/bin/bash\nexit 3\n' > "$TEST_TMP/bin/gh"
+    chmod +x "$TEST_TMP/bin/codex" "$TEST_TMP/bin/gh"
+    PATH="$TEST_TMP/bin:$PATH" run harness doctor
+    [[ "$output" == *"Links"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"Settings"* ]] || return 1
+}
+
+@test "validate rejects a skill version under another key or with a mismatched quote" {
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nother:\n  version: "1.0.0"\nmetadata:\n  author: x\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
+
+    printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  version: "1.0.0\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
+    run harness validate
+    [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
 }
