@@ -34,7 +34,8 @@ pretty() { echo "${1/#$HOME/~}"; }
 # ----------------------------------------------------------------- backups
 
 create_backup() {
-    local path="$BACKUP_DIR/$(date +%Y%m%d_%H%M%S)"
+    local path
+    path="$BACKUP_DIR/$(date +%Y%m%d_%H%M%S)"
     while [ -e "$path" ]; do path="$path-1"; done
     mkdir -p "$path"
     echo "$path"
@@ -331,7 +332,7 @@ cmd_undo() {
         if [ -L "$dest" ] || [ -f "$dest" ]; then
             rm -f "$dest"
         elif [ -e "$dest" ]; then
-            warn "~/$item is a directory that the harness didn't create; skipped"; continue
+            warn "$dest is a directory that the harness didn't create; skipped"; continue
         fi
         mkdir -p "$(dirname "$dest")"
         if [ -f "$saved.symlink" ]; then
@@ -551,8 +552,45 @@ frontmatter() { awk 'NR == 1 && $0 != "---" { exit } NR == 1 { next } /^---$/ { 
 body() { awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm { print }' "$1" | sed '/./,$!d'; }
 toml_string() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
 
-# Render the Codex agent for a Claude agent. Claude's model tier maps to Codex effort;
-# only the haiku tier pins a model (the cheap one). Others inherit the session's model.
+# Claude's model tier maps to Codex effort; only the haiku tier pins a model (the cheap one).
+# Others inherit the session's model. Prints "<model or -> <effort>".
+codex_tier() {
+    case "$1" in
+        haiku) echo "gpt-6-luna low" ;;
+        sonnet) echo "- medium" ;;
+        *) echo "- high" ;;
+    esac
+}
+
+# The Codex column of the routing tables, e.g. "gpt-6-luna, low" or "session model, high".
+codex_label() {
+    local model effort
+    read -r model effort <<<"$(codex_tier "$1")"
+    [ "$model" = "-" ] && model="session model"
+    echo "$model, $effort"
+}
+
+# Rows of the markdown routing table: "<agent>\t<claude column>\t<codex column>". Only rows
+# of a table whose header has both a Claude and a Codex column count; in them, the agent is
+# the cell that is exactly a backticked name, followed by the Claude and Codex cells.
+routing_rows() {
+    awk -F'|' '
+    !/^[ \t]*\|/ { in_table = 0; next }
+    !in_table { if ($0 ~ /\|[ \t]*Claude[ \t]*\|/ && $0 ~ /\|[ \t]*Codex[ \t]*\|/) in_table = 1; next }
+    {
+        for (i = 2; i <= NF - 3; i++) {
+            f = $i; gsub(/^[ \t]+|[ \t]+$/, "", f)
+            if (f ~ /^`[a-z][a-z0-9-]*`$/) {
+                c = $(i + 1); x = $(i + 2)
+                gsub(/^[ \t]+|[ \t]+$/, "", c); gsub(/^[ \t]+|[ \t]+$/, "", x); gsub(/`/, "", f)
+                print f "\t" c "\t" x
+                break
+            }
+        }
+    }' "$1"
+}
+
+# Render the Codex agent for a Claude agent.
 codex_agent() {
     local file="$1" fm name description model
     fm=$(frontmatter "$file")
@@ -562,11 +600,10 @@ codex_agent() {
     echo "# Generated from global/claude/agents/$name.md by 'harness codex-agents'. Edit that file, then regenerate."
     echo "name = $(toml_string "$name")"
     echo "description = $(toml_string "$description")"
-    case "$model" in
-        haiku) echo 'model = "gpt-6-luna"'; echo 'model_reasoning_effort = "low"' ;;
-        sonnet) echo 'model_reasoning_effort = "medium"' ;;
-        *) echo 'model_reasoning_effort = "high"' ;;
-    esac
+    local codex_model effort
+    read -r codex_model effort <<<"$(codex_tier "$model")"
+    [ "$codex_model" = "-" ] || echo "model = \"$codex_model\""
+    echo "model_reasoning_effort = \"$effort\""
     echo "developer_instructions = '''"
     body "$file"
     echo "'''"
@@ -600,10 +637,11 @@ cmd_validate() {
         grep -q '^description: .' <<<"$fm" || { fail "claude agent $name: missing 'description'"; errors=$((errors + 1)); }
         grep -Eq '^model: (haiku|sonnet|opus|fable|inherit|claude-[a-z0-9.-]+)$' <<<"$fm" ||
             { fail "claude agent $name: 'model' must be haiku, sonnet, opus, fable, inherit, or a claude-* id"; errors=$((errors + 1)); }
-        for skill in $(awk '/^skills:/{on=1; next} on && /^  - /{print $2; next} {on=0}' <<<"$fm"); do
+        while read -r skill; do
+            [ -n "$skill" ] || continue
             [ -f "$HARNESS_DIR/skills/$skill/SKILL.md" ] ||
                 { fail "claude agent $name: preloads missing skill '$skill'"; errors=$((errors + 1)); }
-        done
+        done < <(awk '/^skills:/{on=1; next} on && /^  - /{print $2; next} {on=0}' <<<"$fm")
     done
     for file in "$HARNESS_DIR"/global/codex/agents/*.toml; do
         [ -f "$file" ] || continue
@@ -622,6 +660,38 @@ cmd_validate() {
         [ -f "$file" ] || continue
         [ -f "$HARNESS_DIR/global/codex/agents/$(basename "$file" .md).toml" ] ||
             { fail "claude agent $(basename "$file" .md): missing Codex twin (run: harness codex-agents)"; errors=$((errors + 1)); }
+    done
+    # The routing tables (global/AGENTS.md always, README.md when present) must list every
+    # agent with the model in its frontmatter and the Codex tier generated from it.
+    local doc rows row model listed
+    for doc in global/AGENTS.md README.md; do
+        if [ ! -f "$HARNESS_DIR/$doc" ]; then
+            [ "$doc" = README.md ] && continue
+            fail "$doc: missing"; errors=$((errors + 1)); continue
+        fi
+        rows=$(routing_rows "$HARNESS_DIR/$doc")
+        while read -r listed; do
+            [ -n "$listed" ] || continue
+            [ -f "$HARNESS_DIR/global/claude/agents/$listed.md" ] ||
+                { fail "$doc: routing table lists '$listed', which has no global/claude/agents/$listed.md"; errors=$((errors + 1)); }
+        done < <(cut -f1 <<<"$rows" | sort -u)
+        while read -r listed; do
+            [ -n "$listed" ] || continue
+            fail "$doc: routing table lists '$listed' more than once"; errors=$((errors + 1))
+        done < <(cut -f1 <<<"$rows" | sort | uniq -d)
+        for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
+            [ -f "$file" ] || continue
+            name=$(basename "$file" .md)
+            model=$(frontmatter "$file" | sed -n 's/^model: //p')
+            row=$(awk -F'\t' -v n="$name" '$1 == n { print; exit }' <<<"$rows")
+            if [ -z "$row" ]; then
+                fail "$doc: routing table has no row for agent $name"; errors=$((errors + 1)); continue
+            fi
+            [ "$(cut -f2 <<<"$row")" = "$model" ] ||
+                { fail "$doc: routing table says $name runs on '$(cut -f2 <<<"$row")' in Claude; its frontmatter says '$model'"; errors=$((errors + 1)); }
+            [ "$(cut -f3 <<<"$row")" = "$(codex_label "$model")" ] ||
+                { fail "$doc: routing table says $name runs on '$(cut -f3 <<<"$row")' in Codex; expected '$(codex_label "$model")'"; errors=$((errors + 1)); }
+        done
     done
     for file in $(stack_docs "laravel expo"); do
         [ -f "$HARNESS_DIR/project/$file" ] || { fail "project/$file: missing seed doc"; errors=$((errors + 1)); }

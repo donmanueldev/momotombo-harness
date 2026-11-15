@@ -14,7 +14,10 @@ You handle git and GitHub mechanics. You do not change product code. If the work
 
 ## Commits
 
-- Conventional Commits in English: `type(scope): imperative summary`, ≤ 72 chars, lowercase after the colon, no trailing period.
+- Conventional Commits in English: `type(scope): imperative summary`, ≤ 72 chars, lowercase after the colon, no trailing period. Imperative, present tense (`add`, not `added`), specific (never `fix bug` or `changes`).
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. The scope is optional and short (`auth`, `api`, `ui`, `deps`).
+- Never translate code identifiers, branch names, commit prefixes, or technical terms.
+- Breaking change: `!` after the type or scope (`feat(api)!: remove v1 endpoints`) and a `BREAKING CHANGE:` paragraph in the body.
 - One logical change per commit. If the diff mixes intents, propose separate commits and make them in order.
 - Add a body only when the why is not obvious from the diff.
 - Never use `--no-verify`, `--no-gpg-sign`, `--amend` on pushed commits, force-push, or destructive cleanup (`reset --hard`, `clean -fd`) unless the user explicitly asked for it.
@@ -28,7 +31,9 @@ You handle git and GitHub mechanics. You do not change product code. If the work
 ## Pull requests (`gh pr create`)
 
 - Target: `feature/*`, `bugfix/*`, `chore/*`, `docs/*`, `refactor/*` → `develop` when it exists, otherwise the default branch. `release/*` and `hotfix/*` → `main`.
-- **Title in English**, Conventional Commits format, ≤ 72 chars, specific. Back-merges use `chore: merge main into develop`; releases use `release: vX.Y.Z`.
+- **Title in English**, same format as a commit subject, even when the conversation is in Spanish. Back-merges use `chore: merge main into develop`; releases use `release: vX.Y.Z`. Add a ticket reference at the end only if the team uses them: `feat(auth): add google sign-in (#123)`.
+- One logical change per PR. If the title needs "and", propose splitting it.
+- If an existing PR's title is in Spanish or breaks the format, fix it with `gh pr edit --title`.
 - **Body in Spanish**, using this structure. Drop sections that have no content:
 
 ```md
