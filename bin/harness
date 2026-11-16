@@ -338,6 +338,12 @@ cmd_doctor() {
     else
         fail "Claude guard hook not enabled (run: harness install)"; status=1
     fi
+    if [ -f "$CLAUDE_HOME/settings.json" ] && jq -e '.hooks.PostToolUse[]?.hooks[]? | select((.command // "" | contains("stall-watch.sh")) and .asyncRewake == true)' "$CLAUDE_HOME/settings.json" >/dev/null 2>&1; then
+        ok "Claude stall watcher enabled"
+    else
+        fail "Claude stall watcher not enabled (run: harness install)"; status=1
+    fi
+    command -v lsof >/dev/null || warn "lsof missing; the stall watcher can't see background commands"
     if ! codex_installed; then
         skip "Codex not installed; its links and guard hook are skipped"
     elif [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then

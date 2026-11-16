@@ -214,9 +214,11 @@ cat .env"
     [[ "$output" == "Opus · $(basename "$TEST_TMP") · feature/demo · ctx 42% · \$1.23" ]] || return 1
 }
 
-@test "versioned settings wire the guard hook and status line" {
+@test "versioned settings wire the guard hook, the stall watcher, and the status line" {
     run jq -e '.hooks.PreToolUse[0].matcher == "Bash"
         and (.hooks.PreToolUse[0].hooks[0].command | contains(".claude/hooks/guard-bash.sh"))
+        and .hooks.PostToolUse[0].matcher == "Bash"
+        and (.hooks.PostToolUse[0].hooks[0] | (.command | contains(".claude/hooks/stall-watch.sh")) and .asyncRewake == true and .timeout >= 3600)
         and (.statusLine.command | contains(".claude/statusline.sh"))
         and (.permissions.deny | index("Read(**/.env)"))' "$PROJECT_DIR/global/claude/settings.json"
     [[ "$status" -eq 0 ]] || return 1

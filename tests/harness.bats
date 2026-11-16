@@ -306,6 +306,17 @@ harness() {
     [[ "$output" == *"~/.local/bin is on PATH"* ]] || return 1
 }
 
+@test "doctor reports whether the stall watcher is enabled" {
+    harness install
+    run harness doctor
+    [[ "$output" == *"Claude stall watcher not enabled (run: harness install)"* ]] || { echo "$output"; return 1; }
+
+    echo '{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "stall-watch.sh", "asyncRewake": true, "timeout": 14400}]}]}}' > "$REPO/global/claude/settings.json"
+    harness install
+    run harness doctor
+    [[ "$output" == *"Claude stall watcher enabled"* && "$output" != *"stall watcher not enabled"* ]] || { echo "$output"; return 1; }
+}
+
 @test "validate requires a license and a semver metadata.version on every skill" {
     printf -- '---\nname: demo\ndescription: Demo skill\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     run harness validate
