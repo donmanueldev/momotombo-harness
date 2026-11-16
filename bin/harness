@@ -422,7 +422,7 @@ normalized_tree() {
 
 docs_map() {
     local dir="$1" file title
-    (cd "$dir" && find docs -name '*.md' 2>/dev/null | sort) | while read -r file; do
+    (cd "$dir" && { find docs -name '*.md' 2>/dev/null || true; } | sort) | while read -r file; do
         title=$({ grep -m1 '^# ' "$dir/$file" || true; } | sed -e 's/^# //' -e 's/^[^A-Za-z]* //')
         echo "- [${title:-$(basename "$file" .md)}]($file)"
     done
@@ -487,7 +487,11 @@ render_agents_md() {
 Conventions with good and bad examples live in `docs/`. Read **only** the docs relevant to your task:
 
 EOF
-    docs_map "$dir"
+    if [ -f "$dir/boost.json" ]; then
+        echo "The docs map lives in \`.ai/guidelines/docs-map.md\`. Laravel Boost adds it to this file."
+    else
+        docs_map "$dir"
+    fi
 }
 
 cmd_init() {
@@ -523,21 +527,27 @@ cmd_init() {
     local guideline="$dir/.ai/guidelines/docs-map.md"
     if [ -f "$dir/boost.json" ]; then
         if [ -e "$guideline" ]; then
-            skip ".ai/guidelines/docs-map.md exists (kept)"
+            skip ".ai/guidelines/docs-map.md exists (kept; add new docs to it by hand)"
         elif $DRY_RUN; then
             dry "would write .ai/guidelines/docs-map.md (Boost adds it to AGENTS.md)"
+        elif [ -z "$(docs_map "$dir")" ]; then
+            warn "no docs/ to map yet; re-run harness init after adding some"
         else
             mkdir -p "$(dirname "$guideline")"
             boost_docs_map "$dir" > "$guideline"
-            ok ".ai/guidelines/docs-map.md (add it to AGENTS.md: php artisan boost:update --no-discover --ignore-skills)"
+            ok ".ai/guidelines/docs-map.md (then run: php artisan boost:update --no-discover --ignore-skills)"
         fi
     fi
 
     # AGENTS.md and CLAUDE.md
     if [ -e "$dir/AGENTS.md" ]; then
         if [ ! -f "$dir/boost.json" ]; then
-            skip "AGENTS.md exists (kept). Make sure its docs map lists:"
-            docs_map "$dir" | sed 's/^/    /' # read-only, so a dry run shows it too
+            if $DRY_RUN; then
+                skip "AGENTS.md exists (kept). Make sure its docs map lists these existing docs, plus any added above:"
+            else
+                skip "AGENTS.md exists (kept). Make sure its docs map lists:"
+            fi
+            docs_map "$dir" | sed 's/^/    /'
         fi
     elif $DRY_RUN; then
         dry "would create AGENTS.md"

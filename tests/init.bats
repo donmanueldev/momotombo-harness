@@ -122,7 +122,7 @@ laravel_app() {
     mkdir -p "$APP/docs/backend"
     printf '# Thin controllers\n' > "$APP/docs/backend/thin-controllers.md"
     run init --dry-run
-    [[ "$output" == *"Make sure its docs map lists:"* ]] || return 1
+    [[ "$output" == *"Make sure its docs map lists these existing docs"* ]] || return 1
     [[ "$output" == *"- [Thin controllers](docs/backend/thin-controllers.md)"* ]] || return 1
 }
 
@@ -141,6 +141,32 @@ laravel_app() {
     echo "custom" > "$APP/.ai/guidelines/docs-map.md"
     run init --no-codely
     grep -qx "custom" "$APP/.ai/guidelines/docs-map.md" || return 1
+}
+
+@test "dry run finishes on a repo with AGENTS.md and no docs folder" {
+    laravel_app
+    echo "# mine" > "$APP/AGENTS.md"
+    run init --dry-run
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"Run without --dry-run to apply."* ]] || return 1
+}
+
+@test "with Laravel Boost and no AGENTS.md, the docs map is written once, as the Boost guideline" {
+    laravel_app
+    echo '{"agents": ["claude_code"]}' > "$APP/boost.json"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
+    ! grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/AGENTS.md" || return 1
+    grep -q '.ai/guidelines/docs-map.md' "$APP/AGENTS.md" || return 1
+}
+
+@test "with Laravel Boost, a dry run writes no guideline" {
+    laravel_app
+    echo '{"agents": ["claude_code"]}' > "$APP/boost.json"
+    run init --dry-run
+    [[ "$output" == *"would write .ai/guidelines/docs-map.md"* ]] || return 1
+    [[ ! -e "$APP/.ai" ]] || return 1
 }
 
 @test "init doesn't flag a momotombo schema that a formatter only restyled" {
