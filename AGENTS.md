@@ -31,6 +31,6 @@ bats tests/
 - Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. The `.md` is the source: edit it, then run `bin/harness codex-agents` to regenerate the `.toml` (`validate` fails on drift). The routing tables in `global/AGENTS.md` and `README.md` must match each agent's `model:` (`validate` checks them).
 - Commit and PR formats live only in `global/claude/agents/git-ops.md`. The `commit` and `open-pr` skills point to it; don't copy the rules elsewhere.
 - Changes to `global/hooks/guard-bash.sh` need a blocked case and an allowed case in `tests/hooks.bats`.
-- No Python and no compiled tools. Scripts are bash plus `jq`.
+- The harness's own scripts use no Python and no compiled tools: bash plus `jq`, so installing it needs nothing else. (Python is part of the product stack in `global/AGENTS.md`, not of the harness.)
 - Don't add skills that already ship through plugins, OpenSpec, Laravel Boost, or the Codely skills.
 - Everything in the repo is in English, except the Spanish PR-body template in `git-ops` and `skills/open-pr` (PR descriptions are in Spanish).

@@ -67,6 +67,7 @@ Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CS
 - Laravel projects with Laravel Boost: read Boost's guidelines and `.ai/rules/` first, and use its skills (Inertia, Pest, and others).
 - Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`.
 - Some repos use Vue instead of React, Next.js, or NativePHP. The same rules apply; use the installed skill for that stack (for example the Vercel plugin for Next.js) instead of improvising conventions.
+- Python is for AI agents and the services that expose them. Laravel stays the product core; add a Python service only for a concrete need PHP can't meet, and don't port what works. Python projects use 3.12+, `pyproject.toml`, `uv`, `ruff`, `pytest`, and `pyright`.
 - Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
 
 ## Writing code
@@ -80,6 +81,15 @@ Priorities, in order: correct and secure, then simple and readable, then fast. C
 - Comments explain why, never what. No commented-out code.
 - Delete what your change made dead: code, imports, files, flags.
 - Handle the errors that can happen, where they can be handled. Don't wrap everything in try/catch.
+
+## Building AI agents
+
+- Run the project's evals before and after changing a prompt, a tool, or a model. If there are none, propose a small eval set before making the change.
+- Use structured output with a schema instead of parsing free text.
+- Give every tool a clear contract, and validate and authorize its input on the server as if it came from a user.
+- Keep secrets and personal data out of prompts, traces, and logs.
+- Keep a cost and latency budget per conversation, and know which model call dominates it.
+- Default to the latest Claude models.
 
 ## Product quality bar
 
