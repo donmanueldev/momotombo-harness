@@ -6,6 +6,8 @@ The agent harness Momotombo uses to build products with **Claude Code** and **Co
 - Agents implement one small phase at a time and stop for review.
 - Every correction you make becomes a convention the agents follow next time.
 
+It stands on three projects: [OpenSpec](https://openspec.dev/) for the spec-driven flow, [Codely's agent-harness](https://github.com/CodelyTV/agent-harness), which inspired its structure, and [Matt Pocock's skills](https://www.aihero.dev/skills), whose shaping and engineering skills plug into the flow. See [Credits](#credits).
+
 ## Why
 
 Most AI slop has five causes. The harness answers each one:
@@ -135,3 +137,8 @@ tests/                   Bats suites; CI runs them on macOS
 - [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project:
   - The `momotombo` schema is adapted from their `codely-spec-plan`.
   - `harness init` installs their `codely-doc-create` and `codely-openspec-spec-create-from-code` skills by reference.
+- [Matt Pocock's skills](https://github.com/mattpocock/skills) ([aihero.dev/skills](https://www.aihero.dev/skills)) shaped how the harness plans and builds. Their shaping and engineering skills plug into the OpenSpec flow instead of running a second one:
+  - before `explore`: `grill-me`, `grill-with-docs`
+  - in `propose`: `domain-modeling`, `codebase-design`
+  - in `apply`: `tdd`; for bugs: `diagnosing-bugs`
+  - Install them once: `npx skills add mattpocock/skills -g -s grill-me grill-with-docs domain-modeling codebase-design tdd diagnosing-bugs improve-codebase-architecture`
