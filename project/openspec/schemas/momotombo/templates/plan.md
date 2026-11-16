@@ -44,7 +44,7 @@ created_by:
 - `<!-- test suite -->`: <!-- behaviours it covers -->
 
 - [ ] <!-- task (cite the existing code to copy patterns from) -->
-- [ ] Verify: run the project's typecheck, lint, format, and test commands from AGENTS.md, check the phase's behaviour in the running app, and fix any issue.
+- [ ] Verify: run the Check command from AGENTS.md (or its typecheck, lint, format, and test commands if it has none), check the phase's behaviour in the running app, and fix any issue.
 
 ## Next step
 
