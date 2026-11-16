@@ -109,7 +109,9 @@ Ship work that feels professional, not just "working":
 
 ## Verification
 
-Never say something works without evidence. Before reporting a task or phase as done, run the project's checks (tests, typecheck, lint, format) and report exactly what ran and what passed. Mark anything you couldn't run as not verified.
+Never say something works without evidence. Before reporting a task or phase as done, run the project's checks and report exactly what ran and what passed. Mark anything you couldn't run as not verified.
+
+Use the single check command named in the project's `AGENTS.md` (such as `composer check` or `npm run check`). If the project has none, run its tests, typecheck, lint, and format one by one, and suggest adding a `check` script.
 
 ## Safety
 

@@ -54,6 +54,52 @@ laravel_app() {
     grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/AGENTS.md" || return 1
 }
 
+@test "init names the project's check script in AGENTS.md, with the lockfile's runner" {
+    echo '{"scripts": {"check": "tsc && jest"}}' > "$APP/package.json"
+    for pair in "bun.lock:bun run check" "pnpm-lock.yaml:pnpm run check" "yarn.lock:yarn run check" ":npm run check"; do
+        rm -f "$APP/AGENTS.md" "$APP/bun.lock" "$APP/pnpm-lock.yaml" "$APP/yarn.lock"
+        [[ -z "${pair%%:*}" ]] || touch "$APP/${pair%%:*}"
+        run init --no-codely
+        grep -qF "**Check:** \`${pair#*:}\`" "$APP/AGENTS.md" || { echo "$pair"; return 1; }
+    done
+}
+
+@test "with check scripts in composer.json and package.json, AGENTS.md names both" {
+    echo '{"require": {"laravel/framework": "^12.0"}, "scripts": {"check": "@test"}}' > "$APP/composer.json"
+    echo '{"scripts": {"check": "tsc"}}' > "$APP/package.json"
+    run init --no-codely
+    grep -qF '**Check:** `composer check && npm run check`' "$APP/AGENTS.md" || return 1
+}
+
+@test "init asks for a check script when there is none, even with a broken package.json" {
+    laravel_app
+    echo '{ not json' > "$APP/package.json"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    grep -q 'TODO: add one `check` script' "$APP/AGENTS.md" || return 1
+    [[ "$output" == *"no 'check' script"* ]] || return 1
+}
+
+@test "on a repo with its own AGENTS.md, init flags a check command it doesn't name" {
+    echo '{"require": {"laravel/framework": "^12.0"}, "scripts": {"check": "@test"}}' > "$APP/composer.json"
+    echo 'Run `composer check-platform-reqs` first.' > "$APP/AGENTS.md"
+    run init --no-codely
+    [[ "$output" == *'AGENTS.md doesn'\''t name the check command. Add: **Check:** `composer check`'* ]] || return 1
+    echo '**Check:** `composer check`' >> "$APP/AGENTS.md"
+    run init --no-codely
+    [[ "$output" != *"doesn't name the check command"* ]] || return 1
+}
+
+@test "with Laravel Boost, a check command named in a guideline counts" {
+    echo '{"require": {"laravel/framework": "^12.0"}, "scripts": {"check": "@test"}}' > "$APP/composer.json"
+    echo '{"agents": ["claude_code"]}' > "$APP/boost.json"
+    echo "<laravel-boost-guidelines>x</laravel-boost-guidelines>" > "$APP/AGENTS.md"
+    mkdir -p "$APP/.ai/guidelines"
+    echo 'Run `composer check` before finishing.' > "$APP/.ai/guidelines/checks.md"
+    run init --no-codely
+    [[ "$output" != *"doesn't name the check command"* ]] || return 1
+}
+
 @test "init detects Expo and seeds only mobile docs" {
     echo '{"dependencies": {"expo": "~55.0.0"}}' > "$APP/package.json"
     run init

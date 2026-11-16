@@ -438,14 +438,41 @@ boost_docs_map() {
     echo "When the user corrects a convention, run \`codely-doc-create\` so it lands in \`docs/\` and in this map."
 }
 
+# The project's check scripts as commands, one per line: composer's, then package.json's.
+check_commands() {
+    local dir="$1" runner="npm run"
+    if [ -f "$dir/composer.json" ] && jq -e '.scripts.check' "$dir/composer.json" >/dev/null 2>&1; then
+        echo "composer check"
+    fi
+    if [ -f "$dir/package.json" ] && jq -e '.scripts.check' "$dir/package.json" >/dev/null 2>&1; then
+        if [ -f "$dir/bun.lock" ] || [ -f "$dir/bun.lockb" ]; then runner="bun run"
+        elif [ -f "$dir/pnpm-lock.yaml" ]; then runner="pnpm run"
+        elif [ -f "$dir/yarn.lock" ]; then runner="yarn run"
+        fi
+        echo "$runner check"
+    fi
+}
+
+# The check commands as one shell line ("composer check && npm run check"); empty when there are none.
+check_line() {
+    check_commands "$1" | awk 'NR > 1 { printf " && " } { printf "%s", $0 }'
+}
+
 render_agents_md() {
-    local dir="$1" stacks="$2" name
+    local dir="$1" stacks="$2" name check
     name=$(basename "$dir")
+    check=$(check_line "$dir")
     echo "# $name"
     echo ""
     echo "## Commands"
     echo ""
-    echo "Agents run these to verify their work. Keep them in sync with the real scripts."
+    if [ -n "$check" ]; then
+        echo "**Check:** \`$check\` runs every check (tests, types, lint, format). Run it before reporting any work as done."
+    else
+        echo "**Check:** TODO: add one \`check\` script (in composer.json or package.json) that runs the tests, types, lint, and format, and name it here. Agents run it before reporting any work as done."
+    fi
+    echo ""
+    echo "The individual commands. Keep them in sync with the real scripts."
     echo ""
     echo '```bash'
     case " $stacks " in *" laravel "*)
@@ -549,11 +576,22 @@ cmd_init() {
             fi
             docs_map "$dir" | sed 's/^/    /'
         fi
+        local cmd unnamed=false
+        while IFS= read -r cmd; do
+            # The whole command, so `npm run check:ci` and `pnpm run check` don't count for `npm run check`.
+            grep -qE "(^|[^[:alnum:]_-])${cmd}([^[:alnum:]:_-]|\$)" "$dir/AGENTS.md" "$dir"/.ai/guidelines/*.md 2>/dev/null || unnamed=true
+        done < <(check_commands "$dir")
+        if $unnamed; then
+            warn "AGENTS.md doesn't name the check command. Add: **Check:** \`$(check_line "$dir")\` runs every check. Run it before reporting any work as done. (With Boost, put it in .ai/guidelines/: Boost regenerates AGENTS.md.)"
+        fi
     elif $DRY_RUN; then
         dry "would create AGENTS.md"
     else
         render_agents_md "$dir" "$stacks" > "$dir/AGENTS.md"
         ok "AGENTS.md (fill in the Architecture section)"
+    fi
+    if [ -z "$(check_line "$dir")" ]; then
+        warn "no 'check' script. Add one (composer.json or package.json) that runs the tests, types, lint, and format, and name it in AGENTS.md."
     fi
     if [ -L "$dir/CLAUDE.md" ] && [ "$(readlink "$dir/CLAUDE.md")" = "AGENTS.md" ]; then
         :
