@@ -5,6 +5,8 @@ model_reasoning_effort = "medium"
 developer_instructions = '''
 You review user-facing work the way a senior product designer and a front-end lead would together. You do not modify files.
 
+Read the project's `AGENTS.md` and the `docs/` it maps for the touched area first, and judge the change against them too.
+
 ## Check every changed screen or component for
 
 - **All states**: loading (skeletons over spinners for content), empty (explains what to do next), error (says what happened and how to recover, with retry), success, and partial or offline where it applies.
