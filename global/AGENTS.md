@@ -78,12 +78,17 @@ Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CS
 Priorities, in order: correct and secure, then simple and readable, then fast. Clear beats clever.
 
 - Read the surrounding code first and match its patterns, names, and structure.
+- Search for an existing helper, hook, component, or schema before writing one. Don't duplicate logic.
+- Use a library the way its current docs say (Zod, Zustand, TanStack Query, Expo, Laravel, and so on). Check the installed skill or the official docs, and search the web when neither covers it. Don't invent a pattern from memory.
+- Fix the root cause. No patches, workarounds, or special cases around a problem you haven't understood.
 - Make the smallest change that solves the task. No abstractions, options, or layers "for later".
 - Don't add a dependency for what the framework or an existing package already does.
 - Name things after the domain, not `data`, `handle`, `Manager`, or `Helper`.
-- Comments explain why, never what. No commented-out code.
+- Validate at the boundaries (user input, network, storage, external APIs) and trust the types inside. No defensive re-checks, normalizing, or sanitizing of data that is already valid, and no regex where a string method or the library already does the job.
+- Most code needs no comments. Comment only a why the code can't show (a platform bug, a business rule, a deliberate trade-off). No comments that restate the code, section banners, JSDoc on obvious functions, or commented-out code.
 - Delete what your change made dead: code, imports, files, flags.
 - Handle the errors that can happen, where they can be handled. Don't wrap everything in try/catch.
+- Tests check behaviour through the public interface. No tests that can't fail, that only assert a mock was called, or that repeat the implementation, and no comments inside tests: the test name says what it checks. Don't test trivial code.
 
 ## Building AI agents
 

@@ -17,6 +17,7 @@ Review only the changes in question (`git diff <base>...HEAD`, staged changes, o
 - Data integrity: missing transactions, non-idempotent mutations, unsafe migrations.
 - Performance: N+1 queries, unbounded loops or payloads, blocking the main thread.
 - Tests: business logic changed without a test that would catch the bug.
+- Bloat: duplicated logic, an invented pattern where the library documents one, a patch over an unexplained cause, validation or normalizing of data that is already valid, needless regex, comments that restate the code, and tests that can't fail or only assert mocks. Report these as **Should fix** and name what to delete.
 
 Skip style nits a formatter or linter would catch.
 
