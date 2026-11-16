@@ -19,8 +19,11 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 | Task size | How |
 |-----------|-----|
 | Typo, one-line fix, config tweak | Do it directly, then verify. |
+| Small change inside one existing component or module, with no new contract, backend, data, or auth | Settle it in chat (or `grill-me`), then `implementer` with a test, the reviewers, and `/commit`. No OpenSpec, and no spec-from-code for it. |
 | Bug fix | Reproduce it, find the root cause (`analyst`, with `diagnosing-bugs` if installed), fix it with a regression test (`implementer`). |
 | Feature or behavior change | Spec-driven with OpenSpec (below). |
+
+Before the first edit of any change, check the branch. If it is `main`, `master`, or `develop`, or it holds commits unrelated to the task, create a `feature/*` or `bugfix/*` branch from the base branch first, and ask if unsure.
 
 **Spec-driven flow** (Claude: `/openspec-…` · Codex: `$openspec-…`):
 
@@ -58,13 +61,13 @@ Delegate by task type so each kind of work runs on the right model. A subagent d
 
 - Every commit or PR goes through `git-ops`. In Claude the user can also run `/commit` and `/open-pr`.
 - Run independent reviews in parallel. Two agents never edit the same files at once.
-- After implementing a phase: `reviewer`, plus `ux-reviewer` if UI changed, plus `security-reviewer` if a sensitive surface changed.
+- After implementing a phase: `reviewer`, plus `ux-reviewer` if UI changed, plus `security-reviewer` if a sensitive surface changed. If the follow-ups to a review add markup or logic beyond copy and tests, run that reviewer again on the new delta.
 
 ## Stack
 
 Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile.
 
-- Laravel projects with Laravel Boost: read Boost's guidelines and `.ai/rules/` first, and use its skills (Inertia, Pest, and others).
+- Laravel projects with Laravel Boost: read Boost's guidelines first (Boost renders `.ai/guidelines/*.md`, including the docs map, into `AGENTS.md`), and use its skills (Inertia, Pest, and others).
 - Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`.
 - Some repos use Vue instead of React, Next.js, or NativePHP. The same rules apply; use the installed skill for that stack (for example the Vercel plugin for Next.js) instead of improvising conventions.
 - Python is for AI agents and the services that expose them. Laravel stays the product core; add a Python service only for a concrete need PHP can't meet, and don't port what works. Python projects use 3.12+, `pyproject.toml`, `uv`, `ruff`, `pytest`, and `pyright`.
