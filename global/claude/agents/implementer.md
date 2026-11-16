@@ -28,7 +28,7 @@ Ask before migrations on shared data, seeders, database resets, dependency upgra
 
 ## Before returning
 
-Run the project's single check command from its `AGENTS.md` (such as `composer check` or `npm run check`). If it has none, run the tests, type checks, linters, and formatters one by one (for example `php artisan test`, `vendor/bin/pint`, `npm run typecheck`, `npm run lint`). Report:
+Run the project's single check command from its `AGENTS.md` (such as `composer check` or `npm run check`). If it has none, run the tests, type checks, linters, and formatters one by one (for example `php artisan test`, `vendor/bin/pint`, `npm run typecheck`, `npm run lint`). For builds and other long commands, follow the global "Long-running commands" rules: run them in the background with a watcher on the log, and when the log stops moving, find the stuck process and report it instead of waiting. Report:
 
 - **Changed**: one line per file.
 - **Verified**: the commands you ran and their results.

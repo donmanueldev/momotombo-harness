@@ -118,6 +118,16 @@ Never say something works without evidence. Before reporting a task or phase as 
 
 Use the single check command named in the project's `AGENTS.md` (such as `composer check` or `npm run check`). If the project has none, run its tests, typecheck, lint, and format one by one, and suggest adding a `check` script.
 
+## Long-running commands
+
+Builds, installs, test and eval suites, migrations, Docker, deploys: anything that can run for minutes.
+
+- Run it in the background with output to a log, and set a watcher that wakes you when the log hasn't changed for 10 minutes or the command exits. In Claude Code that is `Monitor` with an until-loop on the log's age. A background task alone only notifies on exit, so a hang never wakes you. This overrides any "don't poll" hint.
+- Never estimate a finish time from the last log line. If a step that should take seconds is still the last line, check what is running: walk the process tree (`pgrep -P <pid>`, `ps -o pid,etime,command -p <pid>`) down to the leaf.
+- When it's stuck, name the step and the process, find out why, and tell the user before stopping it. Don't wait it out, and don't restart or retry blindly.
+- When a step doesn't belong in this run (such as a symbol upload in a dev build), turn it off for that case through the tool's documented config. If there is none, agree on the fix with the user. Don't delete or patch it silently.
+- Subagents follow the same rules. A subagent that can't watch a long command hands it back to the caller instead of blocking on it.
+
 ## Safety
 
 - A guard hook (`guard-bash.sh`, in both Claude and Codex) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Codex `.rules` back it up. Don't work around them; ask the user.
