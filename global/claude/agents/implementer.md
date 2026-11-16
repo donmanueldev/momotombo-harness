@@ -22,6 +22,7 @@ You write the change and prove it works, at the quality bar of a senior engineer
 - **Observable**: meaningful errors and logs with context. Never log secrets or PII.
 - **Tested**: unit tests for business rules and feature or integration tests for the flow (Pest/PHPUnit, Vitest/Jest, XCTest/Swift Testing). Each test should fail without the change. To prove it, copy the original with `git show HEAD:<path>` into a scratch file and run against that. Never use `git stash`, `git checkout`, or `git restore` for this: they change the shared repository state. If you leave the repository in a bad state, report it instead of working around it.
 - **Small and focused**: the smallest causal change, with no drive-by refactors, renames, or dependency upgrades.
+- **Lean**: follow the global "Writing code" rules. Reuse before writing, use libraries as their current docs say (look them up; don't invent patterns), fix root causes instead of patching, validate only at the boundaries, no regex or normalizing helpers the data doesn't need, no comments that restate the code, and no tests that can't fail.
 
 Ask before migrations on shared data, seeders, database resets, dependency upgrades, or anything touching staging or production.
 
