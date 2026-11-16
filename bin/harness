@@ -394,6 +394,137 @@ cmd_undo() {
     mv "$latest" "$latest.restored"
 }
 
+# ----------------------------------------------------------------- cleanup
+
+CLEANUP_ASKING=false
+CLEANUP_STOPPED=0
+CLEANUP_KEPT=0
+CLEANUP_FAILED=0
+# Dev servers run as node, bun, or php (so wrapper shells, npx, npm exec, and editors don't count),
+# with arguments that start Metro, Expo, Vite, or Laravel's long-running artisan commands.
+DEV_SERVER_RUNTIME='^([^ ]*/)?(node|bun|php)( |$)'
+DEV_SERVER_PATTERN='expo start|react-native start|(^|[/ ])(metro|vite)( |$)|artisan (serve|queue:work|horizon|reverb)'
+
+# Ask whether to stop one item; succeeds on yes. No, the default, counts it as kept.
+cleanup_ask() {
+    local answer=""
+    if $CLEANUP_ASKING; then
+        printf 'Stop %s? [y/N] ' "$1"
+        read -r answer <&3 || true
+        [ -t 3 ] || echo
+    fi
+    case "$answer" in y|Y) return 0 ;; esac
+    CLEANUP_KEPT=$((CLEANUP_KEPT + 1))
+    return 1
+}
+
+cleanup_stop() {
+    local label="$1"
+    shift
+    if "$@" </dev/null >/dev/null 2>&1; then
+        ok "stopped $label"; CLEANUP_STOPPED=$((CLEANUP_STOPPED + 1))
+    else
+        fail "couldn't stop $label"; CLEANUP_FAILED=$((CLEANUP_FAILED + 1))
+    fi
+}
+
+cmd_cleanup() {
+    $ASSUME_YES && die "cleanup asks before stopping each item; it has no --yes"
+    # Answers come from the terminal even when stdin is piped; tests point HARNESS_TTY at a file.
+    local tty="${HARNESS_TTY:-/dev/tty}" table list
+    if $DRY_RUN; then
+        echo "${BOLD}Dry run: nothing will be stopped${RESET}"
+    elif ( exec <"$tty" ) 2>/dev/null; then
+        exec 3<"$tty"
+        CLEANUP_ASKING=true
+    else
+        warn "no terminal to ask on; listing only, as with --dry-run"
+    fi
+
+    table=$(ps -Ao pid=,ppid=,uid=,rss=,command=) || die "couldn't list processes (ps failed)"
+    echo "${BOLD}Most memory${RESET} (for information; never stopped)"
+    sort -k4,4nr <<<"$table" | awk 'NR <= 5 {
+        cmd = $0; sub(/^ *[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +/, "", cmd)
+        printf "  %7s  %6d MB  %s\n", $1, $4 / 1024, substr(cmd, 1, 70)
+    }'
+
+    echo ""
+    echo "${BOLD}iOS simulators${RESET}"
+    if command -v xcrun >/dev/null; then
+        list=$(xcrun simctl list devices booted 2>/dev/null | sed -nE 's/^ *(.+) \(([0-9A-Fa-f-]{36})\) \(Booted\) *$/\2 \1/p') || list=""
+        [ -n "$list" ] || echo "  none booted"
+        local udid name
+        while read -r udid name; do
+            [ -n "$udid" ] || continue
+            echo "  $name ($udid)"
+            if cleanup_ask "simulator $name"; then cleanup_stop "simulator $name" xcrun simctl shutdown "$udid"; fi
+        done <<<"$list"
+    else
+        skip "xcrun not found; skipped"
+    fi
+
+    echo ""
+    echo "${BOLD}Android emulators${RESET}"
+    if command -v adb >/dev/null; then
+        list=$(adb devices 2>/dev/null | awk '$1 ~ /^emulator-/ { print $1 }') || list=""
+        [ -n "$list" ] || echo "  none running"
+        local serial
+        while read -r serial; do
+            [ -n "$serial" ] || continue
+            echo "  $serial"
+            if cleanup_ask "emulator $serial"; then cleanup_stop "emulator $serial" adb -s "$serial" emu kill; fi
+        done <<<"$list"
+    else
+        skip "adb not found; skipped"
+    fi
+
+    echo ""
+    echo "${BOLD}Docker containers${RESET}"
+    if ! command -v docker >/dev/null; then
+        skip "docker not found; skipped"
+    elif ! docker info >/dev/null 2>&1; then
+        skip "Docker isn't running; skipped"
+    else
+        list=$(docker ps --format '{{.ID}}\t{{.Names}}\t{{.Image}}' 2>/dev/null) || list=""
+        [ -n "$list" ] || echo "  none running"
+        local id image
+        while IFS=$'\t' read -r id name image; do
+            [ -n "$id" ] || continue
+            echo "  $name ($image, $id)"
+            if cleanup_ask "container $name"; then cleanup_stop "container $name" docker stop "$id"; fi
+        done <<<"$list"
+    fi
+
+    echo ""
+    echo "${BOLD}Dev servers${RESET}"
+    # Only this user's processes, and never this script or the shells that started it.
+    list=$(awk -v self="$$" -v uid="$UID" -v runtime="$DEV_SERVER_RUNTIME" -v pattern="$DEV_SERVER_PATTERN" '
+        { parent[$1] = $2; cmd = $0; sub(/^ *[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +/, "", cmd) }
+        $3 == uid && cmd ~ runtime && cmd ~ pattern { n++; pid[n] = $1; rss[n] = $4; command[n] = cmd }
+        END {
+            mine[self] = 1
+            for (p = self; p in parent && !(parent[p] in mine); p = parent[p]) mine[parent[p]] = 1
+            for (i = 1; i <= n; i++) if (!(pid[i] in mine)) printf "%s\t%d\t%s\n", pid[i], rss[i] / 1024, command[i]
+        }' <<<"$table")
+    [ -n "$list" ] || echo "  none running"
+    local pid mb cmdline
+    while IFS=$'\t' read -r pid mb cmdline; do
+        [ -n "$pid" ] || continue
+        printf '  %7s  %6s MB  %s\n' "$pid" "$mb" "${cmdline:0:80}"
+        cleanup_ask "process $pid" || continue
+        # The prompt can wait long enough for the pid to be reused by another program.
+        if [ "$(ps -o command= -p "$pid" 2>/dev/null)" = "$cmdline" ]; then
+            cleanup_stop "process $pid" kill "$pid"
+        else
+            skip "process $pid already exited; nothing stopped"
+            CLEANUP_KEPT=$((CLEANUP_KEPT + 1))
+        fi
+    done <<<"$list"
+
+    echo ""
+    echo "$CLEANUP_STOPPED stopped, $CLEANUP_KEPT kept, $CLEANUP_FAILED failed"
+}
+
 # ----------------------------------------------------------------- project layer
 
 CODELY_SKILLS=(codely-doc-create codely-openspec-spec-create-from-code)
@@ -453,38 +584,67 @@ boost_docs_map() {
     echo "When the user corrects a convention, run \`codely-doc-create\` so it lands in \`docs/\` and in this map."
 }
 
+# The package manager the project's lockfile picks: bun, pnpm, yarn, or npm.
+package_manager() {
+    local dir="$1"
+    if [ -f "$dir/bun.lock" ] || [ -f "$dir/bun.lockb" ]; then echo bun
+    elif [ -f "$dir/pnpm-lock.yaml" ]; then echo pnpm
+    elif [ -f "$dir/yarn.lock" ]; then echo yarn
+    else echo npm
+    fi
+}
+
 # The project's check scripts as commands, one per line: composer's, then package.json's.
 check_commands() {
-    local dir="$1" runner="npm run"
+    local dir="$1"
     if [ -f "$dir/composer.json" ] && jq -e '.scripts.check' "$dir/composer.json" >/dev/null 2>&1; then
         echo "composer check"
     fi
     if [ -f "$dir/package.json" ] && jq -e '.scripts.check' "$dir/package.json" >/dev/null 2>&1; then
-        if [ -f "$dir/bun.lock" ] || [ -f "$dir/bun.lockb" ]; then runner="bun run"
-        elif [ -f "$dir/pnpm-lock.yaml" ]; then runner="pnpm run"
-        elif [ -f "$dir/yarn.lock" ]; then runner="yarn run"
-        fi
-        echo "$runner check"
+        echo "$(package_manager "$dir") run check"
     fi
 }
 
-# The check commands as one shell line ("composer check && npm run check"); empty when there are none.
+# The command that audits package.json's dependencies for known vulnerabilities.
+node_audit_command() {
+    local manager
+    manager=$(package_manager "$1")
+    # Yarn Berry (a .yarnrc.yml, or __metadata in its lockfile) moved the audit under `yarn npm`.
+    if [ "$manager" = yarn ] && { [ -f "$1/.yarnrc.yml" ] || grep -qx '__metadata:' "$1/yarn.lock"; }; then
+        echo "yarn npm audit"
+    else
+        echo "$manager audit"
+    fi
+}
+
+# The project's dependency audits as commands, one per line: composer's, then package.json's.
+audit_commands() {
+    if [ -f "$1/composer.json" ]; then echo "composer audit"; fi
+    if [ -f "$1/package.json" ]; then node_audit_command "$1"; fi
+}
+
+# Commands read one per line, joined into one shell line ("a && b"); empty when there are none.
+join_commands() {
+    awk 'NR > 1 { printf " && " } { printf "%s", $0 }'
+}
+
 check_line() {
-    check_commands "$1" | awk 'NR > 1 { printf " && " } { printf "%s", $0 }'
+    check_commands "$1" | join_commands
 }
 
 render_agents_md() {
-    local dir="$1" stacks="$2" name check
+    local dir="$1" stacks="$2" name check audit
     name=$(basename "$dir")
     check=$(check_line "$dir")
+    audit=$(audit_commands "$dir" | join_commands)
     echo "# $name"
     echo ""
     echo "## Commands"
     echo ""
     if [ -n "$check" ]; then
-        echo "**Check:** \`$check\` runs every check (tests, types, lint, format). Run it before reporting any work as done."
+        echo "**Check:** \`$check\` runs every check (tests, types, lint, format, dependency audit). Run it before reporting any work as done."
     else
-        echo "**Check:** TODO: add one \`check\` script (in composer.json or package.json) that runs the tests, types, lint, and format, and name it here. Agents run it before reporting any work as done."
+        echo "**Check:** TODO: add one \`check\` script (in composer.json or package.json) that runs the tests, types, lint, format, and dependency audit${audit:+ (\`$audit\`)}, and name it here. Agents run it before reporting any work as done."
     fi
     echo ""
     echo "The individual commands. Keep them in sync with the real scripts."
@@ -506,6 +666,7 @@ render_agents_md() {
         echo "npm test                          # unit tests (check package.json)" ;;
     esac
     [ -z "$stacks" ] && echo "# TODO: install, run, test, lint, and format commands"
+    [ -z "$audit" ] || printf '%-33s # known-vulnerable dependencies\n' "$audit"
     echo '```'
     if [ -f "$dir/package.json" ] && jq -e '(.scripts // {}) | length > 0' "$dir/package.json" >/dev/null 2>&1; then
         echo ""
@@ -606,8 +767,17 @@ cmd_init() {
         ok "AGENTS.md (fill in the Architecture section)"
     fi
     if [ -z "$(check_line "$dir")" ]; then
-        warn "no 'check' script. Add one (composer.json or package.json) that runs the tests, types, lint, and format, and name it in AGENTS.md."
+        warn "no 'check' script. Add one (composer.json or package.json) that runs the tests, types, lint, format, and dependency audit, and name it in AGENTS.md."
     fi
+    local manifest script audit
+    for manifest in composer.json package.json; do
+        # composer.json allows a script to be a list of commands.
+        script=$(jq -r '.scripts.check // empty | if type == "array" then join(" ") else . end' "$dir/$manifest" 2>/dev/null) || continue
+        [ -n "$script" ] || continue
+        if [ "$manifest" = composer.json ]; then audit="composer audit"; else audit=$(node_audit_command "$dir"); fi
+        grep -qw audit <<<"$script" ||
+            warn "$manifest's check script doesn't seem to audit dependencies; add \`$audit\` to it"
+    done
     if [ -L "$dir/CLAUDE.md" ] && [ "$(readlink "$dir/CLAUDE.md")" = "AGENTS.md" ]; then
         :
     elif [ -e "$dir/CLAUDE.md" ]; then
@@ -859,6 +1029,8 @@ Global layer (this machine):
   harness status                          Show what is installed, missing, or broken
   harness doctor                          Check tools, links, and hooks
   harness undo [--dry-run] [--yes]        Restore the files replaced by the last install
+  harness cleanup [--dry-run]             List booted simulators, emulators, Docker containers,
+                                          and dev servers; ask before stopping each one
 
 Project layer (a product repository):
   harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
@@ -899,6 +1071,7 @@ main() {
         status) cmd_status ;;
         doctor) cmd_doctor ;;
         undo) cmd_undo ;;
+        cleanup) cmd_cleanup ;;
         validate) cmd_validate ;;
         codex-agents) cmd_codex_agents ;;
         help|-h|--help) cmd_help ;;

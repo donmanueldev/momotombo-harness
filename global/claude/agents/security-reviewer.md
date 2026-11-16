@@ -24,7 +24,7 @@ Review the changes in question (`git diff <base>...HEAD`, staged changes, or the
 - **Uploads and files**: type validation by extension only, path traversal, public storage of private files.
 - **Payments and webhooks**: unsigned or unverified webhooks, non-idempotent charge handlers, trusting client-sent prices.
 - **Mobile**: secrets in the bundle, tokens in AsyncStorage or UserDefaults instead of Keychain/SecureStore, deep links that skip auth.
-- **Dependencies**: known-vulnerable versions (`composer audit`, `npm audit` when available, read-only).
+- **Dependencies**: whenever a manifest or lockfile changed, and on every full audit, run the project's audits read-only: `composer audit` for composer.json, and for package.json the one its lockfile picks (`bun audit`, `pnpm audit`, `yarn npm audit` with `.yarnrc.yml` or `yarn audit` without, otherwise `npm audit`). Report the Critical and High advisories that reach shipped code, not dev-only tooling.
 
 ## Output
 

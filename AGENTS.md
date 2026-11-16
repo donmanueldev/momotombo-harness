@@ -12,7 +12,7 @@ The Momotombo agent harness for Claude Code and Codex. It has two layers:
 - `global/codex/`: Codex custom agents (`agents/*.toml`), the `.rules` command policy, and the hooks merged into `~/.codex/hooks.json`.
 - `global/hooks/guard-bash.sh`: the PreToolUse guard shared by Claude and Codex.
 - `skills/<name>/` → `~/.claude/skills/` and `~/.agents/skills/` (Codex): skills shared by both tools.
-- `bin/harness`: the CLI (`install`, `init`, `status`, `doctor`, `undo`, `validate`, `codex-agents`).
+- `bin/harness`: the CLI (`install`, `init`, `status`, `doctor`, `undo`, `cleanup`, `validate`, `codex-agents`).
 - `tests/`: Bats suites. CI runs `bin/harness validate` and `bats tests/` on macOS.
 
 ## Commands

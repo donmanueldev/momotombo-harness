@@ -115,6 +115,7 @@ harness install [--dry-run] [--force]   link and merge the global layer
 harness status                          what is installed, missing, or broken
 harness doctor                          tools, links, and hooks
 harness undo [--dry-run] [--yes]        restore what the last install replaced
+harness cleanup [--dry-run]             list simulators, emulators, containers, and dev servers; ask before stopping each
 harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
 harness validate                        what CI checks
 harness codex-agents                    regenerate Codex agents from the Claude ones
