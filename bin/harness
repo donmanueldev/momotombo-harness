@@ -412,6 +412,8 @@ stack_docs() {
     esac
     case " $1 " in *" expo "*)
         echo "docs/mobile/expo-router-screens.md"
+        echo "docs/mobile/native-config-and-permissions.md"
+        echo "docs/mobile/server-and-client-state.md"
         echo "docs/mobile/secure-storage-and-api.md" ;;
     esac
 }

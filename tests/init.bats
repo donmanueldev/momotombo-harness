@@ -105,6 +105,8 @@ laravel_app() {
     run init
     [[ "$output" == *"stack: expo"* ]] || return 1
     [[ -f "$APP/docs/mobile/expo-router-screens.md" ]] || return 1
+    [[ -f "$APP/docs/mobile/native-config-and-permissions.md" && -f "$APP/docs/mobile/server-and-client-state.md" ]] || return 1
+    grep -q "docs/mobile/server-and-client-state.md" "$APP/AGENTS.md" || return 1
     [[ ! -e "$APP/docs/backend" ]] || return 1
     grep -q 'npx expo start' "$APP/AGENTS.md" || return 1
 }

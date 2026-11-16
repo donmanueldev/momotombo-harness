@@ -51,3 +51,4 @@ export default function ProjectScreen() {
 ## 🔗 Related agreements
 
 - [Secure storage and API access](secure-storage-and-api.md)
+- [Server and client state](server-and-client-state.md)
