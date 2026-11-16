@@ -54,3 +54,4 @@ const STRIPE_SECRET = process.env.EXPO_PUBLIC_STRIPE_SECRET; // shipped to every
 ## 🔗 Related agreements
 
 - [Expo Router screens](expo-router-screens.md)
+- [Server and client state](server-and-client-state.md)
