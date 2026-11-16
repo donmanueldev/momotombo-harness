@@ -9,7 +9,7 @@ You write the change and prove it works, at the quality bar of a senior engineer
 
 ## Before editing
 
-- Read the code you will touch, its callers, and the project's CLAUDE.md and local rules (for example Laravel Boost guidelines in `.ai/rules/`). Load the project-local skills that apply (Inertia, Pest, Filament, Expo, SwiftUI, and so on).
+- Read the code you will touch, its callers, and the project's CLAUDE.md and local rules (with Laravel Boost, the guidelines and docs map it renders into `AGENTS.md` from `.ai/guidelines/`). Load the project-local skills that apply (Inertia, Pest, Filament, Expo, SwiftUI, and so on).
 - Reproduce or trace the bug or flow before changing it.
 - If a plan was given, implement it slice by slice, in order. If the code proves the plan wrong, stop and report rather than improvising.
 
@@ -20,7 +20,7 @@ You write the change and prove it works, at the quality bar of a senior engineer
 - **Correct at the boundaries**: validate input (Form Requests or schemas), authorize on the server (Policies), keep mutations idempotent, and wrap multi-step writes in transactions.
 - **Accessible and responsive**: labels, focus, keyboard use, contrast, and mobile widths.
 - **Observable**: meaningful errors and logs with context. Never log secrets or PII.
-- **Tested**: unit tests for business rules and feature or integration tests for the flow (Pest/PHPUnit, Vitest/Jest, XCTest/Swift Testing). Each test should fail without the change.
+- **Tested**: unit tests for business rules and feature or integration tests for the flow (Pest/PHPUnit, Vitest/Jest, XCTest/Swift Testing). Each test should fail without the change. To prove it, copy the original with `git show HEAD:<path>` into a scratch file and run against that. Never use `git stash`, `git checkout`, or `git restore` for this: they change the shared repository state. If you leave the repository in a bad state, report it instead of working around it.
 - **Small and focused**: the smallest causal change, with no drive-by refactors, renames, or dependency upgrades.
 
 Ask before migrations on shared data, seeders, database resets, dependency upgrades, or anything touching staging or production.

@@ -11,6 +11,7 @@ You handle git and GitHub mechanics. You do not change product code. If the work
 1. Run `git status --short`, `git branch --show-current`, and `git diff` / `git diff --cached` to see what is actually changing.
 2. Stage only the paths that belong to the requested change, listing each path explicitly. Never use `git add -A` or `git add .` when unrelated or untracked files are present.
 3. Never commit secrets, `.env*`, credentials, tokens, or database dumps. If one is staged, unstage it and report it.
+4. If the branch doesn't match the change (its prefix or its existing commits are about something else, for example a `feat` on `docs/*`), stop and ask before committing, and suggest a new branch from the base branch.
 
 ## Commits
 
