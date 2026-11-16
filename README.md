@@ -30,7 +30,7 @@ harness install                            harness init
   · global instructions (one file)         docs/: conventions that grow with every correction
   · 7 subagents, routed by model           openspec/: specs + the momotombo schema
   · /commit, /open-pr                      Codely skills, pinned in skills-lock.json
-  · guard hook + Codex rules
+  · guard hook, stall watcher, Codex rules
   · status line, settings
 ```
 
@@ -105,6 +105,7 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
   - printing or sourcing `.env` / `.env.*` files (`cat`, `grep`, `source`, …); templates like `.env.example` stay readable. This check is best effort (an interpreter such as `node -e` can still read the file); the Read deny rules below are the real control
 - **Codex `.rules`** forbid the same git operations, as a second line of defense.
 - **Claude deny rules** block the Read tool on `.env` files (`.env`, `.env.local`, `.env.production`, `.env.staging`, …), `~/.ssh`, and AWS credentials.
+- **Stall watcher** (`global/hooks/stall-watch.sh`, Claude only): a `PostToolUse` hook with `asyncRewake` that watches each command Claude runs with `run_in_background`. When the command has written no output for 10 minutes and its processes use under 5% CPU in total, it wakes Claude with a diagnosis (processes, the newest log and its last lines) and posts a macOS notification. It never stops anything. It reports once per command, and it doesn't report while the command listens on a port (a dev server). It only catches low-CPU stalls: a busy sibling process can hide a hung one. Tune it with `HARNESS_STALL_SECONDS`, `HARNESS_STALL_CPU`, and `HARNESS_STALL_POLL`. Codex has no equivalent hook, so its agents set their own check. It needs `lsof`, which macOS ships.
 
 If a legitimate command is blocked, run it yourself (prefix it with `!` in Claude Code).
 
@@ -126,7 +127,7 @@ harness codex-agents                    regenerate Codex agents from the Claude 
 global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
 global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
-global/hooks/            guard-bash.sh, shared by both tools
+global/hooks/            guard-bash.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
 project/                 what `harness init` copies: docs/ seeds, the OpenSpec schema and config
 bin/harness              the CLI (bash + jq)

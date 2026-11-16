@@ -33,6 +33,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/stall-watch.sh\"",
+            "asyncRewake": true,
+            "timeout": 14400
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
