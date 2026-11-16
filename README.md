@@ -61,6 +61,8 @@ harness init                     # detects Laravel or Expo, or pass --stack lara
 
 Then fill in the Architecture section of `AGENTS.md`, trim the seeded `docs/`, and commit.
 
+With Laravel Boost (`boost.json`), Boost owns `AGENTS.md` and it is often gitignored. `init` then writes the docs map to `.ai/guidelines/docs-map.md`, which is versioned and which Boost adds to `AGENTS.md`. Run `php artisan boost:update` afterwards, and add new docs to that file by hand.
+
 ## Daily workflow
 
 Talk to the agent in Spanish. It writes code, specs, and docs in English.
