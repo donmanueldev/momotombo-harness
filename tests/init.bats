@@ -116,6 +116,44 @@ laravel_app() {
     [[ ! -e "$STUB_LOG" ]] || return 1
 }
 
+@test "dry run on a repo with its own AGENTS.md lists the docs map it should have" {
+    laravel_app
+    echo "# mine" > "$APP/AGENTS.md"
+    mkdir -p "$APP/docs/backend"
+    printf '# Thin controllers\n' > "$APP/docs/backend/thin-controllers.md"
+    run init --dry-run
+    [[ "$output" == *"Make sure its docs map lists:"* ]] || return 1
+    [[ "$output" == *"- [Thin controllers](docs/backend/thin-controllers.md)"* ]] || return 1
+}
+
+@test "with Laravel Boost, init writes the docs map as a Boost guideline and keeps it" {
+    laravel_app
+    echo '{"agents": ["claude_code"], "guidelines": true}' > "$APP/boost.json"
+    echo "<laravel-boost-guidelines>x</laravel-boost-guidelines>" > "$APP/AGENTS.md"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    grep -qx '# Docs map' "$APP/.ai/guidelines/docs-map.md" || return 1
+    grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
+    [[ "$output" == *"php artisan boost:update"* ]] || return 1
+    [[ "$output" != *"Make sure its docs map lists"* ]] || return 1
+    grep -qx "<laravel-boost-guidelines>x</laravel-boost-guidelines>" "$APP/AGENTS.md" || return 1
+
+    echo "custom" > "$APP/.ai/guidelines/docs-map.md"
+    run init --no-codely
+    grep -qx "custom" "$APP/.ai/guidelines/docs-map.md" || return 1
+}
+
+@test "init doesn't flag a momotombo schema that a formatter only restyled" {
+    laravel_app
+    mkdir -p "$APP/openspec/schemas"
+    cp -R "$PROJECT_DIR/project/openspec/schemas/momotombo" "$APP/openspec/schemas/momotombo"
+    sed -i '' -e "s/\"/'/g" -e 's/^schema:/\nschema:/' "$APP/openspec/schemas/momotombo/schema.yaml"
+    printf '\n\n' >> "$APP/openspec/schemas/momotombo/templates/spec.md"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" != *"differs from the harness"* ]] || { echo "$output"; return 1; }
+}
+
 @test "init refuses to run on the harness itself" {
     run "$PROJECT_DIR/bin/harness" init "$PROJECT_DIR"
     [[ "$status" -ne 0 ]] || return 1

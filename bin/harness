@@ -410,12 +410,32 @@ detect_stacks() {
     echo "${found# }"
 }
 
+# A folder's files with the formatting a code formatter changes (quote style, blank lines,
+# trailing spaces) stripped, so Prettier reformatting the schema doesn't count as a change.
+normalized_tree() {
+    local root="$1" file
+    (cd "$root" && find . -type f | LC_ALL=C sort) | while read -r file; do
+        echo "== $file"
+        sed -e "s/[\"']//g" -e 's/[[:space:]]*$//' -e '/^$/d' "$root/$file"
+    done
+}
+
 docs_map() {
     local dir="$1" file title
     (cd "$dir" && find docs -name '*.md' 2>/dev/null | sort) | while read -r file; do
         title=$({ grep -m1 '^# ' "$dir/$file" || true; } | sed -e 's/^# //' -e 's/^[^A-Za-z]* //')
         echo "- [${title:-$(basename "$file" .md)}]($file)"
     done
+}
+
+boost_docs_map() {
+    echo "# Docs map"
+    echo ""
+    echo "Project conventions live in \`docs/\`. Before writing code, read only the docs that apply to the task:"
+    echo ""
+    docs_map "$1"
+    echo ""
+    echo "When the user corrects a convention, run \`codely-doc-create\` so it lands in \`docs/\` and in this map."
 }
 
 render_agents_md() {
@@ -498,10 +518,27 @@ cmd_init() {
         ok "$file"
     done < <(stack_docs "$stacks")
 
+    # Laravel Boost regenerates AGENTS.md (often gitignored) and includes .ai/guidelines/*.md
+    # in it, so with Boost the docs map goes there: versioned, and kept by boost:update.
+    local guideline="$dir/.ai/guidelines/docs-map.md"
+    if [ -f "$dir/boost.json" ]; then
+        if [ -e "$guideline" ]; then
+            skip ".ai/guidelines/docs-map.md exists (kept)"
+        elif $DRY_RUN; then
+            dry "would write .ai/guidelines/docs-map.md (Boost adds it to AGENTS.md)"
+        else
+            mkdir -p "$(dirname "$guideline")"
+            boost_docs_map "$dir" > "$guideline"
+            ok ".ai/guidelines/docs-map.md (add it to AGENTS.md: php artisan boost:update --no-discover --ignore-skills)"
+        fi
+    fi
+
     # AGENTS.md and CLAUDE.md
     if [ -e "$dir/AGENTS.md" ]; then
-        skip "AGENTS.md exists (kept). Make sure its docs map lists:"
-        $DRY_RUN || docs_map "$dir" | sed 's/^/    /'
+        if [ ! -f "$dir/boost.json" ]; then
+            skip "AGENTS.md exists (kept). Make sure its docs map lists:"
+            docs_map "$dir" | sed 's/^/    /' # read-only, so a dry run shows it too
+        fi
     elif $DRY_RUN; then
         dry "would create AGENTS.md"
     else
@@ -542,7 +579,7 @@ cmd_init() {
                 cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
                 ok "openspec/schemas/momotombo"
             fi
-        elif ! diff -rq "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo" >/dev/null 2>&1; then
+        elif [ "$(normalized_tree "$HARNESS_DIR/project/openspec/schemas/momotombo")" != "$(normalized_tree "$dir/openspec/schemas/momotombo")" ]; then
             warn "openspec/schemas/momotombo differs from the harness; left unchanged (delete it and re-run to take the harness version)"
         fi
         dest="$dir/openspec/config.yaml"
