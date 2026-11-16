@@ -68,7 +68,7 @@ Delegate by task type so each kind of work runs on the right model. A subagent d
 Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile.
 
 - Laravel projects with Laravel Boost: read Boost's guidelines first (Boost renders `.ai/guidelines/*.md`, including the docs map, into `AGENTS.md`), and use its skills (Inertia, Pest, and others).
-- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`.
+- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`. Check native config (`app.json`, config plugins, permissions, locales) against the Expo docs before writing it into a plan or code.
 - Some repos use Vue instead of React, Next.js, or NativePHP. The same rules apply; use the installed skill for that stack (for example the Vercel plugin for Next.js) instead of improvising conventions.
 - Python is for AI agents and the services that expose them. Laravel stays the product core; add a Python service only for a concrete need PHP can't meet, and don't port what works. Python projects use 3.12+, `pyproject.toml`, `uv`, `ruff`, `pytest`, and `pyright`.
 - Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
