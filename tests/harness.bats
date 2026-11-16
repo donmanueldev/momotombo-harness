@@ -9,7 +9,7 @@ setup() {
     export CODEX_HOME="$HOME/.codex"
     export HARNESS_LEGACY_DIRS="$TEST_TMP/old-checkout"
     REPO="$TEST_TMP/harness"
-    mkdir -p "$HOME" "$REPO/bin" "$REPO/skills/demo" "$REPO/global/claude/agents" "$REPO/global/codex/agents" \
+    mkdir -p "$HOME" "$CODEX_HOME" "$REPO/bin" "$REPO/skills/demo" "$REPO/global/claude/agents" "$REPO/global/codex/agents" \
              "$REPO/global/claude/rules" "$REPO/global/codex/rules" "$REPO/global/hooks"
     cp "$PROJECT_DIR/bin/harness" "$REPO/bin/harness"
     cp -R "$PROJECT_DIR/project" "$REPO/project"
@@ -363,4 +363,30 @@ harness() {
     printf -- '---\nname: demo\ndescription: Demo skill\nlicense: MIT\nmetadata:\n  version: "1.0.0\n---\nBody\n' > "$REPO/skills/demo/SKILL.md"
     run harness validate
     [[ "$output" == *"skills/demo: missing 'metadata.version' (semver)"* ]] || return 1
+}
+
+@test "without Codex, install and doctor skip its links and hook instead of failing" {
+    rmdir "$CODEX_HOME"
+    mkdir -p "$TEST_TMP/bin" && ln -s "$(command -v jq)" "$TEST_TMP/bin/jq"
+    export PATH="$TEST_TMP/bin:/usr/bin:/bin"   # no codex command
+    run harness install
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" == *"Codex not found; its links and hooks were skipped"* ]] || return 1
+    [[ ! -e "$CODEX_HOME" ]] || return 1
+    [[ "$(readlink "$HOME/.claude/CLAUDE.md")" == "$REPO/global/AGENTS.md" ]] || return 1
+    run harness doctor
+    [[ "$output" == *"Codex not installed; its links and guard hook are skipped"* ]] || return 1
+    [[ "$output" != *".codex"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"links installed"* && "$output" != *"need attention"* ]] || { echo "$output"; return 1; }
+}
+
+@test "a codex command on PATH counts as Codex installed, even before ~/.codex exists" {
+    rmdir "$CODEX_HOME"
+    mkdir -p "$TEST_TMP/bin" && ln -s "$(command -v jq)" "$TEST_TMP/bin/jq"
+    printf '#!/bin/bash\n' > "$TEST_TMP/bin/codex" && chmod +x "$TEST_TMP/bin/codex"
+    export PATH="$TEST_TMP/bin:/usr/bin:/bin"
+    run harness install
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$(readlink "$CODEX_HOME/AGENTS.md")" == "$REPO/global/AGENTS.md" ]] || return 1
+    jq -e '.hooks.PreToolUse[0].hooks[0].command == "guard-bash.sh"' "$CODEX_HOME/hooks.json" >/dev/null || return 1
 }
