@@ -139,9 +139,14 @@ link_item() {
     ok "$(pretty "$dest")"
 }
 
-# Every managed link as "source<TAB>destination".
+# Codex counts as installed when its command or its home folder exists (a leftover ~/.codex
+# keeps its links managed; delete it to stop that).
+codex_installed() { command -v codex >/dev/null 2>&1 || [ -d "$CODEX_HOME" ]; }
+
+# Every managed link as "source<TAB>destination". Codex links only when Codex is installed.
 mappings() {
-    local item name
+    local item name codex=false
+    codex_installed && codex=true
     for item in "$HARNESS_DIR"/skills/*/; do
         [ -f "$item/SKILL.md" ] || continue
         name=$(basename "$item")
@@ -149,24 +154,26 @@ mappings() {
         printf '%s\t%s\n' "${item%/}" "$AGENTS_HOME/skills/$name"
     done
     printf '%s\t%s\n' "$HARNESS_DIR/global/AGENTS.md" "$CLAUDE_HOME/CLAUDE.md"
-    printf '%s\t%s\n' "$HARNESS_DIR/global/AGENTS.md" "$CODEX_HOME/AGENTS.md"
     for item in "$HARNESS_DIR"/global/claude/agents/*.md; do
         [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CLAUDE_HOME/agents/$(basename "$item")"
-    done
-    for item in "$HARNESS_DIR"/global/codex/agents/*.toml; do
-        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/agents/$(basename "$item")"
     done
     for item in "$HARNESS_DIR"/global/claude/rules/*.md; do
         [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CLAUDE_HOME/rules/$(basename "$item")"
     done
-    for item in "$HARNESS_DIR"/global/codex/rules/*.rules; do
-        [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/rules/$(basename "$item")"
-    done
     for item in "$HARNESS_DIR"/global/hooks/*; do
         [ -f "$item" ] || continue
         printf '%s\t%s\n' "$item" "$CLAUDE_HOME/hooks/$(basename "$item")"
-        printf '%s\t%s\n' "$item" "$CODEX_HOME/hooks/$(basename "$item")"
+        $codex && printf '%s\t%s\n' "$item" "$CODEX_HOME/hooks/$(basename "$item")"
     done
+    if $codex; then
+        printf '%s\t%s\n' "$HARNESS_DIR/global/AGENTS.md" "$CODEX_HOME/AGENTS.md"
+        for item in "$HARNESS_DIR"/global/codex/agents/*.toml; do
+            [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/agents/$(basename "$item")"
+        done
+        for item in "$HARNESS_DIR"/global/codex/rules/*.rules; do
+            [ -f "$item" ] && printf '%s\t%s\n' "$item" "$CODEX_HOME/rules/$(basename "$item")"
+        done
+    fi
     printf '%s\t%s\n' "$HARNESS_DIR/bin/harness" "$HOME/.local/bin/harness"
     [ -f "$HARNESS_DIR/global/claude/statusline.sh" ] &&
         printf '%s\t%s\n' "$HARNESS_DIR/global/claude/statusline.sh" "$CLAUDE_HOME/statusline.sh"
@@ -252,7 +259,11 @@ cmd_install() {
     done < <(mappings)
 
     merge_json "$HARNESS_DIR/global/claude/settings.json" "$CLAUDE_HOME/settings.json"
-    merge_json "$HARNESS_DIR/global/codex/hooks.json" "$CODEX_HOME/hooks.json"
+    if codex_installed; then
+        merge_json "$HARNESS_DIR/global/codex/hooks.json" "$CODEX_HOME/hooks.json"
+    else
+        skip "Codex not found; its links and hooks were skipped (install Codex, then re-run)"
+    fi
 
     while read -r link; do
         [ -n "$link" ] || continue
@@ -327,7 +338,9 @@ cmd_doctor() {
     else
         fail "Claude guard hook not enabled (run: harness install)"; status=1
     fi
-    if [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
+    if ! codex_installed; then
+        skip "Codex not installed; its links and guard hook are skipped"
+    elif [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
         if jq -e '.hooks.PreToolUse[]?.hooks[]?.command | select(contains("guard-bash.sh"))' "$CODEX_HOME/hooks.json" >/dev/null 2>&1; then
             ok "Codex guard hook enabled (approve it once in Codex with /hooks)"
         else
