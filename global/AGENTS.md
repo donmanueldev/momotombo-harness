@@ -19,7 +19,7 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 | Task size | How |
 |-----------|-----|
 | Typo, one-line fix, config tweak | Do it directly, then verify. |
-| Bug fix | Reproduce it, find the root cause (`analyst`), fix it with a regression test (`implementer`). |
+| Bug fix | Reproduce it, find the root cause (`analyst`, with `diagnosing-bugs` if installed), fix it with a regression test (`implementer`). |
 | Feature or behavior change | Spec-driven with OpenSpec (below). |
 
 **Spec-driven flow** (Claude: `/openspec-…` · Codex: `$openspec-…`):
@@ -28,6 +28,13 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 2. `openspec-propose <change>`: write lean specs plus a phased `plan.md`. **Stop and let the user approve the specs and the contracts** before implementing.
 3. `openspec-apply-change`: implement **only the first phase with unchecked tasks**, run its verification, check off its tasks, then **stop**. Don't commit. Tell the user to review, then commit with `/commit` (Claude) or the `git-ops` agent (Codex). The next phase starts only when the user runs apply again.
 4. `openspec-archive-change`: once every phase is merged, fold the specs into `openspec/specs/`.
+
+OpenSpec is the only planning flow. Don't run another spec, ticket, or implement-plan flow (such as `to-spec`, `to-tickets`, `implement-spec`) next to it. These skills plug into its steps when installed; skip them silently when not:
+
+- Before `explore`, if the idea is still fuzzy: `grill-me` (`grill-with-docs` when the repo has domain docs).
+- In `propose`: `domain-modeling` for new domain concepts, `codebase-design` for module boundaries.
+- In `apply`: `tdd` for business rules.
+- Outside a change, for cleanup: `improve-codebase-architecture`.
 
 For a project that already has behavior without specs, run `codely-openspec-spec-create-from-code <capability>` before changing it.
 
@@ -58,8 +65,21 @@ Delegate by task type so each kind of work runs on the right model. A subagent d
 Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile.
 
 - Laravel projects with Laravel Boost: read Boost's guidelines and `.ai/rules/` first, and use its skills (Inertia, Pest, and others).
-- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates.
+- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`.
+- Some repos use Vue instead of React, Next.js, or NativePHP. The same rules apply; use the installed skill for that stack (for example the Vercel plugin for Next.js) instead of improvising conventions.
 - Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
+
+## Writing code
+
+Priorities, in order: correct and secure, then simple and readable, then fast. Clear beats clever.
+
+- Read the surrounding code first and match its patterns, names, and structure.
+- Make the smallest change that solves the task. No abstractions, options, or layers "for later".
+- Don't add a dependency for what the framework or an existing package already does.
+- Name things after the domain, not `data`, `handle`, `Manager`, or `Helper`.
+- Comments explain why, never what. No commented-out code.
+- Delete what your change made dead: code, imports, files, flags.
+- Handle the errors that can happen, where they can be handled. Don't wrap everything in try/catch.
 
 ## Product quality bar
 
