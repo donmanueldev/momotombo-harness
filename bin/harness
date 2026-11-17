@@ -8,8 +8,6 @@ HARNESS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 BACKUP_DIR="${HARNESS_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/momotombo-harness/backups}"
 # Where versions before 2026-11 saved them; undo still restores from there.
 LEGACY_BACKUP_DIR="$HARNESS_DIR/.backup"
-# The oldest OpenSpec release the momotombo schema is tested with, and the first with `init --scope`.
-MIN_OPENSPEC="2.1.0"
 CLAUDE_HOME="$HOME/.claude"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="$HOME/.agents"
@@ -295,19 +293,6 @@ cmd_status() {
 
 version_of() { "$@" 2>/dev/null | head -n 1 | grep -Eo '[0-9]+(\.[0-9]+)+' | head -n 1; }
 
-# True when dotted version $1 >= $2 (numeric per part, missing parts count as 0).
-version_at_least() {
-    local IFS=. i
-    local -a a b
-    read -r -a a <<<"$1"
-    read -r -a b <<<"$2"
-    for i in 0 1 2; do
-        [ "${a[$i]:-0}" -gt "${b[$i]:-0}" ] && return 0
-        [ "${a[$i]:-0}" -lt "${b[$i]:-0}" ] && return 1
-    done
-    return 0
-}
-
 cmd_doctor() {
     local status=0 tool
     echo "${BOLD}Tools${RESET}"
@@ -315,14 +300,10 @@ cmd_doctor() {
         if command -v "$tool" >/dev/null; then ok "$tool $(version_of "$tool" --version)"; else fail "$tool missing (required)"; status=1; fi
     done
     local version
-    for tool in claude codex openspec gh node; do
+    for tool in claude codex gh node; do
         if ! command -v "$tool" >/dev/null; then warn "$tool missing (optional)"; continue; fi
         version=$(version_of "$tool" --version || true) # a missing or odd version must not stop doctor
-        if [ "$tool" = openspec ] && [ -n "$version" ] && ! version_at_least "$version" "$MIN_OPENSPEC"; then
-            warn "openspec $version is older than $MIN_OPENSPEC, the first release with 'init --scope' (npm i -g @fission-ai/openspec@latest)"
-        else
-            ok "$tool $version"
-        fi
+        ok "$tool $version"
     done
     case ":$PATH:" in
         *":$HOME/.local/bin:"*) ok "$(pretty "$HOME/.local/bin") is on PATH (harness command)" ;;
@@ -402,7 +383,7 @@ cmd_undo() {
 
 # ----------------------------------------------------------------- project layer
 
-CODELY_SKILLS=(codely-doc-create codely-openspec-spec-create-from-code)
+CODELY_SKILLS=(codely-doc-create)
 STACKS=""
 NO_CODELY=false
 INIT_DIR=""
@@ -429,16 +410,6 @@ detect_stacks() {
     [ -f "$dir/composer.json" ] && jq -e '(.require // {}) | has("laravel/framework")' "$dir/composer.json" >/dev/null 2>&1 && found="laravel"
     [ -f "$dir/package.json" ] && jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("expo")' "$dir/package.json" >/dev/null 2>&1 && found="$found expo"
     echo "${found# }"
-}
-
-# A folder's files with the formatting a code formatter changes (quote style, blank lines,
-# trailing spaces) stripped, so Prettier reformatting the schema doesn't count as a change.
-normalized_tree() {
-    local root="$1" file
-    (cd "$root" && find . -type f | LC_ALL=C sort) | while read -r file; do
-        echo "== $file"
-        sed -e "s/[\"']//g" -e 's/[[:space:]]*$//' -e '/^$/d' "$root/$file"
-    done
 }
 
 docs_map() {
@@ -525,8 +496,6 @@ render_agents_md() {
 
 ## Workflow
 
-- Features and behavior changes are spec-driven with OpenSpec and the `momotombo` schema: `openspec-explore` → `openspec-propose` (approve specs and contracts) → `openspec-apply-change` (one phase per run, then stop and review) → `openspec-archive-change`. In Claude Code they are `/openspec-…`, and in Codex `$openspec-…`. Current behavior lives in `openspec/specs/`.
-- Before changing behavior that has no spec yet, run `codely-openspec-spec-create-from-code <capability>`.
 - When you are corrected on a convention, run `codely-doc-create` so it becomes a doc in `docs/`. Leave out Codely's mascot sign-off and course links from docs and replies.
 - Commits and PRs follow the global harness rules: English Conventional Commits, made by `git-ops` (`/commit`, `/open-pr` in Claude Code).
 
@@ -625,45 +594,6 @@ cmd_init() {
         ok "CLAUDE.md -> AGENTS.md"
     fi
 
-    # OpenSpec with the momotombo schema
-    local openspec_version
-    if ! command -v openspec >/dev/null; then
-        warn "openspec not installed; skipped (brew install openspec, then re-run harness init)"
-    elif ! openspec_version=$(version_of openspec --version) || ! version_at_least "$openspec_version" "$MIN_OPENSPEC"; then
-        warn "openspec ${openspec_version:-with an unreadable version} is not $MIN_OPENSPEC or newer; skipped (npm i -g @fission-ai/openspec@latest, then re-run harness init)"
-    else
-        if [ ! -d "$dir/openspec" ]; then
-            if $DRY_RUN; then dry "would run: openspec init --scope project --tools claude,codex"
-            else
-                local log
-                # Project scope keeps the skills in the repo, so teammates and cloud sessions get them from git.
-                if ! log=$(cd "$dir" && OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_TELEMETRY=0 CI=true \
-                        openspec init --scope project --tools claude,codex --no-animation . 2>&1); then
-                    echo "$log" >&2
-                    die "openspec init failed"
-                fi
-                ok "openspec init (skills for Claude Code and Codex)"
-            fi
-        fi
-        if [ ! -e "$dir/openspec/schemas/momotombo" ]; then
-            if $DRY_RUN; then dry "would install the momotombo schema in openspec/schemas/momotombo"
-            else
-                mkdir -p "$dir/openspec/schemas"
-                cp -R "$HARNESS_DIR/project/openspec/schemas/momotombo" "$dir/openspec/schemas/momotombo"
-                ok "openspec/schemas/momotombo"
-            fi
-        elif [ "$(normalized_tree "$HARNESS_DIR/project/openspec/schemas/momotombo")" != "$(normalized_tree "$dir/openspec/schemas/momotombo")" ]; then
-            warn "openspec/schemas/momotombo differs from the harness; left unchanged (delete it and re-run to take the harness version)"
-        fi
-        dest="$dir/openspec/config.yaml"
-        if [ ! -f "$dest" ] || { grep -q '^schema: spec-driven$' "$dest" && ! grep -qE '^(context|rules|operations):' "$dest"; }; then
-            if $DRY_RUN; then dry "would write openspec/config.yaml (schema: momotombo)"
-            else cp "$HARNESS_DIR/project/openspec/config.yaml" "$dest"; ok "openspec/config.yaml (schema: momotombo)"; fi
-        elif ! grep -q '^schema: momotombo$' "$dest"; then
-            warn "openspec/config.yaml is customized; set 'schema: momotombo' in it to use the harness workflow"
-        fi
-    fi
-
     # Codely skills, installed by reference with a pinned skills CLI (sources recorded in skills-lock.json)
     local missing=false skill
     for skill in "${CODELY_SKILLS[@]}"; do [ -f "$dir/.agents/skills/$skill/SKILL.md" ] || missing=true; done
@@ -690,7 +620,7 @@ cmd_init() {
         echo "Next:"
         echo "  1. Fill in the Architecture section of AGENTS.md and check its Commands."
         echo "  2. Review the seeded docs/ and delete what doesn't apply."
-        echo "  3. Commit the harness files, then start a feature with openspec-explore."
+        echo "  3. Commit the harness files."
     fi
 }
 
@@ -778,6 +708,17 @@ cmd_validate() {
         awk '/^metadata:/{on=1; next} on && /^  version: ([0-9]+\.[0-9]+\.[0-9]+|"[0-9]+\.[0-9]+\.[0-9]+")$/{found=1} /^[^ ]/{on=0} END{exit !found}' <<<"$fm" ||
             { fail "skills/$name: missing 'metadata.version' (semver)"; errors=$((errors + 1)); }
     done
+    local mode="$HARNESS_DIR/skills/momotombo-mode" ref
+    if [ -f "$mode/SKILL.md" ]; then
+        while read -r ref; do
+            [ -f "$mode/$ref" ] || { fail "skills/momotombo-mode: names $ref, which doesn't exist"; errors=$((errors + 1)); }
+        done < <(cat "$mode/SKILL.md" "$mode"/playbooks/*.md 2>/dev/null | grep -Eo '(playbooks|principles)/[a-z0-9-]+\.md' | sort -u)
+        for file in "$mode"/playbooks/*.md "$mode"/principles/*.md; do
+            [ -f "$file" ] || continue
+            ref="${file#"$mode"/}"
+            grep -qF "$ref" "$mode/SKILL.md" || { fail "skills/momotombo-mode: $ref is not listed in SKILL.md"; errors=$((errors + 1)); }
+        done
+    fi
     for file in "$HARNESS_DIR"/global/claude/agents/*.md; do
         [ -f "$file" ] || continue
         name=$(basename "$file" .md)
@@ -845,9 +786,6 @@ cmd_validate() {
     for file in $(stack_docs "laravel expo"); do
         [ -f "$HARNESS_DIR/project/$file" ] || { fail "project/$file: missing seed doc"; errors=$((errors + 1)); }
     done
-    for file in schema.yaml templates/spec.md templates/plan.md; do
-        [ -f "$HARNESS_DIR/project/openspec/schemas/momotombo/$file" ] || { fail "momotombo schema: missing $file"; errors=$((errors + 1)); }
-    done
     for file in "$HARNESS_DIR"/global/claude/settings.json "$HARNESS_DIR"/global/codex/hooks.json; do
         [ -f "$file" ] || continue
         jq -e . "$file" >/dev/null 2>&1 || { fail "${file#"$HARNESS_DIR"/}: invalid JSON"; errors=$((errors + 1)); }
@@ -872,8 +810,8 @@ Global layer (this machine):
 
 Project layer (a product repository):
   harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
-                                          Add AGENTS.md, docs/ conventions, OpenSpec with the
-                                          momotombo schema, and the Codely skills. Never overwrites.
+                                          Add AGENTS.md, docs/ conventions, and the Codely
+                                          doc skill. Never overwrites.
 
 Maintenance:
   harness validate                        Check skills, agents, settings, and scripts (used by CI)

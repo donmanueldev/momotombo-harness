@@ -1,12 +1,12 @@
 # momotombo-harness
 
-The agent harness Momotombo uses to build products with **Claude Code** and **Codex**. It turns "ask the AI and hope" into a controlled loop:
+The agent harness Momotombo uses to build products with **Claude Code** and **Codex**:
 
-- You approve specs before any code is written.
-- Agents implement one small phase at a time and stop for review.
-- Every correction you make becomes a convention the agents follow next time.
+- The agent does the work in your session and proves it works before saying so.
+- It asks only before what leaves your machine or is hard to undo.
+- Every correction you make becomes a rule, a check, or a doc the agents follow next time.
 
-It stands on three projects: [OpenSpec](https://openspec.dev/) for the spec-driven flow, [Codely's agent-harness](https://github.com/CodelyTV/agent-harness), which inspired its structure, and [Matt Pocock's skills](https://www.aihero.dev/skills), whose shaping and engineering skills plug into the flow. See [Credits](#credits).
+Its structure is inspired by [Codely's agent-harness](https://github.com/CodelyTV/agent-harness). See [Credits](#credits).
 
 ## Why
 
@@ -15,10 +15,10 @@ Most AI slop has five causes. The harness answers each one:
 | Cause | Answer |
 |-------|--------|
 | The agent guesses your conventions | `docs/` per project with good and bad examples. `AGENTS.md` maps them so agents read only what the task needs |
-| Tasks are too big to review | OpenSpec specs plus a plan of vertical-slice phases with contracts **you approve first** |
-| The same mistake comes back | `codely-doc-create` turns a correction into a versioned doc |
-| "Done" without proof | Every phase ends with verification, and agents report exactly what ran |
-| Generic, unsafe code | A product quality bar, stack conventions, and UX and security reviewer agents |
+| Big changes nobody can review | For a large feature, the data shape, contracts, and phases **you approve once** before it is built |
+| The same mistake comes back | A correction becomes a lint rule, test, or script; otherwise `codely-doc-create` makes it a versioned doc |
+| "Done" without proof | Agents verify what they changed and report exactly what ran |
+| Generic, unsafe code | Principles for code, tests, architecture, and security, stack conventions, and reviews when you integrate |
 
 ## Two layers
 
@@ -28,15 +28,16 @@ harness install                            harness init
 ───────────────────────────────            ─────────────────────────────────────
 ~/.claude + ~/.codex + ~/.agents           AGENTS.md (= CLAUDE.md): commands + docs map
   · global instructions (one file)         docs/: conventions that grow with every correction
-  · 7 subagents, routed by model           openspec/: specs + the momotombo schema
-  · /commit, /open-pr                      Codely skills, pinned in skills-lock.json
+  · momotombo-mode: playbooks + principles codely-doc-create, pinned in skills-lock.json
+  · 6 subagents, routed by model
+  · /commit, /open-pr, no-comments
   · guard hook, stall watcher, Codex rules
   · status line, settings
 ```
 
 ## Setup
 
-Requirements: macOS, `git`, `jq`, Node 22+ (for `npx`), [OpenSpec](https://openspec.dev) 2.1+ (`brew install openspec`), and Claude Code and/or Codex. Without Codex, `install` and `doctor` skip its links and hook.
+Requirements: macOS, `git`, `jq`, Node 22+ (for `npx`), and Claude Code and/or Codex. Without Codex, `install` and `doctor` skip its links and hook.
 
 ```bash
 git clone git@github.com:donmanueldev/momotombo-harness.git ~/momotombo-harness
@@ -65,20 +66,14 @@ With Laravel Boost (`boost.json`), Boost owns `AGENTS.md` and it is often gitign
 
 ## Daily workflow
 
-Talk to the agent in Spanish. It writes code, specs, and docs in English.
+Talk to the agent in Spanish. It writes code and docs in English.
 
-| Step | Claude Code | Codex | You |
-|------|-------------|-------|-----|
-| 1. Think it through | `/openspec-explore` | `$openspec-explore` | Discuss options, no code yet |
-| 2. Propose | `/openspec-propose add-x` | `$openspec-propose add-x` | **Approve the specs and contracts** |
-| 3. Build one phase | `/openspec-apply-change` | `$openspec-apply-change` | Review the diff (it stops, never commits) |
-| 4. Commit | `/commit` | ask for `git-ops` | Check the commits it made (apply also suggests messages if you prefer to write your own) |
-| 5. Repeat 3–4 per phase, then open the PR | `/open-pr` | ask for `git-ops` | |
-| 6. Archive | `/openspec-archive-change` | `$openspec-archive-change` | Specs now describe the system |
+Every code task runs through the `momotombo-mode` skill (`/momotombo-mode <task>` to call it explicitly). It picks a playbook (investigate, bug fix, feature, big feature, refactor, perf, integrate, setup kitchen) and applies 24 stack-agnostic principles for code, tests, architecture, and security, from `skills/momotombo-mode/`.
 
-- **When you correct the agent**, run `/codely-doc-create`. The correction becomes a doc and won't repeat.
-- **Before changing old code that has no spec**, run `/codely-openspec-spec-create-from-code <capability>`.
-- **Small fixes** skip OpenSpec: ask directly, verify, then `/commit`.
+- **Bugs and changes**: ask for it. The agent changes the code, runs the checks that cover it, and shows the evidence.
+- **Large features**: the agent proposes the data shape, contracts, and phases in a few lines. You approve once, and it builds every phase.
+- **Integrate**: `/commit` and `/open-pr` in Claude Code (ask for `git-ops` in Codex). Reviews run here: one pass, blocking findings fixed, the rest listed for you.
+- **When you correct the agent**, it tries to turn the correction into a lint rule, test, or script first, then a doc with `/codely-doc-create`.
 
 ## Subagents
 
@@ -88,11 +83,10 @@ One table drives both tools (`global/AGENTS.md`):
 |-------|--------|-------|---------|
 | `git-ops` | haiku | gpt-6-luna, low | commits, branches, pushes, PRs |
 | `analyst` | sonnet | session model, medium | read-only exploration and root-cause analysis |
-| `reviewer` | sonnet | session model, medium | correctness review |
-| `ux-reviewer` | sonnet | session model, medium | UI states, accessibility, responsiveness, copy |
+| `reviewer` | sonnet | session model, medium | correctness and UI review when integrating |
 | `security-reviewer` | opus | session model, high | authz, injection, secrets, payments, uploads |
-| `planner` | opus | session model, high | plans outside OpenSpec |
-| `implementer` | opus | session model, high | production-quality code and tests |
+| `comment-sicko` | sonnet | session model, medium | comments that don't earn their place (via `no-comments`) |
+| `worker` | opus | session model, high | independent code tasks run in parallel |
 
 Claude picks agents from their descriptions. Codex spawns them when the instructions say so.
 
@@ -129,19 +123,12 @@ global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
 global/hooks/            guard-bash.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
-project/                 what `harness init` copies: docs/ seeds, the OpenSpec schema and config
+project/                 what `harness init` copies: docs/ seeds
 bin/harness              the CLI (bash + jq)
 tests/                   Bats suites; CI runs them on macOS
 ```
 
 ## Credits
 
-- [OpenSpec](https://github.com/Fission-AI/OpenSpec) provides the spec-driven workflow.
-- [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project:
-  - The `momotombo` schema is adapted from their `codely-spec-plan`.
-  - `harness init` installs their `codely-doc-create` and `codely-openspec-spec-create-from-code` skills by reference.
-- [Matt Pocock's skills](https://github.com/mattpocock/skills) ([aihero.dev/skills](https://www.aihero.dev/skills)) shaped how the harness plans and builds. Their shaping and engineering skills plug into the OpenSpec flow instead of running a second one:
-  - before `explore`: `grill-me`, `grill-with-docs`
-  - in `propose`: `domain-modeling`, `codebase-design`
-  - in `apply`: `tdd`; for bugs: `diagnosing-bugs`
-  - Install them once: `npx skills add mattpocock/skills -g -s grill-me grill-with-docs domain-modeling codebase-design tdd diagnosing-bugs improve-codebase-architecture`
+- [pstack](https://github.com/cursor/plugins/tree/main/pstack) by poteto (MIT): `momotombo-mode`, its principles, `no-comments`, and `comment-sicko` are adapted from it.
+- [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project. `harness init` installs their `codely-doc-create` skill by reference.

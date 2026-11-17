@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for `harness init` (project layer). openspec and npx are stubbed so the suite runs offline.
+# Tests for `harness init` (project layer). npx is stubbed so the suite runs offline.
 
 setup() {
     PROJECT_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
@@ -9,21 +9,12 @@ setup() {
     mkdir -p "$APP" "$STUBS"
     git -C "$APP" init -q
 
-    cat > "$STUBS/openspec" <<'SH'
-#!/bin/bash
-[ "$1" = --version ] && { echo "${OPENSPEC_STUB_VERSION:-2.1.0}"; exit 0; }
-echo "openspec $*" >> "$STUB_LOG"
-mkdir -p openspec/specs openspec/changes .agents/skills/openspec-propose
-printf 'schema: spec-driven\n\n# context: |\n#   example\n' > openspec/config.yaml
-SH
     cat > "$STUBS/npx" <<'SH'
 #!/bin/bash
 echo "npx $*" >> "$STUB_LOG"
-for skill in codely-doc-create codely-openspec-spec-create-from-code; do
-    mkdir -p ".agents/skills/$skill" && echo "---" > ".agents/skills/$skill/SKILL.md"
-done
+mkdir -p .agents/skills/codely-doc-create && echo "---" > .agents/skills/codely-doc-create/SKILL.md
 SH
-    chmod +x "$STUBS/openspec" "$STUBS/npx"
+    chmod +x "$STUBS/npx"
     export STUB_LOG="$TEST_TMP/stub.log"
     export PATH="$STUBS:$PATH"
 }
@@ -120,42 +111,33 @@ laravel_app() {
     [[ "$output" == *"unknown stack 'rails'"* ]] || return 1
 }
 
-@test "init sets up OpenSpec with the momotombo schema and the Codely skills" {
+@test "init installs the Codely doc skill and no OpenSpec" {
     laravel_app
     run init
-    grep -q 'openspec init --scope project --tools claude,codex' "$STUB_LOG" || return 1
-    [[ -f "$APP/openspec/schemas/momotombo/schema.yaml" ]] || return 1
-    grep -q '^schema: momotombo$' "$APP/openspec/config.yaml" || return 1
-    grep -q 'skills@1.8.1 add CodelyTV/agent-harness --skill codely-doc-create --skill codely-openspec-spec-create-from-code -a claude-code -a codex -y' "$STUB_LOG" || return 1
+    grep -q 'skills@1.8.1 add CodelyTV/agent-harness --skill codely-doc-create -a claude-code -a codex -y' "$STUB_LOG" || return 1
+    [[ ! -e "$APP/openspec" ]] || return 1
+    ! grep -qi 'openspec' "$APP/AGENTS.md" || return 1
 }
 
-@test "init skips OpenSpec with a warning when openspec is older than 2.1 or its version is unreadable" {
+@test "init leaves a project's existing openspec folder alone" {
     laravel_app
-    OPENSPEC_STUB_VERSION=2.0.0 run init
+    mkdir -p "$APP/openspec/specs/orders"
+    echo "spec" > "$APP/openspec/specs/orders/spec.md"
+    run init --no-codely
     [[ "$status" -eq 0 ]] || return 1
-    [[ "$output" == *"openspec 2.0.0 is not 2.1.0 or newer; skipped"* ]] || return 1
-
-    OPENSPEC_STUB_VERSION=dev run init
-    [[ "$status" -eq 0 ]] || return 1
-    [[ "$output" == *"openspec with an unreadable version is not 2.1.0 or newer; skipped"* ]] || return 1
-    ! grep -q 'openspec init' "$STUB_LOG" || return 1
-    [[ ! -d "$APP/openspec" ]] || return 1
+    grep -qx "spec" "$APP/openspec/specs/orders/spec.md" || return 1
 }
 
 @test "init never overwrites existing files and a re-run changes nothing" {
     laravel_app
     echo "# my agents" > "$APP/AGENTS.md"
-    mkdir -p "$APP/docs/backend" "$APP/openspec"
+    mkdir -p "$APP/docs/backend"
     echo "mine" > "$APP/docs/backend/thin-controllers-and-actions.md"
-    printf 'schema: spec-driven\ncontext: |\n  custom\n' > "$APP/openspec/config.yaml"
 
     run init
     [[ "$status" -eq 0 ]] || return 1
     grep -qx "# my agents" "$APP/AGENTS.md" || return 1
     grep -qx "mine" "$APP/docs/backend/thin-controllers-and-actions.md" || return 1
-    grep -q 'custom' "$APP/openspec/config.yaml" || return 1
-    [[ "$output" == *"set 'schema: momotombo'"* ]] || return 1
-    ! grep -q 'openspec init' "$STUB_LOG" || return 1
 
     run init
     [[ "$output" != *"✓ "* ]] || return 1
@@ -231,46 +213,7 @@ laravel_app() {
     [[ ! -e "$APP/.ai" ]] || return 1
 }
 
-@test "init doesn't flag a momotombo schema that a formatter only restyled" {
-    laravel_app
-    mkdir -p "$APP/openspec/schemas"
-    cp -R "$PROJECT_DIR/project/openspec/schemas/momotombo" "$APP/openspec/schemas/momotombo"
-    sed -i '' -e "s/\"/'/g" -e 's/^schema:/\nschema:/' "$APP/openspec/schemas/momotombo/schema.yaml"
-    printf '\n\n' >> "$APP/openspec/schemas/momotombo/templates/spec.md"
-    run init --no-codely
-    [[ "$status" -eq 0 ]] || return 1
-    [[ "$output" != *"differs from the harness"* ]] || { echo "$output"; return 1; }
-}
-
 @test "init refuses to run on the harness itself" {
     run "$PROJECT_DIR/bin/harness" init "$PROJECT_DIR"
     [[ "$status" -ne 0 ]] || return 1
-}
-
-@test "the momotombo schema and a change written from its templates pass OpenSpec strict validation" {
-    real=$(PATH="${PATH#"$STUBS:"}" command -v openspec) || skip "openspec not installed"
-    cd "$APP"
-    export OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_TELEMETRY=0 CI=true
-    mkdir -p openspec/schemas openspec/changes/sample/specs/demo
-    cp -R "$PROJECT_DIR/project/openspec/schemas/momotombo" openspec/schemas/
-    cp "$PROJECT_DIR/project/openspec/config.yaml" openspec/config.yaml
-    run "$real" schema validate momotombo
-    [[ "$status" -eq 0 ]] || return 1
-    sed -e 's/<!-- requirement name -->/Demo/' -e 's/<!-- one behaviour, in one or two sentences -->/show a demo/' \
-        -e 's/<!-- action, with concrete values -->/the user opens the demo/' -e 's/<!-- observable outcome -->/the demo appears/' \
-        -e '/^## Purpose/,/^## ADDED/{/^## ADDED/!d;}' \
-        "$PROJECT_DIR/project/openspec/schemas/momotombo/templates/spec.md" > openspec/changes/sample/specs/demo/spec.md
-    cp "$PROJECT_DIR/project/openspec/schemas/momotombo/templates/plan.md" openspec/changes/sample/plan.md
-    run "$real" validate sample --strict
-    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
-}
-
-@test "init keeps a customized momotombo schema" {
-    laravel_app
-    mkdir -p "$APP/openspec/schemas/momotombo"
-    echo "custom" > "$APP/openspec/schemas/momotombo/schema.yaml"
-    run init --no-codely
-    [[ "$status" -eq 0 ]] || return 1
-    grep -qx "custom" "$APP/openspec/schemas/momotombo/schema.yaml" || return 1
-    [[ "$output" == *"differs from the harness; left unchanged"* ]] || return 1
 }

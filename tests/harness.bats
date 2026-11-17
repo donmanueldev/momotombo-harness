@@ -164,6 +164,23 @@ harness() {
     [[ "$output" == *"claude agent git-ops: preloads missing skill 'gone'"* ]] || return 1
 }
 
+@test "validate catches momotombo-mode naming a missing file or leaving one unlisted" {
+    mode="$REPO/skills/momotombo-mode"
+    mkdir -p "$mode/playbooks" "$mode/principles"
+    printf -- '---\nname: momotombo-mode\ndescription: Mode\nlicense: MIT\nmetadata:\n  version: "1.0.0"\n---\n`playbooks/bug-fix.md` `principles/smallest-change.md`\n' > "$mode/SKILL.md"
+    echo "Use principles/smallest-change.md" > "$mode/playbooks/bug-fix.md"
+    echo "# Smallest change" > "$mode/principles/smallest-change.md"
+    run harness validate
+    [[ "$status" -eq 0 ]] || { echo "$output"; return 1; }
+
+    echo "See principles/gone.md" >> "$mode/playbooks/bug-fix.md"
+    echo "# Orphan" > "$mode/principles/orphan.md"
+    run harness validate
+    [[ "$status" -ne 0 ]] || return 1
+    [[ "$output" == *"skills/momotombo-mode: names principles/gone.md, which doesn't exist"* ]] || return 1
+    [[ "$output" == *"skills/momotombo-mode: principles/orphan.md is not listed in SKILL.md"* ]] || return 1
+}
+
 @test "validate catches routing tables that drift from the agents' models" {
     printf -- '---\nname: git-ops\ndescription: Git\nmodel: sonnet\n---\nBody\n' > "$REPO/global/claude/agents/git-ops.md"
     harness codex-agents >/dev/null
@@ -291,18 +308,11 @@ harness() {
     grep -qx "mine" "$HOME/.claude/CLAUDE.md" || return 1
 }
 
-@test "doctor warns about an old openspec and a PATH without ~/.local/bin" {
-    mkdir -p "$TEST_TMP/bin"
-    printf '#!/bin/bash\necho 2.0.0\n' > "$TEST_TMP/bin/openspec"
-    chmod +x "$TEST_TMP/bin/openspec"
-    PATH="$TEST_TMP/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
-    [[ "$output" == *"openspec 2.0.0 is older than 2.1.0"* ]] || { echo "$output"; return 1; }
-    [[ "$output" == *"~/.local/bin is not on PATH"* ]] || return 1
+@test "doctor warns about a PATH without ~/.local/bin" {
+    PATH="/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
+    [[ "$output" == *"~/.local/bin is not on PATH"* ]] || { echo "$output"; return 1; }
 
-    printf '#!/bin/bash\necho 2.1.0\n' > "$TEST_TMP/bin/openspec"
-    PATH="$TEST_TMP/bin:$HOME/.local/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
-    [[ "$output" == *"openspec 2.1.0"* ]] || return 1
-    [[ "$output" != *"older than"* ]] || return 1
+    PATH="$HOME/.local/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
     [[ "$output" == *"~/.local/bin is on PATH"* ]] || return 1
 }
 
