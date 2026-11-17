@@ -17,9 +17,11 @@ Talk to the user in their language (usually Spanish). Everything versioned is in
 | Task size | How |
 |-----------|-----|
 | Typo, one-line fix, config tweak | Do it directly, then verify. |
-| Small change inside one existing component or module, with no new contract, backend, data, or auth | Settle it in chat (or `grill-me`), then `implementer` with a test, the reviewers, and `/commit`. No OpenSpec, and no spec-from-code for it. |
-| Bug fix | Reproduce it, find the root cause (`analyst`, with `diagnosing-bugs` if installed), fix it with a regression test (`implementer`). |
-| Feature or behavior change | Spec-driven with OpenSpec (below). |
+| Small change, or a change inside existing modules with no new contract, data model, or auth | Do it yourself in the main session, with a test, then verify. No subagents, no OpenSpec, no spec-from-code. |
+| Bug fix | Reproduce it, find the root cause, and fix it yourself with a regression test. Use `analyst` only when the cause spans much of the codebase. |
+| Feature: a new contract, data model, auth rule, or several screens | Spec-driven with OpenSpec (below). |
+
+Speed matters: the user waits on every round trip. Don't ask what the code or a sensible default answers, and don't add process the task doesn't need.
 
 Before the first edit, check the branch. On `main`, `master`, or `develop`, or on a branch with unrelated commits, create a `feature/*` or `bugfix/*` branch from the base first; ask if unsure.
 
@@ -50,7 +52,8 @@ Delegate by task type so each kind of work runs on the right model. A subagent d
 
 - Every commit or PR goes through `git-ops` (or `/commit` and `/open-pr` in Claude).
 - Run independent reviews in parallel; two agents never edit the same files at once.
-- After a phase: `reviewer`, plus `ux-reviewer` if UI changed and `security-reviewer` if a sensitive surface changed. If review follow-ups add markup or logic beyond copy and tests, re-run that reviewer on the new delta.
+- Run review agents or audits only when the user asks to integrate the work (commit, PR, merge) or asks for a review. Then: one `reviewer` pass, plus `ux-reviewer` if UI changed and `security-reviewer` only if auth, payments, personal data, or uploads changed.
+- One review round: fix the **Blocking** findings yourself and list the rest for the user to decide. Re-run a reviewer only if a blocking fix changed logic, and never more than once.
 
 ## Stack
 

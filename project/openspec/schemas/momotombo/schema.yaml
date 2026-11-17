@@ -45,5 +45,5 @@ apply:
     Implement only the first phase with unchecked tasks, checking off each task as you finish it. Do not start any other phase.
     Run the phase's verification task (the Check command from `AGENTS.md` when it has one) and report exactly which commands ran and their results. If verification fails, fix it before going on.
     When it passes, add or update `implemented_by` (same shape as `created_by`) and `last_implementation_at` in the frontmatter, and rewrite the Next step.
-    Then STOP. Do not commit. Tell the user to review the diff and suggest three Conventional Commit messages (English, different plausible types). They commit with `/commit` in Claude Code or the `git-ops` agent in Codex. Suggest running `reviewer`, plus `ux-reviewer` if UI changed and `security-reviewer` if auth, payments, personal data, or uploads changed.
+    Then STOP. Do not commit. Tell the user to review the diff and suggest three Conventional Commit messages (English, different plausible types). They commit with `/commit` in Claude Code or the `git-ops` agent in Codex. Don't run review agents unless the user asks to integrate the work or asks for a review.
     The next phase starts only when the user runs apply again.
