@@ -56,6 +56,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/loop-stop.sh\"",
+            "timeout": 3600
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

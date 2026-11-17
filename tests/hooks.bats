@@ -219,6 +219,7 @@ cat .env"
         and (.hooks.PreToolUse[0].hooks[0].command | contains(".claude/hooks/guard-bash.sh"))
         and (.hooks.PostToolUse | map(select(.matcher == "Bash"))[0].hooks[0] | (.command | contains(".claude/hooks/stall-watch.sh")) and .asyncRewake == true and .timeout >= 3600)
         and (.hooks.PostToolUse | map(select(.matcher == "Edit|Write|MultiEdit"))[0].hooks[0].command | contains(".claude/hooks/comment-guard.sh"))
+        and (.hooks.Stop[0].hooks[0] | (.command | contains(".claude/hooks/loop-stop.sh")) and .timeout >= 3600)
         and (.statusLine.command | contains(".claude/statusline.sh"))
         and (.permissions.deny | index("Read(**/.env)"))' "$PROJECT_DIR/global/claude/settings.json"
     [[ "$status" -eq 0 ]] || return 1

@@ -25,6 +25,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.codex/hooks/loop-stop.sh\"",
+            "timeout": 3600,
+            "statusMessage": "Checking the loop goal"
+          }
+        ]
+      }
     ]
   }
 }

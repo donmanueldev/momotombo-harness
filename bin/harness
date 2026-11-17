@@ -330,6 +330,11 @@ cmd_doctor() {
     else
         fail "Claude comment guard not enabled (run: harness install)"; status=1
     fi
+    if [ -f "$CLAUDE_HOME/settings.json" ] && jq -e '.hooks.Stop[]?.hooks[]?.command | select(contains("loop-stop.sh"))' "$CLAUDE_HOME/settings.json" >/dev/null 2>&1; then
+        ok "Claude loop hook enabled"
+    else
+        fail "Claude loop hook not enabled (run: harness install)"; status=1
+    fi
     if ! codex_installed; then
         skip "Codex not installed; its links and guard hook are skipped"
     elif [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
@@ -839,6 +844,9 @@ Project layer (a product repository):
   harness init [dir] [--stack laravel,react,expo,python] [--no-codely] [--dry-run]
                                           Add AGENTS.md, docs/ conventions, and the Codely
                                           doc skill. Never overwrites.
+  harness loop start --max N --done "<command>" "<goal>"
+                                          Keep the agent working until <command> passes or N rounds
+  harness loop status | stop              Show or end the loop of the current repository
 
 Maintenance:
   harness validate                        Check skills, agents, settings, and scripts (used by CI)
@@ -851,9 +859,51 @@ Options:
 EOF
 }
 
+# Autonomous loops: the state lives outside the repository, one file per repository root, and
+# global/hooks/loop-stop.sh reads it each time the agent tries to stop.
+LOOP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/momotombo-harness/loops"
+
+loop_file() {
+    local root
+    root=$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)
+    echo "$LOOP_DIR/$(tr -c 'A-Za-z0-9._\n' '-' <<<"$root").json"
+}
+
+cmd_loop() {
+    local action="${1:-status}" file max="" done_command="" goal=""
+    [ $# -gt 0 ] && shift
+    file=$(loop_file)
+    case "$action" in
+        start)
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --max) [ $# -ge 2 ] || die "--max needs a number"; max="$2"; shift ;;
+                    --done) [ $# -ge 2 ] || die "--done needs a command"; done_command="$2"; shift ;;
+                    -*) die "unknown option: $1 (see: harness help)" ;;
+                    *) goal="$1" ;;
+                esac
+                shift
+            done
+            [[ "$max" =~ ^[0-9]+$ ]] && [ "$max" -ge 1 ] && [ "$max" -le 50 ] || die "--max must be a number from 1 to 50"
+            [ -n "$done_command" ] || die "--done needs the command that proves the goal is met (it must exit 0 only then)"
+            [ -n "$goal" ] || die "give the goal: harness loop start --max N --done \"<command>\" \"<goal>\""
+            [ ! -f "$file" ] || die "a loop is already running here (harness loop stop to end it)"
+            mkdir -p "$LOOP_DIR"
+            jq -n --arg goal "$goal" --arg check "$done_command" --argjson max "$max" \
+                '{goal: $goal, done: $check, max: $max, iteration: 0}' > "$file"
+            ok "loop started: up to $max rounds, until \`$done_command\` passes" ;;
+        stop)
+            if [ -f "$file" ]; then rm "$file"; ok "loop stopped"; else skip "no loop running here"; fi ;;
+        status)
+            if [ -f "$file" ]; then jq -r '"round \(.iteration) of \(.max), until `\(.done)` passes\ngoal: \(.goal)"' "$file"; else echo "no loop running here"; fi ;;
+        *) die "unknown loop action: $action (use start, stop, or status)" ;;
+    esac
+}
+
 main() {
     local command="${1:-help}"
     [ $# -gt 0 ] && shift
+    if [ "$command" = loop ]; then cmd_loop "$@"; return; fi
     while [ $# -gt 0 ]; do
         case "$1" in
             -n|--dry-run) DRY_RUN=true ;;

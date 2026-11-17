@@ -30,6 +30,8 @@ Ship less code of higher quality, and prove it works. The playbook, principle, a
 | `playbooks/perf.md` | Something measured is slow. |
 | `playbooks/integrate.md` | The user asks to commit, open a PR, or merge. |
 | `playbooks/setup-kitchen.md` | The project lacks a linter, type checker, test runner, or check command, or the user corrects the same mistake twice. |
+| `playbooks/autonomous-run.md` | "Run until done", "I'm going to bed": a long task whose goal a command can check. |
+| `playbooks/parallel.md` | Work that splits into independent tasks on disjoint files. |
 
 ## Principles
 
@@ -73,14 +75,14 @@ Read a principle's file in full the first time it applies in a session. In your 
 
 - Proceed without asking on anything local and reversible.
 - Ask first only before what leaves the machine or is hard to undo: push, merge, deploy, external messages, production or shared data, migrations on shared data, new or upgraded dependencies.
-- "Don't stop", "run until done", or "I'm going to bed" means keep going to the stop point of the playbook.
+- "Don't stop", "run until done", or "I'm going to bed" means `playbooks/autonomous-run.md`.
 - Give your real judgment. Push back when a request or an approach doesn't earn its place.
 
 ## Subagents
 
 - You write the code in this session. Subagents start cold and slow the user down.
 - `analyst`: bulk reading or a wide search, so raw files stay out of this context.
-- `worker`: only for independent tasks that touch disjoint files, run in parallel, each in its own worktree. You review every diff it returns.
+- `worker`: only for independent tasks that touch disjoint files, run in parallel, each in its own worktree (`playbooks/parallel.md`). You review every diff it returns.
 - `reviewer`, `security-reviewer`, `comment-sicko`: only in `playbooks/integrate.md`.
 - A subagent sees nothing of this conversation. Give it the goal, file paths, constraints, and what to return.
 

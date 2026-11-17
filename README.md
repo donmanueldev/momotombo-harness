@@ -31,7 +31,7 @@ harness install                            harness init
   · momotombo-mode: playbooks + principles codely-doc-create, pinned in skills-lock.json
   · 6 subagents, routed by model
   · /commit, /open-pr, no-comments
-  · guard hook, comment guard, stall watcher, Codex rules
+  · guard hook, comment guard, loop hook, stall watcher, Codex rules
   · status line, settings
 ```
 
@@ -101,6 +101,7 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
 - **Claude deny rules** block the Read tool on `.env` files (`.env`, `.env.local`, `.env.production`, `.env.staging`, …), `~/.ssh`, and AWS credentials.
 - **Stall watcher** (`global/hooks/stall-watch.sh`, Claude only): a `PostToolUse` hook with `asyncRewake` that watches each command Claude runs with `run_in_background`. When the command has written no output for 10 minutes and its processes use under 5% CPU in total, it wakes Claude with a diagnosis (processes, the newest log and its last lines) and posts a macOS notification. It never stops anything. It reports once per command, and it doesn't report while the command listens on a port (a dev server). It only catches low-CPU stalls: a busy sibling process can hide a hung one. Tune it with `HARNESS_STALL_SECONDS`, `HARNESS_STALL_CPU`, and `HARNESS_STALL_POLL`. Codex has no equivalent hook, so its agents set their own check. It needs `lsof`, which macOS ships.
 - **Comment guard** (`global/hooks/comment-guard.sh`, Claude and Codex): a `PostToolUse` hook on file edits (Claude `Edit`, `MultiEdit`, `Write`; Codex `apply_patch`). It lists the comments an edit added to source code (TypeScript, JavaScript, PHP, Python, CSS, Vue, Blade, Swift, Kotlin, Go, Rust, …) and asks the agent to remove them in the same turn. It lets through license headers, PHPDoc tags, lint and type directives, links, and comments the edit only moved, and skips `vendor/`, `node_modules/`, and build output. The edit is never undone.
+- **Loop hook** (`global/hooks/loop-stop.sh`, Claude and Codex): a `Stop` hook for autonomous runs. `harness loop start --max N --done "<command>" "<goal>"` records a loop for the current repository (state in `~/.local/state/momotombo-harness/loops`, outside the repo). Each time the agent tries to stop, the hook runs the done command: if it passes, or after N rounds, the loop ends; otherwise the agent gets the goal and the failing output back and keeps working. `harness loop stop` ends it early. Without a loop it does nothing.
 
 If a legitimate command is blocked, run it yourself (prefix it with `!` in Claude Code).
 
@@ -113,6 +114,8 @@ harness doctor                          tools, links, and hooks
 harness undo [--dry-run] [--yes]        restore what the last install replaced
 harness init [dir] [--stack laravel,react,expo,python] [--no-codely] [--dry-run]
 harness validate                        what CI checks
+harness loop start --max N --done "<command>" "<goal>"   keep the agent working until the command passes
+harness loop status | stop               show or end the loop of this repository
 harness codex-agents                    regenerate Codex agents from the Claude ones
 ```
 
@@ -122,7 +125,7 @@ harness codex-agents                    regenerate Codex agents from the Claude 
 global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
 global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
-global/hooks/            guard-bash.sh and comment-guard.sh (both tools), stall-watch.sh (Claude)
+global/hooks/            guard-bash.sh, comment-guard.sh, loop-stop.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
 project/                 what `harness init` copies: docs/ seeds
 bin/harness              the CLI (bash + jq)
