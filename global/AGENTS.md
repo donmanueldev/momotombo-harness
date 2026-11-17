@@ -54,5 +54,5 @@ Builds, installs, test suites, migrations, Docker, deploys (subagents too):
 ## Safety
 
 - The comment guard reports comments an edit adds: remove them, or keep one that fits an exception and say which.
-- The guard hook (`guard-bash.sh`, Claude and Codex, backed by Codex `.rules`) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Don't work around it; ask the user.
+- The guard hook (`guard-bash.sh`, Claude and Codex, backed by Codex `.rules`) blocks force-pushes, skipping hooks, `reset --hard`, `clean -f`, discarding all changes, pushes to main, commits and merges on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Don't work around it; ask the user.
 - Never read or print `.env` files, keys, or tokens.

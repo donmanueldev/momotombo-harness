@@ -22,7 +22,7 @@ Verified against the Laravel 13, Larastan, Rector, rector-laravel, and Pest docs
    "check": ["pint --test", "phpstan analyse --memory-limit=1G", "rector --dry-run", "pest --parallel"],
    "check:fast": ["pint --dirty --test", "pest --dirty"]
    ```
-4. Existing code: run `vendor/bin/rector` once and review the diff as its own commit. Then run `vendor/bin/phpstan analyse --generate-baseline` and add `phpstan-baseline.neon` to the `includes` of `phpstan.neon.dist`, so new code meets level 8 while the backlog shrinks.
+4. Existing code: run `vendor/bin/rector` once and review the diff as its own commit. Then, with the user's approval, run `vendor/bin/phpstan analyse --generate-baseline` and add `phpstan-baseline.neon` to the `includes` of `phpstan.neon.dist`, so new code meets level 8 while the backlog shrinks.
 5. Name both commands in the project's `AGENTS.md` (`**Check:**` and `**Fast check:**`).
 6. Prove it: write a method with a missing return type and a `compact()` call in a controller; `composer check` must fail. Revert it.
 

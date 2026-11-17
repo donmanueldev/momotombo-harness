@@ -233,6 +233,17 @@ harness() {
     [[ "$status" -eq 0 ]] || return 1
 }
 
+@test "an older copy of a harness hook is replaced, not duplicated" {
+    mkdir -p "$HOME/.claude"
+    echo '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "loop-stop.sh", "timeout": 3600}]}]}}' > "$REPO/global/claude/settings.json"
+    echo '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "loop-stop.sh", "timeout": 5}]}, {"hooks": [{"type": "command", "command": "notify"}]}]}}' > "$HOME/.claude/settings.json"
+
+    harness install
+
+    run jq -e '[.hooks.Stop[].hooks[]] | (map(select(.command == "loop-stop.sh")) | map(.timeout)) == [3600] and (map(.command) | index("notify")) != null' "$HOME/.claude/settings.json"
+    [[ "$status" -eq 0 ]] || { cat "$HOME/.claude/settings.json"; return 1; }
+}
+
 @test "a symlinked settings file is replaced, never written through, and undo brings the link back" {
     mkdir -p "$HOME/.claude" "$HOME/dots"
     echo '{"theme": "dark"}' > "$HOME/dots/settings.json"

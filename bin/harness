@@ -221,9 +221,11 @@ merge_json() {
     merged=$(jq -n --argjson cur "$current" --slurpfile repo "$repo_file" '
         $repo[0] as $r
         | ($cur * ($r | del(.hooks)))
+        | ([ ($r.hooks // {})[][] | .hooks[]?.command ]) as $managed
         | reduce (($r.hooks // {}) | keys[]) as $event (.;
-            .hooks[$event] = (($cur.hooks[$event] // [])
-                + [ $r.hooks[$event][] | select(. as $entry | ($cur.hooks[$event] // []) | any(. == $entry) | not) ]))
+            .hooks[$event] = ([ ($cur.hooks[$event] // [])[]
+                    | select([ .hooks[]?.command ] | any(. as $c | $managed | index($c)) | not) ]
+                + $r.hooks[$event]))
         | reduce ("allow", "ask", "deny") as $k (.;
             (($cur.permissions[$k] // []) + ($r.permissions[$k] // []) | unique) as $list
             | if ($list | length) > 0 then .permissions[$k] = $list else . end)')
@@ -446,24 +448,25 @@ boost_docs_map() {
     echo "When the user corrects a convention that no lint rule, test, or type can catch, record it with Boost's \`record-rule\` tool."
 }
 
-# The project's check scripts as commands, one per line: composer's, then package.json's.
+# The project's check scripts (or the script named in $2, such as check:fast) as commands,
+# one per line: composer's, then package.json's.
 check_commands() {
-    local dir="$1" runner="npm run"
-    if [ -f "$dir/composer.json" ] && jq -e '.scripts.check' "$dir/composer.json" >/dev/null 2>&1; then
-        echo "composer check"
+    local dir="$1" script="${2:-check}" runner="npm run"
+    if [ -f "$dir/composer.json" ] && jq -e --arg s "$script" '.scripts[$s]' "$dir/composer.json" >/dev/null 2>&1; then
+        echo "composer $script"
     fi
-    if [ -f "$dir/package.json" ] && jq -e '.scripts.check' "$dir/package.json" >/dev/null 2>&1; then
+    if [ -f "$dir/package.json" ] && jq -e --arg s "$script" '.scripts[$s]' "$dir/package.json" >/dev/null 2>&1; then
         if [ -f "$dir/bun.lock" ] || [ -f "$dir/bun.lockb" ]; then runner="bun run"
         elif [ -f "$dir/pnpm-lock.yaml" ]; then runner="pnpm run"
         elif [ -f "$dir/yarn.lock" ]; then runner="yarn run"
         fi
-        echo "$runner check"
+        echo "$runner $script"
     fi
 }
 
 # The check commands as one shell line ("composer check && npm run check"); empty when there are none.
 check_line() {
-    check_commands "$1" | awk 'NR > 1 { printf " && " } { printf "%s", $0 }'
+    check_commands "$1" "${2:-check}" | awk 'NR > 1 { printf " && " } { printf "%s", $0 }'
 }
 
 render_agents_md() {
@@ -475,9 +478,15 @@ render_agents_md() {
     echo "## Commands"
     echo ""
     if [ -n "$check" ]; then
-        echo "**Check:** \`$check\` runs every check (tests, types, lint, format). Run it before reporting any work as done."
+        echo "**Check:** \`$check\` runs every check (tests, types, lint, format). Run it before committing."
     else
-        echo "**Check:** TODO: add one \`check\` script (in composer.json or package.json) that runs the tests, types, lint, and format, and name it here. Agents run it before reporting any work as done."
+        echo "**Check:** TODO: add one \`check\` script (in composer.json or package.json) that runs the tests, types, lint, and format, and name it here. Agents run it before committing."
+    fi
+    local fast
+    fast=$(check_line "$dir" check:fast)
+    if [ -n "$fast" ]; then
+        echo ""
+        echo "**Fast check:** \`$fast\` runs the quick checks on what changed. Run it while working."
     fi
     echo ""
     echo "The individual commands. Keep them in sync with the real scripts."
@@ -512,7 +521,13 @@ render_agents_md() {
 
 ## Workflow
 
-- When you are corrected on a convention, run `codely-doc-create` so it becomes a doc in `docs/`. Leave out Codely's mascot sign-off and course links from docs and replies.
+EOF
+    if [ -f "$dir/boost.json" ]; then
+        echo "- When you are corrected on a convention, record it with Laravel Boost's \`record-rule\` tool (\`.ai/rules/\`)."
+    else
+        echo "- When you are corrected on a convention, run \`codely-doc-create\` so it becomes a doc in \`docs/\`. Leave out Codely's mascot sign-off and course links from docs and replies."
+    fi
+    cat <<'EOF'
 - Commits and PRs follow the global harness rules: English Conventional Commits, made by `git-ops` (`/commit`, `/open-pr` in Claude Code).
 
 ## Documentation

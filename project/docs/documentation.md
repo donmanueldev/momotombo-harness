@@ -4,7 +4,7 @@
 
 Every project convention is a standalone Markdown file in `docs/`, grouped by area (`backend/`, `frontend/`, `database/`, `mobile/`, `testing/`, …). Each file has these sections, in order: Convention, Benefits, Examples (good and bad), Real world examples, and Related agreements. `AGENTS.md` keeps a map of every doc so agents open only the ones a task needs.
 
-When an agent is corrected on an undocumented convention, run `codely-doc-create` (`/codely-doc-create` in Claude Code, `$codely-doc-create` in Codex) to turn the correction into a new doc. Then review it like code.
+When an agent is corrected on an undocumented convention, turn the correction into a written rule and review it like code. With Laravel Boost, use its `record-rule` tool (`.ai/rules/`). Otherwise run `codely-doc-create` (`/codely-doc-create` in Claude Code, `$codely-doc-create` in Codex) to add a doc here.
 
 The seeded docs are Momotombo defaults. Edit them to match this project, or delete the ones that don't apply, and keep the `AGENTS.md` map in sync.
 
