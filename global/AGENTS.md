@@ -124,9 +124,11 @@ Builds, installs, test and eval suites, migrations, Docker, deploys: anything th
 
 - **Claude Code**: run it with `run_in_background` and don't wait on it in the foreground. The harness stall watcher wakes you with a diagnosis when the command writes nothing for 10 minutes while its processes use almost no CPU. It reports once, so set your own check for any waiting after that, and it misses a hang hidden by a busy sibling process. **Codex**, which has no watcher: set your own check on the log's age and the command's exit.
 - Never estimate a finish time from the last log line. Walk the process tree (`pgrep -P <pid>`, `ps -o pid,etime,%cpu,command -p <pid>`) down to the leaf.
+- Don't wait for another process with a background `until … sleep` loop: it writes nothing, so the stall watcher reports it after 10 minutes. The process you wait on is already watched; otherwise use Monitor on its log.
 - When it's stuck, name the step and the process, find out why, and tell the user before stopping it. Don't wait it out, and don't restart or retry blindly.
 - When a step doesn't belong in this run (such as a symbol upload in a dev build), turn it off through the tool's documented config. If there is none, agree on the fix with the user.
 - Subagents follow the same rules.
+- **Memory**: when the harness memory warning appears (at session start or before a heavy command), tell the user what is using memory and which project or session it belongs to, and offer to stop what they don't need. Stop nothing without their yes.
 
 ## Safety
 

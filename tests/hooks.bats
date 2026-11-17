@@ -209,7 +209,7 @@ cat .env"
 
 @test "status line shows model, directory, branch, context, and cost" {
     git -C "$TEST_TMP" init -q -b feature/demo
-    run bash -c "jq -n --arg d '$TEST_TMP' '{model: {display_name: \"Opus\"}, workspace: {current_dir: \$d}, context_window: {used_percentage: 42.4}, cost: {total_cost_usd: 1.234}}' | '$PROJECT_DIR/global/claude/statusline.sh'"
+    run bash -c "jq -n --arg d '$TEST_TMP' '{model: {display_name: \"Opus\"}, workspace: {current_dir: \$d}, context_window: {used_percentage: 42.4}, cost: {total_cost_usd: 1.234}}' | HARNESS_MEMORY_SWAP_PCT=100 HARNESS_MEMORY_FREE_PCT=0 '$PROJECT_DIR/global/claude/statusline.sh'"
     [[ "$status" -eq 0 ]] || return 1
     [[ "$output" == "Opus · $(basename "$TEST_TMP") · feature/demo · ctx 42% · \$1.23" ]] || return 1
 }

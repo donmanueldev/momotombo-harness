@@ -344,6 +344,11 @@ cmd_doctor() {
         fail "Claude stall watcher not enabled (run: harness install)"; status=1
     fi
     command -v lsof >/dev/null || warn "lsof missing; the stall watcher can't see background commands"
+    if [ -f "$CLAUDE_HOME/settings.json" ] && jq -e '[.hooks.SessionStart[]?.hooks[]?.command, .hooks.PreToolUse[]?.hooks[]?.command] | map(select(contains("memory-warn.sh"))) | length == 2' "$CLAUDE_HOME/settings.json" >/dev/null 2>&1; then
+        ok "Claude memory warning enabled"
+    else
+        fail "Claude memory warning not enabled (run: harness install)"; status=1
+    fi
     if ! codex_installed; then
         skip "Codex not installed; its links and guard hook are skipped"
     elif [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
