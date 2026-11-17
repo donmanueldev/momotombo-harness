@@ -325,6 +325,11 @@ cmd_doctor() {
         fail "Claude stall watcher not enabled (run: harness install)"; status=1
     fi
     command -v lsof >/dev/null || warn "lsof missing; the stall watcher can't see background commands"
+    if [ -f "$CLAUDE_HOME/settings.json" ] && jq -e '.hooks.PostToolUse[]?.hooks[]?.command | select(contains("comment-guard.sh"))' "$CLAUDE_HOME/settings.json" >/dev/null 2>&1; then
+        ok "Claude comment guard enabled"
+    else
+        fail "Claude comment guard not enabled (run: harness install)"; status=1
+    fi
     if ! codex_installed; then
         skip "Codex not installed; its links and guard hook are skipped"
     elif [ -f "$HARNESS_DIR/global/codex/hooks.json" ]; then
@@ -408,7 +413,14 @@ stack_docs() {
 detect_stacks() {
     local dir="$1" found=""
     [ -f "$dir/composer.json" ] && jq -e '(.require // {}) | has("laravel/framework")' "$dir/composer.json" >/dev/null 2>&1 && found="laravel"
-    [ -f "$dir/package.json" ] && jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("expo")' "$dir/package.json" >/dev/null 2>&1 && found="$found expo"
+    if [ -f "$dir/package.json" ]; then
+        if jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("expo")' "$dir/package.json" >/dev/null 2>&1; then
+            found="$found expo"
+        elif jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("react")' "$dir/package.json" >/dev/null 2>&1; then
+            found="$found react"
+        fi
+    fi
+    [ -f "$dir/pyproject.toml" ] && found="$found python"
     echo "${found# }"
 }
 
@@ -523,10 +535,10 @@ cmd_init() {
     stacks="${STACKS//,/ }"
     [ -n "$stacks" ] || stacks=$(detect_stacks "$dir")
     for file in $stacks; do
-        case "$file" in laravel|expo) ;; *) die "unknown stack '$file' (use laravel, expo)" ;; esac
+        case "$file" in laravel|react|expo|python) ;; *) die "unknown stack '$file' (use laravel, react, expo, python)" ;; esac
     done
     $DRY_RUN && echo "${BOLD}Dry run: nothing will change${RESET}"
-    echo "Setting up $(pretty "$dir") (stack: ${stacks:-none detected; pass --stack laravel,expo})"
+    echo "Setting up $(pretty "$dir") (stack: ${stacks:-none detected; pass --stack laravel,react,expo,python})"
     echo ""
 
     # docs/: copy seeds that don't exist yet
@@ -538,6 +550,20 @@ cmd_init() {
         cp "$HARNESS_DIR/project/$file" "$dest"
         ok "$file"
     done < <(stack_docs "$stacks")
+
+    # The stack's lint and static-analysis config, copied only where missing. Installing the
+    # tools adds dependencies, so the agent does it with the user's approval (setup-kitchen).
+    local stack src
+    for stack in $stacks; do
+        for src in "$HARNESS_DIR/project/stacks/$stack"/*; do
+            [ -f "$src" ] || continue
+            file=$(basename "$src")
+            if [ -e "$dir/$file" ]; then skip "$file exists (kept)"; continue; fi
+            if $DRY_RUN; then dry "would add $file"; continue; fi
+            cp "$src" "$dir/$file"
+            ok "$file"
+        done
+    done
 
     # Laravel Boost regenerates AGENTS.md (often gitignored) and includes .ai/guidelines/*.md
     # in it, so with Boost the docs map goes there: versioned, and kept by boost:update.
@@ -620,7 +646,8 @@ cmd_init() {
         echo "Next:"
         echo "  1. Fill in the Architecture section of AGENTS.md and check its Commands."
         echo "  2. Review the seeded docs/ and delete what doesn't apply."
-        echo "  3. Commit the harness files."
+        [ -n "$stacks" ] && echo "  3. Ask the agent to set up the kitchen (momotombo-mode, setup-kitchen) for: $stacks."
+        echo "  4. Commit the harness files."
     fi
 }
 
@@ -712,8 +739,8 @@ cmd_validate() {
     if [ -f "$mode/SKILL.md" ]; then
         while read -r ref; do
             [ -f "$mode/$ref" ] || { fail "skills/momotombo-mode: names $ref, which doesn't exist"; errors=$((errors + 1)); }
-        done < <(cat "$mode/SKILL.md" "$mode"/playbooks/*.md 2>/dev/null | grep -Eo '(playbooks|principles)/[a-z0-9-]+\.md' | sort -u)
-        for file in "$mode"/playbooks/*.md "$mode"/principles/*.md; do
+        done < <(cat "$mode/SKILL.md" "$mode"/playbooks/*.md 2>/dev/null | grep -Eo '(playbooks|principles|kitchens)/[a-z0-9-]+\.md' | sort -u)
+        for file in "$mode"/playbooks/*.md "$mode"/principles/*.md "$mode"/kitchens/*.md; do
             [ -f "$file" ] || continue
             ref="${file#"$mode"/}"
             grep -qF "$ref" "$mode/SKILL.md" || { fail "skills/momotombo-mode: $ref is not listed in SKILL.md"; errors=$((errors + 1)); }
@@ -809,7 +836,7 @@ Global layer (this machine):
   harness undo [--dry-run] [--yes]        Restore the files replaced by the last install
 
 Project layer (a product repository):
-  harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
+  harness init [dir] [--stack laravel,react,expo,python] [--no-codely] [--dry-run]
                                           Add AGENTS.md, docs/ conventions, and the Codely
                                           doc skill. Never overwrites.
 
@@ -833,7 +860,7 @@ main() {
             -f|--force) FORCE=true ;;
             -y|--yes) ASSUME_YES=true ;;
             -h|--help) command=help ;;
-            --stack) [ $# -ge 2 ] || die "--stack needs a value (laravel, expo)"; STACKS="$2"; shift ;;
+            --stack) [ $# -ge 2 ] || die "--stack needs a value (laravel, react, expo, python)"; STACKS="$2"; shift ;;
             --stack=*) STACKS="${1#--stack=}" ;;
             --no-codely) NO_CODELY=true ;;
             -*) die "unknown option: $1 (see: harness help)" ;;

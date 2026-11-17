@@ -12,6 +12,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Edit|Write|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.codex/hooks/comment-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking for new comments"
+          }
+        ]
+      }
     ]
   }
 }

@@ -209,18 +209,56 @@ cat .env"
 
 @test "status line shows model, directory, branch, context, and cost" {
     git -C "$TEST_TMP" init -q -b feature/demo
-    run bash -c "jq -n --arg d '$TEST_TMP' '{model: {display_name: \"Opus\"}, workspace: {current_dir: \$d}, context_window: {used_percentage: 42.4}, cost: {total_cost_usd: 1.234}}' | HARNESS_MEMORY_SWAP_PCT=100 HARNESS_MEMORY_FREE_PCT=0 '$PROJECT_DIR/global/claude/statusline.sh'"
+    run bash -c "jq -n --arg d '$TEST_TMP' '{model: {display_name: \"Opus\"}, workspace: {current_dir: \$d}, context_window: {used_percentage: 42.4}, cost: {total_cost_usd: 1.234}}' | '$PROJECT_DIR/global/claude/statusline.sh'"
     [[ "$status" -eq 0 ]] || return 1
     [[ "$output" == "Opus · $(basename "$TEST_TMP") · feature/demo · ctx 42% · \$1.23" ]] || return 1
 }
 
-@test "versioned settings wire the guard hook, the stall watcher, and the status line" {
+@test "versioned settings wire the guard hook, the stall watcher, the comment guard, and the status line" {
     run jq -e '.hooks.PreToolUse[0].matcher == "Bash"
         and (.hooks.PreToolUse[0].hooks[0].command | contains(".claude/hooks/guard-bash.sh"))
-        and .hooks.PostToolUse[0].matcher == "Bash"
-        and (.hooks.PostToolUse[0].hooks[0] | (.command | contains(".claude/hooks/stall-watch.sh")) and .asyncRewake == true and .timeout >= 3600)
+        and (.hooks.PostToolUse | map(select(.matcher == "Bash"))[0].hooks[0] | (.command | contains(".claude/hooks/stall-watch.sh")) and .asyncRewake == true and .timeout >= 3600)
+        and (.hooks.PostToolUse | map(select(.matcher == "Edit|Write|MultiEdit"))[0].hooks[0].command | contains(".claude/hooks/comment-guard.sh"))
         and (.statusLine.command | contains(".claude/statusline.sh"))
         and (.permissions.deny | index("Read(**/.env)"))' "$PROJECT_DIR/global/claude/settings.json"
     [[ "$status" -eq 0 ]] || return 1
     [[ -x "$GUARD" && -x "$PROJECT_DIR/global/claude/statusline.sh" ]] || return 1
+}
+
+
+@test "comment guard flags comments an edit adds to TypeScript, PHP, Python, and CSS" {
+    run bash -c "jq -n '{tool_name: \"Edit\", tool_input: {file_path: \"/app/src/Card.tsx\", old_string: \"const a = 1;\", new_string: \"// compute the total\nconst a = 1; // one\n{/* header */}\"}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+    [[ "$(jq -r .decision <<<"$output")" == "block" ]] || return 1
+    [[ "$output" == *"Card.tsx: // compute the total"* && "$output" == *"// one"* && "$output" == *"{/* header */}"* ]] || return 1
+
+    run bash -c "jq -n '{tool_name: \"MultiEdit\", tool_input: {file_path: \"/app/User.php\", edits: [{old_string: \"\", new_string: \"# legacy hack\"}]}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+    [[ "$output" == *"User.php: # legacy hack"* ]] || return 1
+
+    run bash -c "jq -n --arg p \$'*** Begin Patch\n*** Update File: app/svc.py\n@@\n-x = 1\n+x = 2  # bump\n*** End Patch' '{tool_name: \"apply_patch\", tool_input: {command: \$p}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+    [[ "$output" == *"app/svc.py:"*"# bump"* ]] || return 1
+
+    run bash -c "jq -n '{tool_name: \"Edit\", tool_input: {file_path: \"/app/a.css\", old_string: \"\", new_string: \"/* reset */\"}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+    [[ "$output" == *"a.css: /* reset */"* ]] || return 1
+}
+
+@test "comment guard allows directives, docblock tags, links, moved comments, and non-code files" {
+    for input in \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/a.ts", "old_string": "", "new_string": "// eslint-disable-next-line no-console\n// @ts-expect-error vendor types\n// https://github.com/org/repo/issues/1"}}' \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/A.php", "old_string": "", "new_string": "/**\n * @param array<int, User> $users\n */\n#[Override]"}}' \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/a.ts", "old_string": "// keep\nlet a = 1", "new_string": "let b = 2\n// keep"}}' \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/a.css", "old_string": "", "new_string": "* { margin: 0 }"}}' \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/README.md", "old_string": "", "new_string": "# Title"}}' \
+        '{"tool_name": "Edit", "tool_input": {"file_path": "/app/vendor/pkg/a.php", "old_string": "", "new_string": "// vendored"}}'; do
+        run bash -c "printf '%s' '$input' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+        [[ "$status" -eq 0 && -z "$output" ]] || { echo "$input -> $output"; return 1; }
+    done
+}
+
+@test "comment guard on a rewritten file flags only comments the committed version didn't have" {
+    git -C "$TEST_TMP" init -q
+    printf 'export const a = 1; // old note\n' > "$TEST_TMP/a.ts"
+    git -C "$TEST_TMP" add a.ts && git -C "$TEST_TMP" -c user.email=t@t -c user.name=t commit -qm init
+    run bash -c "jq -n --arg f '$TEST_TMP/a.ts' '{tool_name: \"Write\", tool_input: {file_path: \$f, content: \"export const a = 1; // old note\n// new note\nexport const b = 2;\"}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+    [[ "$output" == *"// new note"* ]] || return 1
+    [[ "$output" != *"old note"* ]] || return 1
 }

@@ -31,7 +31,7 @@ harness install                            harness init
   · momotombo-mode: playbooks + principles codely-doc-create, pinned in skills-lock.json
   · 6 subagents, routed by model
   · /commit, /open-pr, no-comments
-  · guard hook, stall watcher, Codex rules
+  · guard hook, comment guard, stall watcher, Codex rules
   · status line, settings
 ```
 
@@ -57,10 +57,10 @@ In Codex, approve the guard hook once with `/hooks`.
 
 ```bash
 cd ~/momotombo/my-product
-harness init                     # detects Laravel or Expo, or pass --stack laravel,expo
+harness init                     # detects Laravel, React, Expo, Python, or pass --stack laravel,react
 ```
 
-Then fill in the Architecture section of `AGENTS.md`, trim the seeded `docs/`, and commit.
+Then fill in the Architecture section of `AGENTS.md`, trim the seeded `docs/`, ask the agent to set up the kitchen (lint, static analysis, and the check commands for your stack, from `skills/momotombo-mode/kitchens/`), and commit.
 
 With Laravel Boost (`boost.json`), Boost owns `AGENTS.md` and it is often gitignored. `init` then writes the docs map to `.ai/guidelines/docs-map.md`, which is versioned and which Boost adds to `AGENTS.md`. Run `php artisan boost:update` afterwards, and add new docs to that file by hand.
 
@@ -100,6 +100,7 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
 - **Codex `.rules`** forbid the same git operations, as a second line of defense.
 - **Claude deny rules** block the Read tool on `.env` files (`.env`, `.env.local`, `.env.production`, `.env.staging`, …), `~/.ssh`, and AWS credentials.
 - **Stall watcher** (`global/hooks/stall-watch.sh`, Claude only): a `PostToolUse` hook with `asyncRewake` that watches each command Claude runs with `run_in_background`. When the command has written no output for 10 minutes and its processes use under 5% CPU in total, it wakes Claude with a diagnosis (processes, the newest log and its last lines) and posts a macOS notification. It never stops anything. It reports once per command, and it doesn't report while the command listens on a port (a dev server). It only catches low-CPU stalls: a busy sibling process can hide a hung one. Tune it with `HARNESS_STALL_SECONDS`, `HARNESS_STALL_CPU`, and `HARNESS_STALL_POLL`. Codex has no equivalent hook, so its agents set their own check. It needs `lsof`, which macOS ships.
+- **Comment guard** (`global/hooks/comment-guard.sh`, Claude and Codex): a `PostToolUse` hook on file edits (Claude `Edit`, `MultiEdit`, `Write`; Codex `apply_patch`). It lists the comments an edit added to source code (TypeScript, JavaScript, PHP, Python, CSS, Vue, Blade, Swift, Kotlin, Go, Rust, …) and asks the agent to remove them in the same turn. It lets through license headers, PHPDoc tags, lint and type directives, links, and comments the edit only moved, and skips `vendor/`, `node_modules/`, and build output. The edit is never undone.
 
 If a legitimate command is blocked, run it yourself (prefix it with `!` in Claude Code).
 
@@ -110,7 +111,7 @@ harness install [--dry-run] [--force]   link and merge the global layer
 harness status                          what is installed, missing, or broken
 harness doctor                          tools, links, and hooks
 harness undo [--dry-run] [--yes]        restore what the last install replaced
-harness init [dir] [--stack laravel,expo] [--no-codely] [--dry-run]
+harness init [dir] [--stack laravel,react,expo,python] [--no-codely] [--dry-run]
 harness validate                        what CI checks
 harness codex-agents                    regenerate Codex agents from the Claude ones
 ```
@@ -121,7 +122,7 @@ harness codex-agents                    regenerate Codex agents from the Claude 
 global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
 global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
-global/hooks/            guard-bash.sh (both tools), stall-watch.sh (Claude)
+global/hooks/            guard-bash.sh and comment-guard.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
 project/                 what `harness init` copies: docs/ seeds
 bin/harness              the CLI (bash + jq)

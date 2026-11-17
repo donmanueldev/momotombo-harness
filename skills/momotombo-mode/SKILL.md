@@ -10,7 +10,7 @@ metadata:
 
 # Momotombo mode
 
-Ship less code of higher quality, and prove it works. The playbook and principle files live next to this file: `playbooks/<name>.md` and `principles/<name>.md`.
+Ship less code of higher quality, and prove it works. The playbook, principle, and kitchen files live next to this file: `playbooks/<name>.md`, `principles/<name>.md`, and `kitchens/<stack>.md` (`kitchens/laravel.md`, `kitchens/react.md`, `kitchens/expo.md`, `kitchens/python.md`: the lint, analysis, and check setup per stack).
 
 ## Start
 
@@ -86,9 +86,14 @@ Read a principle's file in full the first time it applies in a session. In your 
 
 ## Verification
 
-- While working, run the checks that cover what you changed (the project's fast check, or the affected tests).
-- Check behavior on the surface it lives on: hit the endpoint, run the command, open the screen. "Inconclusive" or the wrong surface is not a pass.
+- While working, run only the project's fast check (`check:fast`, from its `AGENTS.md` or kitchen) or the tests that cover what you changed. Never the full suite after every edit.
+- Check behavior on the surface it lives on, only for what changed:
+  - API or backend: call the endpoint or command and read the response and the stored data.
+  - Web screen: drive it in a browser (Playwright, the `webapp-testing` skill, or Claude in Chrome) and take a screenshot.
+  - Expo screen: boot the simulator and tap through it with the Expo MCP tools (`simulator_start`, `automation_tap`, `automation_take_screenshot`).
+  - "Inconclusive" or the wrong surface is not a pass.
 - Run the full check command only in `playbooks/integrate.md`, in the background.
+- The comment guard hook reports comments an edit adds. Act on it in the same turn: remove them, or keep one that fits a `code-says-what` exception and say which.
 
 ## Reply
 

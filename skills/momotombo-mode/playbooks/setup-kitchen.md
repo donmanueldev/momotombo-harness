@@ -4,7 +4,7 @@ The kitchen is what rejects bad code before a person sees it: linter, formatter,
 
 **Outcome:** the project has a fast check and a full check that catch the mistake at hand, and both pass.
 
-1. Find what the ecosystem already offers (official docs first): its linter, formatter, type checker, and test runner. Reuse what the project has before adding anything.
+1. If the stack has a kitchen guide, follow it: `kitchens/laravel.md`, `kitchens/react.md`, `kitchens/expo.md`, `kitchens/python.md`. Otherwise find what the ecosystem offers (official docs first): its linter, formatter, type checker, and test runner. Reuse what the project has before adding anything.
 2. Wire one `check` command that runs all of them, and a fast variant that runs only what covers changed files. Name both in the project's `AGENTS.md`.
 3. For a correction the user made twice, encode it (`principles/encode-lessons-in-structure.md`): enable the lint rule that catches it, add a test or a type, or write a small script. Only when none can, write a `docs/` page with `codely-doc-create`.
 4. Ask before adding or upgrading dependencies. Pin versions.

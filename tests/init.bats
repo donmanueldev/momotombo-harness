@@ -103,6 +103,25 @@ laravel_app() {
     grep -q 'npx expo start' "$APP/AGENTS.md" || return 1
 }
 
+@test "init detects a React web app and a Python service" {
+    echo '{"dependencies": {"react": "^19.0.0", "@inertiajs/react": "^2.0.0"}}' > "$APP/package.json"
+    touch "$APP/pyproject.toml"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" == *"stack: react python"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"set up the kitchen (momotombo-mode, setup-kitchen) for: react python"* ]] || return 1
+}
+
+@test "init adds the Laravel kitchen config and never replaces an existing one" {
+    laravel_app
+    echo "<?php // mine" > "$APP/rector.php"
+    run init --no-codely
+    [[ "$status" -eq 0 ]] || return 1
+    grep -q 'larastan/extension.neon' "$APP/phpstan.neon.dist" || return 1
+    grep -qx "<?php // mine" "$APP/rector.php" || return 1
+    [[ "$output" == *"rector.php exists (kept)"* ]] || return 1
+}
+
 @test "--stack overrides detection and rejects unknown stacks" {
     run init --stack laravel,expo
     [[ -f "$APP/docs/backend/form-requests-and-policies.md" && -f "$APP/docs/mobile/secure-storage-and-api.md" ]] || return 1
