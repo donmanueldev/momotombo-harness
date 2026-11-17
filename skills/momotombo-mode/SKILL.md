@@ -31,7 +31,7 @@ Ship less code of higher quality, and prove it works. The playbook, principle, a
 | `playbooks/integrate.md` | The user asks to commit, open a PR, or merge. |
 | `playbooks/setup-kitchen.md` | The project lacks a linter, type checker, test runner, or check command, or the user corrects the same mistake twice. |
 | `playbooks/autonomous-run.md` | "Run until done", "I'm going to bed": a long task whose goal a command can check. |
-| `playbooks/parallel.md` | Work that splits into independent tasks on disjoint files. |
+| `playbooks/parallel.md` | Work that splits into independent tasks on disjoint files. Lead mode (opt-in, suggest and wait) for audits, bug hunts, release prep, large refactors. |
 
 ## Principles
 
@@ -82,7 +82,7 @@ Read a principle's file in full the first time it applies in a session. In your 
 
 ## Subagents
 
-- You write the code in this session. Subagents start cold and slow the user down. This is a deliberate tradeoff against pstack's lead-delegates model: for product work at Momotombo's size, one deep session is faster than briefing and reviewing a delegate. Delegate when the work earns it: bulk reading, or tasks on disjoint files that truly run in parallel.
+- You write the code in this session. Subagents start cold and slow the user down. This is a deliberate tradeoff against pstack's lead-delegates model: for product work at Momotombo's size, one deep session is faster than briefing and reviewing a delegate. Delegate when the work earns it: bulk reading, or tasks on disjoint files that truly run in parallel. The one exception is lead mode in `playbooks/parallel.md`, and only when the user approves it.
 - `analyst`: bulk reading or a wide search, so raw files stay out of this context.
 - `worker`: only for independent tasks that touch disjoint files, run in parallel, each in its own worktree (`playbooks/parallel.md`). You review every diff it returns.
 - `reviewer`, `security-reviewer`, `comment-sicko`: only in `playbooks/integrate.md`.
