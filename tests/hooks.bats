@@ -171,6 +171,103 @@ cat .env"
     [[ "$status" -eq 2 ]] || return 1
 }
 
+@test "guard sees hook bypasses after a commit message with parentheses or semicolons" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    for command in \
+        'git commit -m "feat(x): y" --no-verify' \
+        "git commit -m 'fix; y' --no-verify" \
+        'git commit -m x -n' \
+        'git commit --message x -n' \
+        'git commit -am "a (b)" -n' \
+        'git config core.hooksPath /dev/null' \
+        'git config --local core.hookspath .nohooks'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    for command in \
+        'git commit -m "feat(x): y"' \
+        'git commit -m "fix: drop the -n flag"' \
+        'git commit -m x -m "body (with -n)"' \
+        'git config user.name x'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+}
+
+@test "guard blocks pushes of every branch and discarding all changes" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    for command in \
+        'git push --mirror' \
+        'git push --all origin' \
+        'git push --repo=origin main' \
+        'git checkout .' \
+        'git checkout -- .' \
+        'git restore .' \
+        'git restore --staged --worktree .'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    for command in \
+        'git restore --staged .' \
+        'git restore src/app.ts' \
+        'git checkout -- main.ts' \
+        'git push --repo=origin feature/x'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+}
+
+@test "guard blocks merges, cherry-picks, and reverts on protected branches" {
+    git -C "$TEST_TMP" init -q -b main
+    for command in 'git merge feature/x' 'git cherry-pick abc123' 'git revert abc123' 'git am fix.patch'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    for command in 'git pull' 'git merge --ff-only origin/main' 'git merge --abort' 'git cherry-pick --abort'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+    git -C "$TEST_TMP" switch -q -c feature/y
+    run guard 'git merge main'
+    [[ "$status" -eq 0 ]] || return 1
+}
+
+@test "guard keeps checking commands after a stray << that isn't a heredoc" {
+    for command in 'echo "a <<x b"
+git push --force' 'echo $((1<<2)); git push --force' 'echo $((1<<n))
+cat .env'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    run guard 'echo $((1<<2))'
+    [[ "$status" -eq 0 ]] || return 1
+}
+
+@test "guard blocks dotenv reads behind assignments, keywords, wrappers, copies, and git" {
+    git -C "$TEST_TMP" init -q -b feature/x
+    for command in \
+        'FOO=1 cat .env' \
+        'if cat .env; then :; fi' \
+        '! cat .env' \
+        'sudo -u root cat .env' \
+        'env -i cat .env' \
+        'eval "cat .env"' \
+        'cp .env /tmp/x' \
+        'git show HEAD:.env' \
+        'git diff .env.production'; do
+        run guard "$command"
+        [[ "$status" -eq 2 ]] || { echo "not blocked: $command"; return 1; }
+    done
+    for command in \
+        'cat .env.local.example' \
+        'cat .env.production.sample' \
+        'cp .env.ci.example .env.ci' \
+        'git show HEAD:.env.example'; do
+        run guard "$command"
+        [[ "$status" -eq 0 ]] || { echo "wrongly blocked: $command"; return 1; }
+    done
+}
+
 @test "guard fails closed on malformed input" {
     run bash -c "echo 'not json' | '$GUARD'"
     [[ "$status" -eq 2 ]] || return 1
@@ -240,6 +337,23 @@ cat .env"
 
     run bash -c "jq -n '{tool_name: \"Edit\", tool_input: {file_path: \"/app/a.css\", old_string: \"\", new_string: \"/* reset */\"}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
     [[ "$output" == *"a.css: /* reset */"* ]] || return 1
+}
+
+@test "comment guard catches trailing comments and ignores pointer code and shebangs" {
+    for pair in \
+        'a.ts|x = y; /* why */' \
+        'A.php|$x = 1; # why' \
+        'svc.py|x = 1 # why'; do
+        run bash -c "jq -n --arg f '/app/${pair%%|*}' --arg s '${pair#*|}' '{tool_name: \"Edit\", tool_input: {file_path: \$f, old_string: \"\", new_string: \$s}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+        [[ "$output" == *"why"* ]] || { echo "missed: $pair"; return 1; }
+    done
+    for pair in \
+        'main.go|*p = 5' \
+        'bin.php|#!/usr/bin/env php' \
+        'svc.py|print("a # b")'; do
+        run bash -c "jq -n --arg f '/app/${pair%%|*}' --arg s '${pair#*|}' '{tool_name: \"Edit\", tool_input: {file_path: \$f, old_string: \"\", new_string: \$s}}' | '$PROJECT_DIR/global/hooks/comment-guard.sh'"
+        [[ -z "$output" ]] || { echo "wrongly flagged: $pair -> $output"; return 1; }
+    done
 }
 
 @test "comment guard allows directives, docblock tags, links, moved comments, and non-code files" {

@@ -3,7 +3,7 @@ name: momotombo-mode
 description: How to do any engineering task in a Momotombo project, in any stack. Use for every task that investigates, changes, fixes, refactors, speeds up, or integrates code. Picks a playbook and applies the code, test, architecture, and security principles.
 license: MIT
 metadata:
-  author: momotombo
+  author: momotombodevs
   version: "1.0.0"
   adapted-from: https://github.com/cursor/plugins/tree/main/pstack (MIT), https://github.com/addyosmani/agent-skills (MIT)
 ---
@@ -76,13 +76,13 @@ Read a principle's file in full the first time it applies in a session. In your 
 ## Autonomy
 
 - Proceed without asking on anything local and reversible.
-- Ask first only before what leaves the machine or is hard to undo: push, merge, deploy, external messages, production or shared data, migrations on shared data, new or upgraded dependencies.
+- Ask first only at the approval boundary in the global instructions: what leaves the machine or is hard to undo.
 - "Don't stop", "run until done", or "I'm going to bed" means `playbooks/autonomous-run.md`.
 - Give your real judgment. Push back when a request or an approach doesn't earn its place.
 
 ## Subagents
 
-- You write the code in this session. Subagents start cold and slow the user down.
+- You write the code in this session. Subagents start cold and slow the user down. This is a deliberate tradeoff against pstack's lead-delegates model: for product work at Momotombo's size, one deep session is faster than briefing and reviewing a delegate. Delegate when the work earns it: bulk reading, or tasks on disjoint files that truly run in parallel.
 - `analyst`: bulk reading or a wide search, so raw files stay out of this context.
 - `worker`: only for independent tasks that touch disjoint files, run in parallel, each in its own worktree (`playbooks/parallel.md`). You review every diff it returns.
 - `reviewer`, `security-reviewer`, `comment-sicko`: only in `playbooks/integrate.md`.

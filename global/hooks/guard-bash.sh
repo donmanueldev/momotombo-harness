@@ -17,14 +17,22 @@ cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
 [ -n "$cwd" ] || cwd=$PWD
 
 # Drop heredoc bodies (commit messages, PR bodies, file contents): they are data, not commands.
+# A `<<` after a word character is arithmetic (1<<n), not a heredoc. A body whose terminator
+# never comes is kept, so a stray `<<` in prose can't hide the commands after it.
 body_free=$(awk -v q="'" '
-    skip { t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t); if (t == word) skip = 0; next }
+    skip {
+        held = held $0 "\n"
+        t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t)
+        if (t == word) { skip = 0; held = "" }
+        next
+    }
     { print }
-    match($0, "(^|[^<])<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*") {
+    match($0, "(^|[^<A-Za-z0-9_)])<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*") {
         word = substr($0, RSTART, RLENGTH)
         sub("^[^<]?<<-?[ \t]*[\"" q "]?", "", word)
         skip = 1
-    }' <<<"$command")
+    }
+    END { if (skip) printf "%s", held }' <<<"$command")
 
 # Normalize into ';'-separated segments: drop quotes, split on shell operators, output
 # redirections, and subshell/substitution brackets, turn input redirections into spaces,
@@ -36,6 +44,16 @@ flat=$(tr '\n' ' ' <<<"$body_free" | sed -E \
     -e 's/(\&\&|\|\||\||;|\$\(|[()`{}]|>)/;/g' \
     -e 's/</ /g' \
     -e 's#(^|[[:space:];])/[^[:space:];]*/(git|rm)([[:space:]]|;|$)#\1\2\3#g')
+
+# The same command with quoted strings replaced by one placeholder word. A message such as
+# -m "feat(x): y" then can't split a git command in two and hide the flags after it.
+# shellcheck disable=SC2016
+unquoted=$(tr '\n' ' ' <<<"$body_free" | sed -E \
+    -e 's/"([^"\\]|\\.)*"/Q/g' \
+    -e "s/'[^']*'/Q/g" \
+    -e 's/(\&\&|\|\||\||;|\$\(|[()`{}]|>)/;/g' \
+    -e 's/</ /g' \
+    -e 's#(^|[[:space:];])/[^[:space:];]*/git([[:space:]]|;|$)#\1git\2#g')
 
 resolve_dir() {
     local base=$1 target=$2
@@ -57,6 +75,15 @@ branch_of() {
 }
 
 is_protected() { case "$1" in main|master|develop) return 0 ;; esac; return 1; }
+
+# Branch checks need the cd and checkout tracking of the first pass, so the strict pass skips them.
+protect_branch() {
+    [ $strict -eq 0 ] || return 0
+    local branch
+    branch=$(branch_of "$repo")
+    is_protected "$branch" && block "$1 directly on '$branch'; create a feature/bugfix branch first"
+    return 0
+}
 
 check_rm() {
     local recursive=0 dangerous="" endopts=0 t
@@ -96,19 +123,28 @@ check_git() {
     done
 
     case "$sub" in
+        config)
+            for t in "$@"; do
+                [[ "$(tr '[:upper:]' '[:lower:]' <<<"$t")" = core.hookspath* ]] &&
+                    block "changing core.hooksPath skips the repository's hooks"
+            done
+            ;;
         push)
-            local positional=() refspec
+            local positional=() refspec named_repo=0
             for t in "$@"; do
                 case "$t" in
                     --force | --force=* | --force-with-lease | --force-with-lease=* | --force-if-includes) block "force-push rewrites shared history" ;;
+                    --mirror | --all | --branches) block "$t pushes every branch, main included" ;;
+                    --repo=*) named_repo=1 ;;
                     --*) ;;
                     -*) [[ "$t" = *f* ]] && block "force-push rewrites shared history" ;;
                     +*) block "a +refspec force-pushes and rewrites shared history" ;;
                     *) positional+=("$t") ;;
                 esac
             done
-            local current
-            current=$(branch_of "$repo")
+            [ $named_repo -eq 1 ] && positional=(repo "${positional[@]}")
+            local current=""
+            [ $strict -eq 0 ] && current=$(branch_of "$repo")
             if [ ${#positional[@]} -le 1 ]; then
                 [[ "$current" = main || "$current" = master ]] &&
                     block "pushing directly to $current; open a pull request instead"
@@ -135,28 +171,59 @@ check_git() {
             done
             ;;
         commit)
+            local value=0
             for t in "$@"; do
+                if [ $value -eq 1 ]; then value=0; continue; fi
                 case "$t" in
-                    --*) [[ "$t" = --message* || "$t" = --file* ]] && { message=1; break; } ;;
+                    --message | --file | --reuse-message | --reedit-message | --template) value=1 ;;
+                    --*) [ $strict -eq 0 ] && [[ "$t" = --message=* || "$t" = --file=* ]] && { message=1; break; } ;;
                     -*) [[ "$t" = *n* ]] && block "git commit -n is --no-verify and skips the repository's hooks"
-                        [[ "$t" = *[mF]* ]] && { message=1; break; } ;; # the rest is the message
+                        if [[ "$t" = *[mFCct]* ]]; then
+                            [ $strict -eq 0 ] && [[ "$t" = *[mF]* ]] && { message=1; break; } # the rest is the message
+                            value=1
+                        fi ;;
                 esac
             done
-            local branch
-            branch=$(branch_of "$repo")
-            is_protected "$branch" && block "committing directly on '$branch'; create a feature/bugfix branch first"
+            protect_branch "committing" ;;
+        merge)
+            local ff_only=0
+            for t in "$@"; do
+                case "$t" in
+                    --abort | --quit) return 0 ;;
+                    --ff-only) ff_only=1 ;;
+                esac
+            done
+            [ $ff_only -eq 1 ] || protect_branch "merging" ;;
+        cherry-pick | revert | am)
+            for t in "$@"; do case "$t" in --abort | --quit | --skip) return 0 ;; esac; done
+            protect_branch "running git $sub" ;;
+        restore)
+            local staged=0 worktree=0 all=0
+            for t in "$@"; do
+                case "$t" in
+                    --staged | -S) staged=1 ;;
+                    --worktree | -W) worktree=1 ;;
+                    . | ./ | :/ | \*) all=1 ;;
+                esac
+            done
+            { [ $worktree -eq 1 ] || [ $staged -eq 0 ]; } && [ $all -eq 1 ] && block "git restore . discards every uncommitted change"
             ;;
         checkout | switch)
             local last="" files=0
             for t in "$@"; do
                 [ "$t" = "--" ] && files=1
+                case "$t" in . | ./ | :/) [ "$sub" = checkout ] && block "git checkout . discards every uncommitted change" ;; esac
                 [[ "$t" = -* ]] || last=$t
             done
-            if [ $files -eq 0 ] && [ -n "$last" ]; then
+            if [ $files -eq 0 ] && [ -n "$last" ] && [ $strict -eq 0 ]; then
                 switched_repo=$repo
                 switched_branch=$last
             fi
             ;;
+        show | diff | blame | cat-file)
+            check_read 0 "$@" ;;
+        grep)
+            check_read 1 "$@" ;;
     esac
     return 0
 }
@@ -167,9 +234,10 @@ check_git() {
 is_secret_env() {
     local t=${1//\\/} base prefix
     t=${t##*=}
+    t=${t##*:}
     base=$(tr '[:upper:]' '[:lower:]' <<<"${t##*/}")
     case "$base" in
-        .env.example | .env.sample | .env.template | .env.dist) return 1 ;;
+        .env*.example | .env*.sample | .env*.template | .env*.dist) return 1 ;;
         .env | .env.*) return 0 ;;
         *[\*\?\[]*)
             prefix=${base%%[\*\?\[]*}
@@ -195,43 +263,67 @@ check_read() {
     return 0
 }
 
-# Readers only count in command position: first word, or right after a wrapper such as
-# sudo, env, xargs, or `bash -c`. Elsewhere the word is prose (echo, --body, messages).
+# Readers only count in command position: the first word after any VAR=value prefixes, a
+# shell keyword, or a wrapper such as sudo, env, eval, xargs, or `bash -c`, anywhere earlier
+# in the segment. Elsewhere the word is prose (echo, --body, messages).
 at_command_position() {
-    [ "$1" -eq 0 ] && return 0
-    case "${toks[$(($1 - 1))]}" in
-        sudo | env | command | exec | time | nice | nohup | xargs | -c) return 0 ;;
+    local j=$(($1 - 1))
+    while [ $j -ge 0 ] && [[ "${toks[$j]}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do j=$((j - 1)); done
+    [ $j -lt 0 ] && return 0
+    case "${toks[$j]}" in
+        if | then | else | elif | do | while | until | ! | -c) return 0 ;;
     esac
+    for ((j = 0; j < $1; j++)); do
+        case "${toks[$j]##*/}" in
+            sudo | env | command | exec | eval | time | timeout | nice | nohup | xargs | watch) return 0 ;;
+        esac
+    done
     return 1
 }
 
-dir=$cwd
-IFS=';' read -ra segments <<<"$flat"
-for segment in "${segments[@]}"; do
-    read -ra toks <<<"$segment"
-    [ ${#toks[@]} -gt 0 ] || continue
-    if [ "${toks[0]}" = "cd" ]; then
-        dir=$(resolve_dir "$dir" "${toks[1]:-$HOME}")
-        continue
-    fi
-    for ((i = 0; i < ${#toks[@]}; i++)); do
-        case "${toks[$i]}" in
-            git)
-                message=0
-                check_git "${toks[@]:$((i + 1))}"
-                [ $message -eq 1 ] && break # the rest of the segment is a commit message
-                ;;
-            rm) check_rm "${toks[@]:$((i + 1))}" ;;
-        esac
-        at_command_position "$i" || continue
-        case "${toks[$i]##*/}" in
-            cat | less | more | head | tail | tac | bat | nl | strings | xxd | hexdump | od | base64 | \
-            sort | uniq | cut | paste | tee | dd | jq | yq | diff | cmp | column | fold | rev | source | .)
-                check_read 0 "${toks[@]:$((i + 1))}" ;;
-            grep | egrep | fgrep | rg | sed | awk)
-                check_read 1 "${toks[@]:$((i + 1))}" ;;
-        esac
+# Copying a dotenv file exposes it as surely as printing it; the last argument is the destination.
+check_copy() {
+    [ $# -gt 1 ] || return 0
+    check_read 0 "${@:1:$(($# - 1))}"
+}
+
+scan() {
+    dir=$cwd
+    IFS=';' read -ra segments <<<"$1"
+    for segment in "${segments[@]}"; do
+        read -ra toks <<<"$segment"
+        [ ${#toks[@]} -gt 0 ] || continue
+        if [ "${toks[0]}" = "cd" ]; then
+            dir=$(resolve_dir "$dir" "${toks[1]:-$HOME}")
+            continue
+        fi
+        for ((i = 0; i < ${#toks[@]}; i++)); do
+            case "${toks[$i]}" in
+                git)
+                    message=0
+                    check_git "${toks[@]:$((i + 1))}"
+                    [ $message -eq 1 ] && break # the rest of the segment is a commit message
+                    ;;
+                rm) check_rm "${toks[@]:$((i + 1))}" ;;
+            esac
+            [ $strict -eq 0 ] || continue
+            at_command_position "$i" || continue
+            case "${toks[$i]##*/}" in
+                cat | less | more | head | tail | tac | bat | nl | strings | xxd | hexdump | od | base64 | \
+                sort | uniq | cut | paste | tee | dd | jq | yq | diff | cmp | column | fold | rev | source | .)
+                    check_read 0 "${toks[@]:$((i + 1))}" ;;
+                grep | egrep | fgrep | rg | sed | awk)
+                    check_read 1 "${toks[@]:$((i + 1))}" ;;
+                cp | scp | rsync | ln)
+                    check_copy "${toks[@]:$((i + 1))}" ;;
+            esac
+        done
     done
-done
+}
+
+strict=0
+scan "$flat"
+strict=1
+scan "$unquoted"
 
 exit 0

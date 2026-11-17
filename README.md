@@ -48,7 +48,7 @@ harness doctor
 
 `install` never deletes your data:
 - A file that differs from the harness is kept, unless you pass `--force`. With `--force` it is backed up first.
-- Settings are **merged**: your keys and other tools' hooks stay.
+- Settings are **merged**: other tools' hooks and your keys stay, permissions are combined, and the keys the harness sets (`model`, `statusLine`, `attribution`, `enabledPlugins`, its own hooks) take the harness's value. The previous file is backed up first.
 - `harness undo` restores the last backup. Backups live in `~/.local/state/momotombo-harness/backups` (override with `HARNESS_BACKUP_DIR`), outside the checkout, because they hold copies of your own config.
 
 In Codex, approve the guard hook once with `/hooks`.
@@ -68,7 +68,7 @@ With Laravel Boost (`boost.json`), Boost owns `AGENTS.md` and it is often gitign
 
 Talk to the agent in Spanish. It writes code and docs in English.
 
-Every code task runs through the `momotombo-mode` skill (`/momotombo-mode <task>` to call it explicitly). It picks a playbook (investigate, bug fix, feature, big feature, refactor, perf, integrate, setup kitchen) and applies 24 stack-agnostic principles for code, tests, architecture, and security, from `skills/momotombo-mode/`.
+Every code task runs through the `momotombo-mode` skill (`/momotombo-mode <task>` to call it explicitly). It picks a playbook (investigate, bug fix, feature, big feature, refactor, perf, integrate, setup kitchen, autonomous run, parallel) and applies 26 stack-agnostic principles for code, tests, architecture, and security, from `skills/momotombo-mode/`.
 
 - **Bugs and changes**: ask for it. The agent changes the code, runs the checks that cover it, and shows the evidence.
 - **Large features**: the agent proposes the data shape, contracts, and phases in a few lines. You approve once, and it builds every phase.
@@ -93,10 +93,10 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
 ## Safety
 
 - **Guard hook** (`global/hooks/guard-bash.sh`): runs in Claude and Codex, including inside subagents. It blocks:
-  - force-push, `--no-verify`, `reset --hard`, and `clean -f`
-  - pushes to `main`/`master`, and commits on `main`/`master`/`develop`, even after `cd` or with `git -C`
+  - force-push, `--mirror`/`--all` pushes, `--no-verify` and `commit -n`, `core.hooksPath` overrides, `reset --hard`, `clean -f`, and `checkout .` / `restore .`
+  - pushes to `main`/`master`, and commits, merges, cherry-picks, and reverts on `main`/`master`/`develop`, even after `cd` or with `git -C` (`pull` and `merge --ff-only` stay allowed)
   - `rm -r` on `/`, `~`, `.`, or `*`
-  - printing or sourcing `.env` / `.env.*` files (`cat`, `grep`, `source`, …); templates like `.env.example` stay readable. This check is best effort (an interpreter such as `node -e` can still read the file); the Read deny rules below are the real control
+  - printing, sourcing, or copying `.env` / `.env.*` files (`cat`, `grep`, `source`, `cp`, `git show`, …); templates like `.env.example` or `.env.local.example` stay readable. This check is best effort (an interpreter such as `node -e`, `find -exec`, or a path built at runtime can still read the file); the Read deny rules below are the real control
 - **Codex `.rules`** forbid the same git operations, as a second line of defense.
 - **Claude deny rules** block the Read tool on `.env` files (`.env`, `.env.local`, `.env.production`, `.env.staging`, …), `~/.ssh`, and AWS credentials.
 - **Stall watcher** (`global/hooks/stall-watch.sh`, Claude only): a `PostToolUse` hook with `asyncRewake` that watches each command Claude runs with `run_in_background`. When the command has written no output for 10 minutes and its processes use under 5% CPU in total, it wakes Claude with a diagnosis (processes, the newest log and its last lines) and posts a macOS notification. It never stops anything. It reports once per command, and it doesn't report while the command listens on a port (a dev server). It only catches low-CPU stalls: a busy sibling process can hide a hung one. Tune it with `HARNESS_STALL_SECONDS`, `HARNESS_STALL_CPU`, and `HARNESS_STALL_POLL`. Codex has no equivalent hook, so its agents set their own check. It needs `lsof`, which macOS ships.
@@ -127,7 +127,7 @@ global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
 global/hooks/            guard-bash.sh, comment-guard.sh, loop-stop.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
-project/                 what `harness init` copies: docs/ seeds
+project/                 what `harness init` copies: docs/ seeds and stacks/ lint configs
 bin/harness              the CLI (bash + jq)
 tests/                   Bats suites; CI runs them on macOS
 ```
@@ -136,4 +136,6 @@ tests/                   Bats suites; CI runs them on macOS
 
 - [Laravel Boost](https://laravel.com/docs/boost) owns Laravel conventions, skills, docs search, and project rules in Laravel projects; the harness adds only what Boost doesn't cover.
 - [pstack](https://github.com/cursor/plugins/tree/main/pstack) by poteto (MIT): `momotombo-mode`, its principles, `no-comments`, and `comment-sicko` are adapted from it.
+- [agent-skills](https://github.com/addyosmani/agent-skills) by Addy Osmani (MIT): the `never-lower-the-bar` and `make-it-observable` principles and the expand/contract migration rule are adapted from it.
+- Full license notices for both are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project. `harness init` installs their `codely-doc-create` skill by reference.

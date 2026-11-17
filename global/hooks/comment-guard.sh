@@ -44,17 +44,21 @@ findings=$(edit_lines | awk -F'\t' '
         if (e == "blade") return "blade"
         return ""
     }
+    function unquoted(s,    d, q) { d = gsub(/"/, "&", s); q = gsub(sprintf("%c", 39), "&", s); return d % 2 == 0 && q % 2 == 0 }
     function comment(line, fam,    t) {
         t = line; sub(/^[ \t]+/, "", t)
         if (fam == "c" || fam == "php" || fam == "markup" || fam == "blade") {
-            if (t ~ /^(\/\/|\/\*|\{\/\*|\*[^\/]|\*$)/) return t
-            if (match(line, /([;,){}]|\])[ \t]+\/\/[ \t]/)) return substr(line, RSTART + 1)
+            if (t ~ /^(\/\/|\/\*|\{\/\*|\*([ \t]|$))/) return t
+            if (match(line, /([;,){}]|\])[ \t]+(\/\/[ \t]|\/\*)/)) return substr(line, RSTART + 1)
         }
         if (fam == "css" && t ~ /^(\/\*|\/\/)/) return t
-        if (fam == "php" && t ~ /^#[^\[]/) return t
+        if (fam == "php") {
+            if (t ~ /^#[^\[!]/) return t
+            if (match(line, /[;,){}][ \t]+#[ \t]/)) return substr(line, RSTART + 1)
+        }
         if (fam == "hash") {
             if (t ~ /^#/ && t !~ /^#!/) return t
-            if (match(line, /[^ \t][ \t][ \t]+#[ \t]/)) return substr(line, RSTART + 1)
+            if (match(line, /[^ \t][ \t]+#[ \t]/) && unquoted(substr(line, 1, RSTART))) return substr(line, RSTART + 1)
         }
         if ((fam == "markup" || fam == "blade") && t ~ /^<!--/) return t
         if (fam == "blade" && t ~ /^\{\{--/) return t

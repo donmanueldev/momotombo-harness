@@ -7,6 +7,7 @@
 - Every foreign key gets an explicit index (PostgreSQL does **not** index foreign key columns automatically) and an explicit `on delete` behavior.
 - Uniqueness rules from the domain are database constraints, not just validation.
 - Changes to large tables (backfills, new indexes) are planned so they don't lock writes, and they are called out in the PR. Index a large table with `->online()` (PostgreSQL `CREATE INDEX CONCURRENTLY`) in its own migration with `public $withinTransaction = false;`, because a concurrent index can't be built inside a transaction.
+- Never rename or drop a column that deployed code still reads. Expand, migrate, contract: add the new column, backfill it and move the code, then drop the old one in a later release.
 
 ## 🏆 Benefits
 

@@ -9,6 +9,8 @@ Run only when the user asks to commit, open a PR, or merge.
    - `reviewer`, always.
    - `security-reviewer`, only if auth, payments, personal data, uploads, or integrations changed.
    - The `no-comments` skill, always.
+
+   A small diff (docs, config, or a few lines with no logic change) skips the reviews: run the check and commit.
 3. Fix the **Blocking** findings and the accepted comment deletions yourself. List the rest for the user; don't loop. Re-run a reviewer at most once, only if a blocking fix changed logic.
 4. Commit with `/commit` (Claude) or `git-ops` (Codex): small, ordered Conventional Commits. Open the PR with `/open-pr` when asked. Push and merge only with the user's approval.
 
