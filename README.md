@@ -16,7 +16,7 @@ Most AI slop has five causes. The harness answers each one:
 |-------|--------|
 | The agent guesses your conventions | `docs/` per project with good and bad examples. `AGENTS.md` maps them so agents read only what the task needs |
 | Big changes nobody can review | For a large feature, the data shape, contracts, and phases **you approve once** before it is built |
-| The same mistake comes back | A correction becomes a lint rule, test, or script; otherwise `codely-doc-create` makes it a versioned doc |
+| The same mistake comes back | A correction becomes a lint rule, test, or script; otherwise a versioned rule (Laravel Boost `record-rule`, or `codely-doc-create` outside Laravel) |
 | "Done" without proof | Agents verify what they changed and report exactly what ran |
 | Generic, unsafe code | Principles for code, tests, architecture, and security, stack conventions, and reviews when you integrate |
 
@@ -134,5 +134,6 @@ tests/                   Bats suites; CI runs them on macOS
 
 ## Credits
 
+- [Laravel Boost](https://laravel.com/docs/boost) owns Laravel conventions, skills, docs search, and project rules in Laravel projects; the harness adds only what Boost doesn't cover.
 - [pstack](https://github.com/cursor/plugins/tree/main/pstack) by poteto (MIT): `momotombo-mode`, its principles, `no-comments`, and `comment-sicko` are adapted from it.
 - [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project. `harness init` installs their `codely-doc-create` skill by reference.

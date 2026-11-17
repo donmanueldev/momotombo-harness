@@ -35,7 +35,7 @@ Controllers validate (Form Request), call one Action, and return a response.
 - [app/Http/Controllers/ProjectController.php](../../app/Http/Controllers/ProjectController.php)
 
 ## 🔗 Related agreements
-- [Form Requests and Policies](form-requests-and-policies.md)
+- [Thin controllers and Actions](thin-controllers-and-actions.md)
 ```
 
 ### ❌ Bad: every convention buried in one long file

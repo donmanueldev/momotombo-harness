@@ -71,4 +71,4 @@ export default function ProjectsIndex(props: any) {
 
 ## 🔗 Related agreements
 
-- [Form Requests and Policies](../backend/form-requests-and-policies.md): the source of `errors`.
+- Laravel Boost skills `inertia-react-development` (forms, props) and `laravel-best-practices` (validation, the source of `errors`).

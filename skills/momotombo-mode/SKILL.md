@@ -15,7 +15,7 @@ Ship less code of higher quality, and prove it works. The playbook, principle, a
 ## Start
 
 1. Say the goal and the smallest change that meets it in one line, then proceed.
-2. Read the project's `AGENTS.md` and only the `docs/` its map lists for this task. The code, the docs, and live sources are the truth; memory is not.
+2. Read the project's `AGENTS.md`, the rules in `.ai/rules/index.md` (Laravel Boost) that match the files you'll touch, and only the `docs/` its map lists for this task. Use the stack's official skills and, in Laravel, Boost's `search-docs`. The code, the docs, and live sources are the truth; memory is not.
 3. Pick the playbook, copy its steps into your todo list, and follow them.
 
 ## Playbooks

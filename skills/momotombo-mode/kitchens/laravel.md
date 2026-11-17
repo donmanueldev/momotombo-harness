@@ -15,15 +15,16 @@ Verified against the Laravel 13, Larastan, Rector, rector-laravel, and Pest docs
 
 ## Setup
 
-1. Ask the user, then install: `composer require --dev larastan/larastan rector/rector driftingly/rector-laravel`.
-2. Add the scripts to `composer.json`:
+1. Laravel Boost first: if `boost.json` is missing, ask the user, then `composer require laravel/boost --dev` and `php artisan boost:install` (guidelines, skills, MCP for Claude Code and Codex). On an existing app, run the `infer-conventions` skill to record its conventions as `.ai/rules`. Boost owns how to write Laravel; this kitchen only adds what rejects bad code.
+2. Ask the user, then install: `composer require --dev larastan/larastan rector/rector driftingly/rector-laravel`.
+3. Add the scripts to `composer.json`:
    ```json
    "check": ["pint --test", "phpstan analyse --memory-limit=1G", "rector --dry-run", "pest --parallel"],
    "check:fast": ["pint --dirty --test", "pest --dirty"]
    ```
-3. Existing code: run `vendor/bin/rector` once and review the diff as its own commit. Then run `vendor/bin/phpstan analyse --generate-baseline` and add `phpstan-baseline.neon` to the `includes` of `phpstan.neon.dist`, so new code meets level 8 while the backlog shrinks.
-4. Name both commands in the project's `AGENTS.md` (`**Check:**` and `**Fast check:**`).
-5. Prove it: write a method with a missing return type and a `compact()` call in a controller; `composer check` must fail. Revert it.
+4. Existing code: run `vendor/bin/rector` once and review the diff as its own commit. Then run `vendor/bin/phpstan analyse --generate-baseline` and add `phpstan-baseline.neon` to the `includes` of `phpstan.neon.dist`, so new code meets level 8 while the backlog shrinks.
+5. Name both commands in the project's `AGENTS.md` (`**Check:**` and `**Fast check:**`).
+6. Prove it: write a method with a missing return type and a `compact()` call in a controller; `composer check` must fail. Revert it.
 
 ## What this enforces, and what stays with you
 

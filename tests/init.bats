@@ -38,12 +38,12 @@ laravel_app() {
     [[ "$status" -eq 0 ]] || return 1
     [[ "$output" == *"stack: laravel"* ]] || return 1
     [[ -f "$APP/docs/backend/thin-controllers-and-actions.md" ]] || return 1
-    [[ -f "$APP/docs/testing/pest-feature-tests.md" ]] || return 1
+    [[ -f "$APP/docs/database/postgres-migrations.md" ]] || return 1
     [[ ! -e "$APP/docs/mobile" ]] || return 1
     [[ "$(readlink "$APP/CLAUDE.md")" == "AGENTS.md" ]] || return 1
     grep -q 'php artisan test' "$APP/AGENTS.md" || return 1
     grep -q 'package.json scripts: `build`, `lint`' "$APP/AGENTS.md" || return 1
-    grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/AGENTS.md" || return 1
+    grep -q '(docs/backend/thin-controllers-and-actions.md)' "$APP/AGENTS.md" || return 1
 }
 
 @test "init names the project's check script in AGENTS.md, with the lockfile's runner" {
@@ -124,7 +124,7 @@ laravel_app() {
 
 @test "--stack overrides detection and rejects unknown stacks" {
     run init --stack laravel,expo
-    [[ -f "$APP/docs/backend/form-requests-and-policies.md" && -f "$APP/docs/mobile/secure-storage-and-api.md" ]] || return 1
+    [[ -f "$APP/docs/backend/thin-controllers-and-actions.md" && -f "$APP/docs/mobile/secure-storage-and-api.md" ]] || return 1
     run init --stack rails
     [[ "$status" -ne 0 ]] || return 1
     [[ "$output" == *"unknown stack 'rails'"* ]] || return 1
@@ -196,7 +196,7 @@ laravel_app() {
     run init --no-codely
     [[ "$status" -eq 0 ]] || return 1
     grep -qx '# Docs map' "$APP/.ai/guidelines/docs-map.md" || return 1
-    grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
+    grep -q '(docs/backend/thin-controllers-and-actions.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
     [[ "$output" == *"php artisan boost:update"* ]] || return 1
     [[ "$output" != *"Make sure its docs map lists"* ]] || return 1
     grep -qx "<laravel-boost-guidelines>x</laravel-boost-guidelines>" "$APP/AGENTS.md" || return 1
@@ -219,8 +219,8 @@ laravel_app() {
     echo '{"agents": ["claude_code"]}' > "$APP/boost.json"
     run init --no-codely
     [[ "$status" -eq 0 ]] || return 1
-    grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
-    ! grep -q '(docs/backend/form-requests-and-policies.md)' "$APP/AGENTS.md" || return 1
+    grep -q '(docs/backend/thin-controllers-and-actions.md)' "$APP/.ai/guidelines/docs-map.md" || return 1
+    ! grep -q '(docs/backend/thin-controllers-and-actions.md)' "$APP/AGENTS.md" || return 1
     grep -q '.ai/guidelines/docs-map.md' "$APP/AGENTS.md" || return 1
 }
 
@@ -235,4 +235,17 @@ laravel_app() {
 @test "init refuses to run on the harness itself" {
     run "$PROJECT_DIR/bin/harness" init "$PROJECT_DIR"
     [[ "$status" -ne 0 ]] || return 1
+}
+
+@test "a Laravel project without Boost is told to install it, and with Boost the Codely skill is skipped" {
+    laravel_app
+    run init --dry-run
+    [[ "$output" == *"Laravel Boost is not installed. Add it: composer require laravel/boost --dev && php artisan boost:install"* ]] || return 1
+
+    echo '{"agents": ["claude_code"]}' > "$APP/boost.json"
+    run init
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" != *"Laravel Boost is not installed"* ]] || return 1
+    ! grep -q 'CodelyTV' "$STUB_LOG" 2>/dev/null || return 1
+    grep -q "record-rule" "$APP/.ai/guidelines/docs-map.md" || return 1
 }

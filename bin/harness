@@ -402,10 +402,9 @@ stack_docs() {
     echo "docs/documentation.md"
     case " $1 " in *" laravel "*)
         echo "docs/backend/thin-controllers-and-actions.md"
-        echo "docs/backend/form-requests-and-policies.md"
         echo "docs/database/postgres-migrations.md"
         echo "docs/frontend/inertia-forms-and-states.md"
-        echo "docs/testing/pest-feature-tests.md" ;;
+        ;;
     esac
     case " $1 " in *" expo "*)
         echo "docs/mobile/expo-router-screens.md"
@@ -444,7 +443,7 @@ boost_docs_map() {
     echo ""
     docs_map "$1"
     echo ""
-    echo "When the user corrects a convention, run \`codely-doc-create\` so it lands in \`docs/\` and in this map."
+    echo "When the user corrects a convention that no lint rule, test, or type can catch, record it with Boost's \`record-rule\` tool."
 }
 
 # The project's check scripts as commands, one per line: composer's, then package.json's.
@@ -625,10 +624,17 @@ cmd_init() {
         ok "CLAUDE.md -> AGENTS.md"
     fi
 
-    # Codely skills, installed by reference with a pinned skills CLI (sources recorded in skills-lock.json)
+    # Laravel's conventions, skills, and docs come from Laravel Boost, which also records project rules.
+    case " $stacks " in *" laravel "*)
+        [ -f "$dir/boost.json" ] ||
+            warn "Laravel Boost is not installed. Add it: composer require laravel/boost --dev && php artisan boost:install (its skills, MCP tools, and record-rule own the Laravel conventions)" ;;
+    esac
+
+    # Codely skills, installed by reference with a pinned skills CLI (sources recorded in skills-lock.json).
+    # With Boost, its record-rule tool records conventions instead.
     local missing=false skill
     for skill in "${CODELY_SKILLS[@]}"; do [ -f "$dir/.agents/skills/$skill/SKILL.md" ] || missing=true; done
-    if $NO_CODELY || ! $missing; then
+    if $NO_CODELY || ! $missing || [ -f "$dir/boost.json" ]; then
         :
     elif ! command -v npx >/dev/null; then
         warn "npx not found; Codely skills skipped (install Node, then re-run harness init)"

@@ -2,7 +2,6 @@
 
 ## 💡 Convention
 
-- Every schema change is a new migration. Never edit a migration that has run anywhere other than your machine.
 - Columns are `NOT NULL` unless the domain truly has an unknown value. Give new columns on existing tables a default, or backfill them in the same deploy.
 - Use `text` for free text. Use `string(n)` only when a maximum length is a business rule, and enforce it in validation too.
 - Every foreign key gets an explicit index (PostgreSQL does **not** index foreign key columns automatically) and an explicit `on delete` behavior.
@@ -48,4 +47,4 @@ Schema::create('projects', function (Blueprint $table) {
 
 ## 🔗 Related agreements
 
-- [Form Requests and Policies](../backend/form-requests-and-policies.md): the unique rule mirrors the constraint.
+- Laravel Boost skill `laravel-best-practices` (migrations, validation): the unique validation rule mirrors the constraint.

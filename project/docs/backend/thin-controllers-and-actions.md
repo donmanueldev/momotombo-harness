@@ -61,5 +61,4 @@ public function store(Request $request)
 
 ## 🔗 Related agreements
 
-- [Form Requests and Policies](form-requests-and-policies.md)
-- [Pest feature tests](../testing/pest-feature-tests.md)
+- Laravel Boost skills: `laravel-best-practices` (validation, authorization, security) and `testing-best-practices`.

@@ -12,6 +12,15 @@ For every task that investigates, changes, fixes, refactors, speeds up, or integ
 
 Before the first edit, check the branch. On `main`, `master`, or `develop`, or on a branch with unrelated commits, create a `feature/*` or `bugfix/*` branch first.
 
+## Stack
+
+Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile. Official skills own each stack's how-to; use them before improvising:
+
+- **Laravel**: Laravel Boost. Read its guidelines (rendered into `AGENTS.md`), use its skills (`laravel-best-practices`, `testing-best-practices`, `inertia-react-development`, `pest-testing`, `tailwindcss-development`, `wayfinder-development`, and `filament-development` when Filament is installed), and its MCP tools: `search-docs` for version-matched docs, the database schema, routes, and logs. Record a project convention with Boost's `record-rule` tool (`.ai/rules/`).
+- **Expo**: the `expo-*` skills, and Software Mansion's `react-native-best-practices` for performance and its libraries.
+- **AI agents**: Laravel stays the core. Build agents with the Laravel AI SDK (`laravel/ai`), stream them to React with `@laravel/stream-react`, and expose app tools with Laravel MCP (`laravel/mcp`). Add a Python service (3.12+, `uv`, `ruff`, `pytest`, `pyright`) only for a concrete need PHP can't meet. Run evals before and after changing a prompt, tool, or model; use structured output; validate and authorize tool input on the server; keep secrets and PII out of prompts and traces; keep a cost and latency budget; default to the latest Claude models.
+- **Next.js, Vue, NativePHP**: same rules, with that stack's installed skill (the Vercel plugin for Next.js and the AI SDK).
+
 ## Approval boundary
 
 Proceed without asking on anything local and reversible. Ask before anything that leaves the machine or is hard to undo: push, merge, deploy, external messages, production or shared data, migrations on shared data, seeders, database resets, new or upgraded dependencies, releases.
