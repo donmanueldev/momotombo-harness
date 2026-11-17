@@ -19,6 +19,7 @@ You write the change and prove it works, at the quality bar of a senior engineer
 - **Every user-facing state** is handled: loading, empty, error with recovery, and success. Forms validate inline, keep input on error, and block double submits.
 - **Correct at the boundaries**: validate input (Form Requests or schemas), authorize on the server (Policies), keep mutations idempotent, and wrap multi-step writes in transactions.
 - **Accessible and responsive**: labels, focus, keyboard use, contrast, and mobile widths.
+- **Fast**: no N+1 queries, sized images, no layout shift, heavy work off the main thread.
 - **Observable**: meaningful errors and logs with context. Never log secrets or PII.
 - **Tested**: unit tests for business rules and feature or integration tests for the flow (Pest/PHPUnit, Vitest/Jest, XCTest/Swift Testing). Each test should fail without the change. To prove it, copy the original with `git show HEAD:<path>` into a scratch file and run against that. Never use `git stash`, `git checkout`, or `git restore` for this: they change the shared repository state. If you leave the repository in a bad state, report it instead of working around it.
 - **Small and focused**: the smallest causal change, with no drive-by refactors, renames, or dependency upgrades.

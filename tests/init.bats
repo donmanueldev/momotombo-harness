@@ -11,6 +11,7 @@ setup() {
 
     cat > "$STUBS/openspec" <<'SH'
 #!/bin/bash
+[ "$1" = --version ] && { echo "${OPENSPEC_STUB_VERSION:-2.1.0}"; exit 0; }
 echo "openspec $*" >> "$STUB_LOG"
 mkdir -p openspec/specs openspec/changes .agents/skills/openspec-propose
 printf 'schema: spec-driven\n\n# context: |\n#   example\n' > openspec/config.yaml
@@ -122,10 +123,23 @@ laravel_app() {
 @test "init sets up OpenSpec with the momotombo schema and the Codely skills" {
     laravel_app
     run init
-    grep -q 'openspec init --tools claude,codex' "$STUB_LOG" || return 1
+    grep -q 'openspec init --scope project --tools claude,codex' "$STUB_LOG" || return 1
     [[ -f "$APP/openspec/schemas/momotombo/schema.yaml" ]] || return 1
     grep -q '^schema: momotombo$' "$APP/openspec/config.yaml" || return 1
     grep -q 'skills@1.8.1 add CodelyTV/agent-harness --skill codely-doc-create --skill codely-openspec-spec-create-from-code -a claude-code -a codex -y' "$STUB_LOG" || return 1
+}
+
+@test "init skips OpenSpec with a warning when openspec is older than 2.1 or its version is unreadable" {
+    laravel_app
+    OPENSPEC_STUB_VERSION=2.0.0 run init
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" == *"openspec 2.0.0 is not 2.1.0 or newer; skipped"* ]] || return 1
+
+    OPENSPEC_STUB_VERSION=dev run init
+    [[ "$status" -eq 0 ]] || return 1
+    [[ "$output" == *"openspec with an unreadable version is not 2.1.0 or newer; skipped"* ]] || return 1
+    ! grep -q 'openspec init' "$STUB_LOG" || return 1
+    [[ ! -d "$APP/openspec" ]] || return 1
 }
 
 @test "init never overwrites existing files and a re-run changes nothing" {

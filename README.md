@@ -36,7 +36,7 @@ harness install                            harness init
 
 ## Setup
 
-Requirements: macOS, `git`, `jq`, Node 22+ (for `npx`), [OpenSpec](https://openspec.dev) (`brew install openspec`), and Claude Code and/or Codex. Without Codex, `install` and `doctor` skip its links and hook.
+Requirements: macOS, `git`, `jq`, Node 22+ (for `npx`), [OpenSpec](https://openspec.dev) 2.1+ (`brew install openspec`), and Claude Code and/or Codex. Without Codex, `install` and `doctor` skip its links and hook.
 
 ```bash
 git clone git@github.com:donmanueldev/momotombo-harness.git ~/momotombo-harness

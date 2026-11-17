@@ -8,8 +8,8 @@ HARNESS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 BACKUP_DIR="${HARNESS_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/momotombo-harness/backups}"
 # Where versions before 2026-11 saved them; undo still restores from there.
 LEGACY_BACKUP_DIR="$HARNESS_DIR/.backup"
-# The oldest OpenSpec release the momotombo schema is tested with.
-MIN_OPENSPEC="2.0.0"
+# The oldest OpenSpec release the momotombo schema is tested with, and the first with `init --scope`.
+MIN_OPENSPEC="2.1.0"
 CLAUDE_HOME="$HOME/.claude"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="$HOME/.agents"
@@ -319,7 +319,7 @@ cmd_doctor() {
         if ! command -v "$tool" >/dev/null; then warn "$tool missing (optional)"; continue; fi
         version=$(version_of "$tool" --version || true) # a missing or odd version must not stop doctor
         if [ "$tool" = openspec ] && [ -n "$version" ] && ! version_at_least "$version" "$MIN_OPENSPEC"; then
-            warn "openspec $version is older than $MIN_OPENSPEC, which the momotombo schema is tested with (npm i -g @fission-ai/openspec@latest)"
+            warn "openspec $version is older than $MIN_OPENSPEC, the first release with 'init --scope' (npm i -g @fission-ai/openspec@latest)"
         else
             ok "$tool $version"
         fi
@@ -626,15 +626,19 @@ cmd_init() {
     fi
 
     # OpenSpec with the momotombo schema
+    local openspec_version
     if ! command -v openspec >/dev/null; then
         warn "openspec not installed; skipped (brew install openspec, then re-run harness init)"
+    elif ! openspec_version=$(version_of openspec --version) || ! version_at_least "$openspec_version" "$MIN_OPENSPEC"; then
+        warn "openspec ${openspec_version:-with an unreadable version} is not $MIN_OPENSPEC or newer; skipped (npm i -g @fission-ai/openspec@latest, then re-run harness init)"
     else
         if [ ! -d "$dir/openspec" ]; then
-            if $DRY_RUN; then dry "would run: openspec init --tools claude,codex"
+            if $DRY_RUN; then dry "would run: openspec init --scope project --tools claude,codex"
             else
                 local log
+                # Project scope keeps the skills in the repo, so teammates and cloud sessions get them from git.
                 if ! log=$(cd "$dir" && OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_TELEMETRY=0 CI=true \
-                        openspec init --tools claude,codex --no-animation . 2>&1); then
+                        openspec init --scope project --tools claude,codex --no-animation . 2>&1); then
                     echo "$log" >&2
                     die "openspec init failed"
                 fi

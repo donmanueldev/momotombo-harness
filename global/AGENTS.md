@@ -1,17 +1,15 @@
 # Momotombo harness: global instructions
 
-These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`). A project's own `AGENTS.md` and `docs/` refine them and win on conflicts.
+These apply to every project, in Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`). A project's own `AGENTS.md` and `docs/` refine them and win on conflicts.
 
 ## Language
 
-- Talk to the user in their language (usually Spanish).
-- Write everything that is versioned in **English**: code, specs, plans, `docs/`, `AGENTS.md`, commit messages, and PR titles.
-- PR descriptions are in Spanish.
+Talk to the user in their language (usually Spanish). Everything versioned is in **English** (code, specs, plans, `docs/`, `AGENTS.md`, commits, PR titles), except PR descriptions, which are in Spanish.
 
 ## Start of every task
 
-1. Read the project's `AGENTS.md`. Open only the `docs/` files its map lists as relevant to the task.
-2. If the project has `openspec/`, run `openspec list --specs` to learn which capabilities already have specs, and read the specs the task touches.
+1. Read the project's `AGENTS.md`, and only the `docs/` files its map lists for the task.
+2. With `openspec/`, run `openspec list --specs` and read the specs the task touches.
 3. If a requirement is ambiguous, ask one focused question before writing code.
 
 ## Workflow
@@ -23,31 +21,22 @@ These instructions apply to every project, in Claude Code (`~/.claude/CLAUDE.md`
 | Bug fix | Reproduce it, find the root cause (`analyst`, with `diagnosing-bugs` if installed), fix it with a regression test (`implementer`). |
 | Feature or behavior change | Spec-driven with OpenSpec (below). |
 
-Before the first edit of any change, check the branch. If it is `main`, `master`, or `develop`, or it holds commits unrelated to the task, create a `feature/*` or `bugfix/*` branch from the base branch first, and ask if unsure.
+Before the first edit, check the branch. On `main`, `master`, or `develop`, or on a branch with unrelated commits, create a `feature/*` or `bugfix/*` branch from the base first; ask if unsure.
 
 **Spec-driven flow** (Claude: `/openspec-…` · Codex: `$openspec-…`):
 
 1. `openspec-explore`: think it through with the user; no code yet.
-2. `openspec-propose <change>`: write lean specs plus a phased `plan.md`. **Stop and let the user approve the specs and the contracts** before implementing.
-3. `openspec-apply-change`: implement **only the first phase with unchecked tasks**, run its verification, check off its tasks, then **stop**. Don't commit. Tell the user to review, then commit with `/commit` (Claude) or the `git-ops` agent (Codex). The next phase starts only when the user runs apply again.
+2. `openspec-propose <change>`: lean specs plus a phased `plan.md`. **Stop until the user approves the specs and contracts.**
+3. `openspec-apply-change`: implement **only the first phase with unchecked tasks**, verify, check off its tasks, then **stop without committing**. The user reviews and commits (`/commit` in Claude, `git-ops` in Codex); the next phase waits for the next apply.
 4. `openspec-archive-change`: once every phase is merged, fold the specs into `openspec/specs/`.
 
-OpenSpec is the only planning flow. Don't run another spec, ticket, or implement-plan flow (such as `to-spec`, `to-tickets`, `implement-spec`) next to it. These skills plug into its steps when installed; skip them silently when not:
+OpenSpec is the only planning flow: no other spec, ticket, or implement-plan flow (`to-spec`, `to-tickets`, `implement-spec`) next to it. When installed, these skills plug into its steps (skip them silently otherwise): `grill-me` before `explore` when the idea is fuzzy (`grill-with-docs` when the repo has domain docs); in `propose`, `domain-modeling` for new domain concepts and `codebase-design` for module boundaries; `tdd` for business rules in `apply`; `improve-codebase-architecture` for cleanup outside a change.
 
-- Before `explore`, if the idea is still fuzzy: `grill-me` (`grill-with-docs` when the repo has domain docs).
-- In `propose`: `domain-modeling` for new domain concepts, `codebase-design` for module boundaries.
-- In `apply`: `tdd` for business rules.
-- Outside a change, for cleanup: `improve-codebase-architecture`.
-
-For a project that already has behavior without specs, run `codely-openspec-spec-create-from-code <capability>` before changing it.
-
-The two `codely-*` skills are installed per project by `harness init`. If they're missing in a repo, say so and suggest `harness init` instead of improvising them.
-
-**When the user corrects you** on a convention ("we don't do it that way"), offer to run `codely-doc-create` so the correction becomes a `docs/` page and doesn't happen again. Leave out Codely's mascot sign-off and course links from docs and replies.
+Before changing behavior that has no spec, run `codely-openspec-spec-create-from-code <capability>`. When the user corrects a convention, offer `codely-doc-create` so it becomes a `docs/` page, without Codely's mascot sign-off or course links. `harness init` installs both `codely-*` skills per project; if they're missing, suggest it instead of improvising them.
 
 ## Subagents
 
-Delegate by task type so each kind of work runs on the right model. A subagent doesn't see the conversation, so give it everything it needs in the prompt. **Codex: spawn these agents by name when the table says so. Codex doesn't pick them automatically.**
+Delegate by task type so each kind of work runs on the right model. A subagent doesn't see the conversation: put everything it needs in the prompt. **Codex doesn't pick these agents automatically: spawn them by name.**
 
 | Task | Agent | Claude | Codex |
 |------|-------|--------|-------|
@@ -59,78 +48,49 @@ Delegate by task type so each kind of work runs on the right model. A subagent d
 | Plan work outside OpenSpec | `planner` | opus | session model, high |
 | Write or modify code and tests | `implementer` | opus | session model, high |
 
-- Every commit or PR goes through `git-ops`. In Claude the user can also run `/commit` and `/open-pr`.
-- Run independent reviews in parallel. Two agents never edit the same files at once.
-- After implementing a phase: `reviewer`, plus `ux-reviewer` if UI changed, plus `security-reviewer` if a sensitive surface changed. If the follow-ups to a review add markup or logic beyond copy and tests, run that reviewer again on the new delta.
+- Every commit or PR goes through `git-ops` (or `/commit` and `/open-pr` in Claude).
+- Run independent reviews in parallel; two agents never edit the same files at once.
+- After a phase: `reviewer`, plus `ux-reviewer` if UI changed and `security-reviewer` if a sensitive surface changed. If review follow-ups add markup or logic beyond copy and tests, re-run that reviewer on the new delta.
 
 ## Stack
 
-Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, run locally with Docker, and **Expo / React Native** for mobile.
+Momotombo products use **Laravel + Inertia.js + React + TypeScript + Tailwind CSS + shadcn/ui + PostgreSQL**, and **Expo / React Native** for mobile, run locally with Docker. Follow each repo's existing architecture; change it only when a requirement demands it.
 
-- Laravel projects with Laravel Boost: read Boost's guidelines first (Boost renders `.ai/guidelines/*.md`, including the docs map, into `AGENTS.md`), and use its skills (Inertia, Pest, and others).
-- Expo projects: use the Expo plugin skills (`expo-*`) for routing, native UI, animation, builds, and updates. For React Native performance and libraries, use `react-native-best-practices`. Check native config (`app.json`, config plugins, permissions, locales) against the Expo docs before writing it into a plan or code.
-- Some repos use Vue instead of React, Next.js, or NativePHP. The same rules apply; use the installed skill for that stack (for example the Vercel plugin for Next.js) instead of improvising conventions.
-- Python is for AI agents and the services that expose them. Laravel stays the product core; add a Python service only for a concrete need PHP can't meet, and don't port what works. Python projects use 3.12+, `pyproject.toml`, `uv`, `ruff`, `pytest`, and `pyright`.
-- Follow each repository's existing architecture and conventions. Change architecture only when a requirement demands it.
+- Laravel with Boost: read Boost's guidelines first (it renders `.ai/guidelines/*.md`, including the docs map, into `AGENTS.md`) and use its skills.
+- Expo: use the `expo-*` skills, and `react-native-best-practices` for performance and libraries. Check native config (`app.json`, config plugins, permissions, locales) against the Expo docs before planning or writing it.
+- Vue, Next.js, or NativePHP repos: same rules, with that stack's installed skill instead of improvised conventions.
+- Laravel stays the product core. Python is only for AI agents and the services that expose them, when PHP can't meet a concrete need; don't port what works. Use 3.12+, `pyproject.toml`, `uv`, `ruff`, `pytest`, `pyright`.
+- AI agents: run the evals before and after changing a prompt, tool, or model (propose a small set if there are none); use structured output with a schema instead of parsing free text; give every tool a clear contract and validate and authorize its input on the server as if it came from a user; keep secrets and PII out of prompts, traces, and logs; keep a cost and latency budget per conversation and know which model call dominates it; default to the latest Claude models.
 
 ## Writing code
 
-Priorities, in order: correct and secure, then simple and readable, then fast. Clear beats clever.
+Priorities: correct and secure, then simple and readable, then fast. Clear beats clever.
 
-- Read the surrounding code first and match its patterns, names, and structure.
-- Search for an existing helper, hook, component, or schema before writing one. Don't duplicate logic.
-- Use a library the way its current docs say (Zod, Zustand, TanStack Query, Expo, Laravel, and so on). Check the installed skill or the official docs, and search the web when neither covers it. Don't invent a pattern from memory.
-- Fix the root cause. No patches, workarounds, or special cases around a problem you haven't understood.
-- Make the smallest change that solves the task. No abstractions, options, or layers "for later".
-- Don't add a dependency for what the framework or an existing package already does.
+- Read the surrounding code and match its patterns, names, and structure. Reuse an existing helper, hook, component, or schema before writing one.
+- Use libraries as their current docs say (installed skill, official docs, then the web). Don't invent patterns from memory, and don't add a dependency for what the framework or an existing package already does.
+- Fix the root cause, with the smallest change. No workarounds or special cases around a problem you haven't understood, and no layers "for later".
 - Name things after the domain, not `data`, `handle`, `Manager`, or `Helper`.
-- Validate at the boundaries (user input, network, storage, external APIs) and trust the types inside. No defensive re-checks, normalizing, or sanitizing of data that is already valid, and no regex where a string method or the library already does the job.
-- Most code needs no comments. Comment only a why the code can't show (a platform bug, a business rule, a deliberate trade-off). No comments that restate the code, section banners, JSDoc on obvious functions, or commented-out code.
-- Delete what your change made dead: code, imports, files, flags.
-- Handle the errors that can happen, where they can be handled. Don't wrap everything in try/catch.
-- Tests check behaviour through the public interface. No tests that can't fail, that only assert a mock was called, or that repeat the implementation, and no comments inside tests: the test name says what it checks. Don't test trivial code.
-
-## Building AI agents
-
-- Run the project's evals before and after changing a prompt, a tool, or a model. If there are none, propose a small eval set before making the change.
-- Use structured output with a schema instead of parsing free text.
-- Give every tool a clear contract, and validate and authorize its input on the server as if it came from a user.
-- Keep secrets and personal data out of prompts, traces, and logs.
-- Keep a cost and latency budget per conversation, and know which model call dominates it.
-- Default to the latest Claude models.
-
-## Product quality bar
-
-Ship work that feels professional, not just "working":
-
-- Every user-facing screen handles loading, empty, error (with a way to recover), and success.
-- Forms validate inline, keep input on error, and prevent double submits.
-- Accessible (labels, focus, keyboard, contrast) and responsive from phone to desktop.
-- Consistent with the project's design system. No one-off styles.
-- Fast: no N+1 queries, sized images, no layout shift, heavy work off the main thread.
-- Secure by default: server-side validation and authorization (Form Requests, Policies), idempotent mutations, no secrets or PII in logs.
-- Observable: errors and key events are visible in production.
-- Tested: business rules with unit tests, critical flows with feature or integration tests. A test must fail without the change.
+- Validate at the boundaries (user input, network, storage, external APIs) and trust the types inside: no defensive re-checks or normalizing, and no regex where a string method does the job.
+- Comment only a why the code can't show. No restating comments, banners, obvious JSDoc, or commented-out code.
+- Delete what your change made dead. Handle errors where they can be handled; don't wrap everything in try/catch.
+- Tests check behaviour through the public interface and fail without the change. No tests that only assert mocks or repeat the implementation, no comments inside tests, no tests of trivial code.
+- User-facing work meets the product bar: loading, empty, error with recovery, and success states; accessible and responsive; design-system components; server-side validation and authorization; idempotent mutations; no secrets or PII in logs. `implementer` and the reviewers carry the full checklist.
 
 ## Verification
 
-Never say something works without evidence. Before reporting a task or phase as done, run the project's checks and report exactly what ran and what passed. Mark anything you couldn't run as not verified.
-
-Use the single check command named in the project's `AGENTS.md` (such as `composer check` or `npm run check`). If the project has none, run its tests, typecheck, lint, and format one by one, and suggest adding a `check` script.
+Never claim something works without evidence. Before reporting work as done, run the check command named in the project's `AGENTS.md` (such as `composer check`); without one, run tests, typecheck, lint, and format, and suggest adding it. Report exactly what ran and passed, and mark anything not run as not verified.
 
 ## Long-running commands
 
-Builds, installs, test and eval suites, migrations, Docker, deploys: anything that can run for minutes, in every stack.
+Builds, installs, test and eval suites, migrations, Docker, deploys: anything that can take minutes, in every stack (subagents too).
 
-- **Claude Code**: run it with `run_in_background` and don't wait on it in the foreground. The harness stall watcher wakes you with a diagnosis when the command writes nothing for 10 minutes while its processes use almost no CPU. It reports once, so set your own check for any waiting after that, and it misses a hang hidden by a busy sibling process. **Codex**, which has no watcher: set your own check on the log's age and the command's exit.
+- Claude: run it with `run_in_background`, never in the foreground. The stall watcher wakes you once if it writes nothing for 10 minutes at near-idle CPU; set your own check for any waiting after that, and know it misses a hang hidden by a busy sibling process. Codex has no watcher: check the log's age and the exit yourself.
+- Don't wait with an `until … sleep` loop: it writes nothing, so the watcher reports it. The process you wait on is already watched; otherwise use Monitor on its log.
 - Never estimate a finish time from the last log line. Walk the process tree (`pgrep -P <pid>`, `ps -o pid,etime,%cpu,command -p <pid>`) down to the leaf.
-- Don't wait for another process with a background `until … sleep` loop: it writes nothing, so the stall watcher reports it after 10 minutes. The process you wait on is already watched; otherwise use Monitor on its log.
-- When it's stuck, name the step and the process, find out why, and tell the user before stopping it. Don't wait it out, and don't restart or retry blindly.
-- When a step doesn't belong in this run (such as a symbol upload in a dev build), turn it off through the tool's documented config. If there is none, agree on the fix with the user.
-- Subagents follow the same rules.
+- When it's stuck, name the step and process, find out why, and tell the user before stopping anything; don't wait it out or retry blindly. Turn off steps that don't belong in the run (such as a symbol upload in a dev build) through the tool's documented config, or agree on the fix with the user when there is none.
 
 ## Safety
 
-- A guard hook (`guard-bash.sh`, in both Claude and Codex) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Codex `.rules` back it up. Don't work around them; ask the user.
+- The guard hook (`guard-bash.sh`, Claude and Codex, backed by Codex `.rules`) blocks force-pushes, `--no-verify`, `reset --hard`, `clean -f`, pushes to main, commits on main/master/develop, recursive deletes of `/`, `~`, or `.`, and printing `.env` files. Don't work around it; ask the user.
 - Ask before migrations on shared data, seeders, database resets, volume deletion, dependency upgrades, releases, deployments, external messages, or anything touching staging or production.
 - Never read or print `.env` files, keys, or tokens.

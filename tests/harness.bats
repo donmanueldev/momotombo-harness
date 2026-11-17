@@ -293,10 +293,10 @@ harness() {
 
 @test "doctor warns about an old openspec and a PATH without ~/.local/bin" {
     mkdir -p "$TEST_TMP/bin"
-    printf '#!/bin/bash\necho 1.9.3\n' > "$TEST_TMP/bin/openspec"
+    printf '#!/bin/bash\necho 2.0.0\n' > "$TEST_TMP/bin/openspec"
     chmod +x "$TEST_TMP/bin/openspec"
     PATH="$TEST_TMP/bin:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" run harness doctor
-    [[ "$output" == *"openspec 1.9.3 is older than 2.0.0"* ]] || { echo "$output"; return 1; }
+    [[ "$output" == *"openspec 2.0.0 is older than 2.1.0"* ]] || { echo "$output"; return 1; }
     [[ "$output" == *"~/.local/bin is not on PATH"* ]] || return 1
 
     printf '#!/bin/bash\necho 2.1.0\n' > "$TEST_TMP/bin/openspec"
