@@ -136,4 +136,6 @@ tests/                   Bats suites; CI runs them on macOS
 
 - [Laravel Boost](https://laravel.com/docs/boost) owns Laravel conventions, skills, docs search, and project rules in Laravel projects; the harness adds only what Boost doesn't cover.
 - [pstack](https://github.com/cursor/plugins/tree/main/pstack) by poteto (MIT): `momotombo-mode`, its principles, `no-comments`, and `comment-sicko` are adapted from it.
+- [agent-skills](https://github.com/addyosmani/agent-skills) by Addy Osmani (MIT): the `never-lower-the-bar` and `make-it-observable` principles and the expand/contract migration rule are adapted from it.
+- Full license notices for both are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - [Codely's agent-harness](https://github.com/CodelyTV/agent-harness) inspired this project. `harness init` installs their `codely-doc-create` skill by reference.

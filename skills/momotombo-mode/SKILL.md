@@ -3,7 +3,7 @@ name: momotombo-mode
 description: How to do any engineering task in a Momotombo project, in any stack. Use for every task that investigates, changes, fixes, refactors, speeds up, or integrates code. Picks a playbook and applies the code, test, architecture, and security principles.
 license: MIT
 metadata:
-  author: momotombo
+  author: momotombodevs
   version: "1.0.0"
   adapted-from: https://github.com/cursor/plugins/tree/main/pstack (MIT), https://github.com/addyosmani/agent-skills (MIT)
 ---
