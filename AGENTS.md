@@ -26,6 +26,7 @@ bats tests/
 
 ## Rules for changes here
 
+- Scope: a feature belongs here only if it changes how agents work in any Momotombo project (instructions, roles, guardrails, project setup). Tooling for one machine or one incident (memory monitors, process cleanup, OS maintenance) stays out.
 - Run `bin/harness validate` and `bats tests/` before committing.
 - Bats runs on macOS bash 3.2, where a failing `[[ ]]` mid-test does NOT fail the test. End every `[[ ]]` assertion with `|| return 1`.
 - Every subagent exists for both tools: `global/claude/agents/<name>.md` and `global/codex/agents/<name>.toml`, with the same name and role. The `.md` is the source: edit it, then run `bin/harness codex-agents` to regenerate the `.toml` (`validate` fails on drift). The routing tables in `global/AGENTS.md` and `README.md` must match each agent's `model:` (`validate` checks them).

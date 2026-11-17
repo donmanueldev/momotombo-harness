@@ -128,7 +128,6 @@ Builds, installs, test and eval suites, migrations, Docker, deploys: anything th
 - When it's stuck, name the step and the process, find out why, and tell the user before stopping it. Don't wait it out, and don't restart or retry blindly.
 - When a step doesn't belong in this run (such as a symbol upload in a dev build), turn it off through the tool's documented config. If there is none, agree on the fix with the user.
 - Subagents follow the same rules.
-- **Memory**: when the harness memory warning appears (at session start or before a heavy command), tell the user what is using memory and which project or session it belongs to, and offer to stop what they don't need. Stop nothing without their yes.
 
 ## Safety
 

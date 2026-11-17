@@ -30,7 +30,7 @@ harness install                            harness init
   · global instructions (one file)         docs/: conventions that grow with every correction
   · 7 subagents, routed by model           openspec/: specs + the momotombo schema
   · /commit, /open-pr                      Codely skills, pinned in skills-lock.json
-  · guard hook, stall watcher, memory warning, Codex rules
+  · guard hook, stall watcher, Codex rules
   · status line, settings
 ```
 
@@ -50,7 +50,7 @@ harness doctor
 - Settings are **merged**: your keys and other tools' hooks stay.
 - `harness undo` restores the last backup. Backups live in `~/.local/state/momotombo-harness/backups` (override with `HARNESS_BACKUP_DIR`), outside the checkout, because they hold copies of your own config.
 
-In Codex, approve the guard and memory hooks once with `/hooks`.
+In Codex, approve the guard hook once with `/hooks`.
 
 ## Start a product
 
@@ -109,14 +109,6 @@ Claude picks agents from their descriptions. Codex spawns them when the instruct
 
 If a legitimate command is blocked, run it yourself (prefix it with `!` in Claude Code).
 
-## Memory
-
-A Mac with little RAM slows to a crawl under memory pressure, and dev tools leave a lot behind: orphan Playwright servers, idle Gradle daemons, booted simulators, forgotten dev servers, and stray `rg` processes. The harness warns about it, and the agent says what is using memory. It never stops anything without your yes.
-
-- **Probe** (`global/hooks/memory-pressure.sh`): memory is under pressure when free memory (from `memory_pressure`) is under 15%, or swap is over 80% of its total while free memory is under 30%. macOS keeps swap full long after a squeeze, so full swap alone doesn't count. Change the thresholds with `HARNESS_MEMORY_FREE_PCT`, `HARNESS_MEMORY_SWAP_PCT`, and `HARNESS_MEMORY_SWAP_FREE_PCT`. `--report` adds what uses the memory, summed by dev tool and by node project, plus the biggest other apps.
-- **Memory hook** (`global/hooks/memory-warn.sh`, Claude and Codex): under pressure, it gives the agent the report at session start, and before heavy commands (builds, test suites, installs, `docker compose up`, simulator boots). The agent then tells you what is using memory and offers to stop what you don't need. The hook never blocks or changes a command. Before heavy commands it warns at most once every 30 minutes, with a macOS notification; at session start it always warns. For any other command it exits before probing anything.
-- **Status line**: shows `mem ⚠ swap 93%, free 22%` while memory is under pressure.
-
 ## Commands
 
 ```
@@ -135,7 +127,7 @@ harness codex-agents                    regenerate Codex agents from the Claude 
 global/AGENTS.md         → ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
 global/claude/           Claude agents, status line, settings (merged)
 global/codex/            Codex agents (generated), .rules, hooks (merged)
-global/hooks/            guard-bash.sh and memory-warn.sh (both tools), stall-watch.sh (Claude), memory-pressure.sh
+global/hooks/            guard-bash.sh (both tools), stall-watch.sh (Claude)
 skills/                  → ~/.claude/skills and ~/.agents/skills
 project/                 what `harness init` copies: docs/ seeds, the OpenSpec schema and config
 bin/harness              the CLI (bash + jq)
