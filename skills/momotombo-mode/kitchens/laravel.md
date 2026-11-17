@@ -1,6 +1,6 @@
 # Kitchen: Laravel
 
-Verified against the Larastan, Rector, and rector-laravel docs (November 2026). Check the installed versions' docs before changing this setup.
+Verified against the Laravel 13, Larastan, Rector, rector-laravel, and Pest docs (November 2026). Check the installed versions' docs before changing this setup.
 
 ## Tools
 
@@ -9,9 +9,9 @@ Verified against the Larastan, Rector, and rector-laravel docs (November 2026). 
 | Pint | formatting | `laravel/pint` (ships with Laravel) |
 | Larastan | type errors, wrong Eloquent usage, dead branches | `larastan/larastan` |
 | Rector + rector-laravel | legacy and deprecated patterns, dead code, missing types | `rector/rector`, `driftingly/rector-laravel` |
-| Pest | behavior | `pestphp/pest` (ships with the starter kits) |
+| Pest | behavior | `pestphp/pest` (ships with the starter kits; Pest 5 needs PHP 8.4+, so on PHP 8.3 stay on Pest 4) |
 
-`harness init` adds `phpstan.neon.dist` (level 8) and `rector.php` (PHP and Laravel version sets from `composer.json`, dead code, code quality, type declarations, early return, Laravel code quality and collections) when they are missing.
+`harness init` adds `phpstan.neon.dist` (level 8) and `rector.php` (PHP and Laravel version sets from `composer.json`, dead code, code quality (including early return), type declarations, Laravel code quality and collections) when they are missing.
 
 ## Setup
 

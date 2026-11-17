@@ -19,7 +19,6 @@ return RectorConfig::configure()
         deadCode: true,
         codeQuality: true,
         typeDeclarations: true,
-        earlyReturn: true,
     )
     ->withSets([
         LaravelSetList::LARAVEL_CODE_QUALITY,

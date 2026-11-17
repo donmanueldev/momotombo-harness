@@ -2,7 +2,7 @@
 
 ## 💡 Convention
 
-A controller method does three things: receive a validated Form Request, call **one** Action, and return a response (an Inertia page, a redirect, or an API Resource). Business logic lives in single-purpose Action classes in `app/Actions/`, each with one public `handle()` method. Actions receive plain data and models, never the `Request`.
+A controller method does three things: receive a validated Form Request, call **one** Action, and return a response (an Inertia page, a redirect, or an API Resource). Business logic lives in single-purpose Action classes in `app/Actions/`, each with one public `handle()` method. Actions receive plain data and models, never the `Request`. Events dispatched inside an Action's transaction implement `ShouldDispatchAfterCommit` (jobs use `->afterCommit()`), so queued listeners never run before the commit.
 
 ## 🏆 Benefits
 

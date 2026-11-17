@@ -2,9 +2,10 @@
 
 ## 💡 Convention
 
-- Pages receive typed props. Declare a TypeScript type for every page's props and shared data. Never use `any`.
-- Forms use Inertia's `useForm`: server validation errors show next to their field, the submit button is disabled while `processing`, and input is kept on error.
-- Every page handles its states: empty (with the next action to take), error, and success feedback (a toast or redirect).
+- Inertia v3 with React 19. Pages receive typed props: type each page's props, `usePage<T>()`, and the shared data once in `InertiaConfig.sharedPageProps`. Never use `any`.
+- Forms use Inertia's `<Form>` component, or `useForm<T>()` when the form's state must be controlled in code. Server validation errors show next to their field, the submit button is disabled while `processing` (true until `onFinish`), and input is kept on error.
+- Every page handles its states: empty (with the next action to take), error, and success feedback: a redirect, or a toast sent with `Inertia::flash()` and read from `page.flash`.
+- Page data comes from Inertia props and refreshes with partial reloads (`router.reload({ only: [...] })`). Use TanStack Query only for client-fetched data that isn't a page prop (live search, polling, infinite lists), and never copy props into its cache.
 - Build UI from the project's shadcn/ui components and Tailwind tokens, not one-off styles. Every control has a label, and errors are announced (`aria-invalid`, `role="alert"`).
 - Pages stay presentational. Derived data comes from the server in props, and reusable client logic goes in hooks.
 

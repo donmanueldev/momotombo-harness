@@ -92,7 +92,7 @@ Read a principle's file in full the first time it applies in a session. In your 
 - Check behavior on the surface it lives on, only for what changed:
   - API or backend: call the endpoint or command and read the response and the stored data.
   - Web screen: drive it in a browser (Playwright, the `webapp-testing` skill, or Claude in Chrome) and take a screenshot.
-  - Expo screen: boot the simulator and tap through it with the Expo MCP tools (`simulator_start`, `automation_tap`, `automation_take_screenshot`).
+  - Expo screen: run it in a local simulator (`npx expo run:ios`) with the dev server started as `EXPO_UNSTABLE_MCP_SERVER=1 npx expo start` (needs `expo-mcp` as a dev dependency, SDK 54+), then drive it with the Expo MCP local tools `automation_find_view`, `automation_tap`, and `automation_take_screenshot`. `simulator_start` is a billed cloud simulator: use it only when no local one exists (`eas-simulator` skill).
   - "Inconclusive" or the wrong surface is not a pass.
 - Run the full check command only in `playbooks/integrate.md`, in the background.
 - The comment guard hook reports comments an edit adds. Act on it in the same turn: remove them, or keep one that fits a `code-says-what` exception and say which.

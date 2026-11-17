@@ -7,7 +7,7 @@
 - Use `text` for free text. Use `string(n)` only when a maximum length is a business rule, and enforce it in validation too.
 - Every foreign key gets an explicit index (PostgreSQL does **not** index foreign key columns automatically) and an explicit `on delete` behavior.
 - Uniqueness rules from the domain are database constraints, not just validation.
-- Changes to large tables (backfills, new indexes) are planned so they don't lock writes, and they are called out in the PR.
+- Changes to large tables (backfills, new indexes) are planned so they don't lock writes, and they are called out in the PR. Index a large table with `->online()` (PostgreSQL `CREATE INDEX CONCURRENTLY`) in its own migration with `public $withinTransaction = false;`, because a concurrent index can't be built inside a transaction.
 
 ## 🏆 Benefits
 

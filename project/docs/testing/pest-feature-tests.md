@@ -21,6 +21,8 @@
 ```php
 use Inertia\Testing\AssertableInertia as Assert;
 
+use function Pest\Laravel\actingAs;
+
 it('lets a member create a project', function () {
     $member = User::factory()->withTeam()->create();
 
@@ -43,7 +45,7 @@ it('hides other teams projects', function () {
 
     actingAs(User::factory()->withTeam()->create())
         ->get("/projects/{$project->id}")
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 it('lists the team projects', function () {

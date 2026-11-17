@@ -4,14 +4,9 @@
 
 - **Server state** (anything the API owns) lives only in TanStack Query. Each resource gets one query hook in its feature module, with a stable query key, and mutations invalidate or update those keys.
 - **Client state** (UI choices the server doesn't know about, such as filters, a draft, or onboarding seen) lives in Zustand, or in `useState` when one screen owns it. Never copy query data into a Zustand store or into `useState`.
-- Connect TanStack Query to the device once, at the app root:
-  - `onlineManager` with `expo-network` or NetInfo, so queries pause offline and refetch on reconnect;
-  - `focusManager` with `AppState`, so data refreshes when the app returns to the foreground.
-- Offline:
-  - To show cached data offline, persist the query cache with `PersistQueryClientProvider` and the AsyncStorage persister, and set `gcTime` at least as long as the persisted data should live.
-  - The persisted cache is plain text, so keep personal data out of it (`dehydrateOptions.shouldDehydrateQuery`). Tokens follow [Secure storage and API access](secure-storage-and-api.md).
-  - Show the user when they are offline and when a mutation is waiting to send.
-- Check the TanStack Query and Zustand docs for the installed version before using an API. Don't write a pattern from memory.
+- Wiring TanStack Query to the device (online and focus managers, offline persistence) follows the `expo-data-fetching` skill and the TanStack Query React Native docs for the installed version.
+- A persisted query cache is plain text: keep personal data out of it (`dehydrateOptions.shouldDehydrateQuery`). Tokens follow [Secure storage and API access](secure-storage-and-api.md).
+- Show the user when they are offline and when a mutation is waiting to send.
 
 ## 🏆 Benefits
 
