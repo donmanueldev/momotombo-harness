@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: momotombo
   version: "1.0.0"
-  adapted-from: https://github.com/cursor/plugins/tree/main/pstack (MIT)
+  adapted-from: https://github.com/cursor/plugins/tree/main/pstack (MIT), https://github.com/addyosmani/agent-skills (MIT)
 ---
 
 # Momotombo mode
@@ -52,12 +52,14 @@ Read a principle's file in full the first time it applies in a session. In your 
 - `principles/boundary-discipline.md`: validation and errors. Guard at the edges, trust types inside, keep logic pure.
 - `principles/type-discipline.md`: types and signatures. Make illegal states unrepresentable; parse external data once.
 - `principles/idempotent-operations.md`: commands, jobs, webhooks, retries. Same end state however many times it runs.
-- `principles/migrate-then-delete-legacy.md`: a new API with old callers. Move every caller and delete the old path in the same change.
+- `principles/migrate-then-delete-legacy.md`: a new API, pattern, or schema with old callers. Move internal callers and delete the old path in one change; expand, migrate, contract for databases and APIs that shipped apps still call.
+- `principles/make-it-observable.md`: behavior that runs in production. Structured logs, metrics, and reported errors that show it works.
 
 **Tests and verification**
 - `principles/test-behavior-not-implementation.md`: writing or keeping a test. Assert what users of the code observe.
 - `principles/prove-it-works.md`: before saying done. Verify on the real artifact, not "it compiles".
 - `principles/sequence-verifiable-units.md`: multi-step work. Small units, each ending in a passing check.
+- `principles/never-lower-the-bar.md`: a check fails. Fix the code; never suppress, skip, stub, or loosen a threshold to get green.
 
 **Security**
 - `principles/authorize-at-the-boundary.md`: any input or protected action. Validate and authorize on the server, every time.

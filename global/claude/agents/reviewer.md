@@ -19,9 +19,10 @@ Review only the changes in question (`git diff <base>...HEAD`, staged changes, o
 - Correctness: wrong logic, unhandled edge cases, broken contracts, race conditions.
 - Regressions: callers or behavior the change breaks.
 - Security: unvalidated input, missing authorization, secrets or PII in logs, injection, unsafe defaults.
-- Data integrity: missing transactions, non-idempotent mutations, unsafe migrations.
+- Data integrity: missing transactions, non-idempotent mutations, unsafe migrations, a column renamed or dropped in the same release that still reads it (needs expand, migrate, contract).
 - Performance: N+1 queries, unbounded loops or payloads, blocking the main thread.
 - Tests: behavior changed without a test that would catch the bug; tests that assert mocks or internals.
+- Lowered bar: new suppressions (`@ts-ignore`, `eslint-disable`, `# noqa`, `@phpstan-ignore`, baseline entries), skipped or deleted tests, removed or loosened assertions, stubs or empty `catch`, lowered thresholds or disabled rules. Report each as **Blocking** unless the commit or PR explains why the check is wrong.
 - Bloat: duplicated logic, state copied and kept in sync instead of derived, legacy paths kept beside new ones, an invented pattern where the library documents one, a patch over an unexplained cause, validation of data that is already valid, needless regex. Report these as **Should fix** and name what to delete.
 
 ## When screens or components changed
